@@ -14,12 +14,24 @@
 | `prompts/03-context-compressed.md` | 对话中途 Claude 退化时粘贴 |
 | `prompts/04-refresh-handbook.md` | 快速一句话刷新 |
 | `prompts/05-cold-start-with-state.md` | 带手动状态的完整冷启动模板 |
+| `prompts/06-save-codex-quota.md` | Codex 额度紧张时切换省额度模式 |
 
 ## 使用方式
 
 1. `loveil381` 已预填为 GitHub 用户名
 2. 将 `[REPO]` 替换为目标项目仓库名
 3. 将 `[BRANCH]` 替换为当前工作分支（如适用）
+
+## 🚀 快捷操作速查
+
+| 场景 | 粘贴文件 / 命令 |
+|---|---|
+| 新项目第一次对话 | `prompts/01-first-session.md` |
+| 已有项目开新对话 | `prompts/02-resume-session.md` |
+| 对话中途 Claude 退化 | `prompts/03-context-compressed.md` |
+| 一句话刷新手册 | `prompts/04-refresh-handbook.md` 或直接说 `刷新手册` |
+| 带进度手动恢复 | `prompts/05-cold-start-with-state.md` |
+| **Codex 额度紧张** | `prompts/06-save-codex-quota.md` 或直接说 `省codex` |
 
 ## 手册 Raw URL
 
