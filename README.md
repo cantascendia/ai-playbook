@@ -14,6 +14,8 @@
 | `prompts/03-context-compressed.md` | 对话中途 Claude 退化时粘贴 |
 | `prompts/04-refresh-handbook.md` | 快速一句话刷新 |
 | `prompts/05-cold-start-with-state.md` | 带手动状态的完整冷启动模板 |
+| `prompts/06-cross-review.md` | 交叉审核指令模板 |
+| `prompts/07-spec-session.md` | Spec-Driven 开发启动模板 |
 
 ## 使用方式
 
