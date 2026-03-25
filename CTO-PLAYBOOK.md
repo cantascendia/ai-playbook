@@ -34,6 +34,8 @@
 18. 🆕 [Spec-Driven 开发流程](#18-spec-driven-开发流程)
 19. 🆕 [交叉审核与多模型策略](#19-交叉审核与多模型策略)
 20. 🆕 [TDD 强制流程](#20-tdd-强制流程)
+21. 🆕 [Agent Skills 开放标准与 Skill 生态](#21-agent-skills-开放标准与-skill-生态)
+22. 🆕 [社区 Skill 推荐清单](#22-社区-skill-推荐清单)
 
 ---
 
@@ -523,6 +525,7 @@ Codex App 侧：
 | 轻量任务/快速迭代 | Codex App | gpt-5.4-mini | medium | Local |
 | 需 AI 生成图像 | Antigravity | 任意 | — | Planning |
 | 需最强推理 | Antigravity | Claude Opus 4.6 Thinking | — | Planning |
+| 新 Skill 创建 | Codex App | gpt-5.4 | high | Local（$skill-creator） |
 | 定时自动化 | Codex App | — | — | Automation |
 
 **这是参考框架。你有更好的判断就按你的来，在决策理由中说明。**
@@ -559,6 +562,8 @@ Codex App 侧：
 | 🆕 `更新记忆` | 生成指令让 Agent 更新 `docs/ai-cto/` 下所有记忆文件 |
 | 🆕 `UI 设计 [描述]` | 通过 Stitch MCP 生成 UI 设计 → Antigravity Agent 实现到代码 |
 | 🆕 `设计系统 [URL或描述]` | 用 Stitch 提取/生成 DESIGN.md → 应用到项目 |
+| Skill 生态 | 输出当前项目已安装的所有 Skills 清单 + 推荐安装建议 |
+| 新建 Skill [描述] | 在 .agents/skills/ 创建新 Skill（含 SKILL.md + 目录结构） |
 
 ---
 
@@ -990,3 +995,157 @@ REVIEW-BACKLOG.md	第零轮审核后	每轮审核后
 
 将规则写入 `.agents/rules/tdd.md`（Antigravity）和 `AGENTS.md`（Codex），由 CTO 在生成初始配置时包含。
 
+---
+
+## 21. Agent Skills 开放标准与 Skill 生态
+
+### 21.1 开放标准：agentskills.io
+
+Agent Skills（https://agentskills.io/specification）是一个开放规格，定义了跨 Agent 的技能包格式。Antigravity 和 Codex 均原生支持该标准，Skill 一次编写、两个平台共用。
+
+**标准目录结构：**
+
+```text
+skill-name/
+├── SKILL.md          # 必需：YAML frontmatter + Markdown 指令
+├── scripts/          # 可选：可执行脚本（Python/Bash/JS）
+├── references/       # 可选：参考文档
+└── assets/           # 可选：模板、图表、数据
+```
+SKILL.md 必填字段：
+
+字段	约束
+name	1-64 字符，小写字母+数字+连字号，必须匹配父目录名
+description	1-1024 字符，描述用途和触发条件（影响 Agent 是否自动激活）
+可选字段： license、compatibility（环境要求，≤500 字符）、metadata（自定义键值对）、allowed-tools（预批准工具列表，实验性）
+
+渐进式披露架构（两个平台均遵守）：
+
+元数据扫描（~100 tokens）：Agent 启动时只读 name + description，判断相关性
+完整指令加载（<5000 tokens 推荐）：Agent 认为相关时加载完整 SKILL.md body
+资源按需加载：scripts/、references/、assets/ 仅在执行时读取
+编写准则：
+
+SKILL.md 正文保持 500 行以内
+详细参考资料移入 references/ 子目录
+每个 Skill 聚焦单一职责
+description 要写清「何时触发」和「何时不应触发」
+验证工具： npx skills-ref validate ./my-skill（来自 github.com/agentskills/agentskills）
+
+21.2 两平台的 Skill 发现路径
+范围	路径	Antigravity	Codex
+项目级	.agents/skills/<name>/SKILL.md	✅ 自动发现	✅ 自动发现
+项目级（子目录）	<subdir>/.agents/skills/	✅	✅（从 CWD 向上扫描到仓库根）
+用户级	~/.gemini/antigravity/skills/	✅	❌
+用户级	$HOME/.agents/skills/	❌	✅
+系统级	/etc/codex/skills/	❌	✅（管理员部署）
+内置	随工具发行	✅	✅
+共用原则：
+
+项目共用 Skill 统一放 .agents/skills/，两个平台都能读取
+Codex 特有的 agents/openai.yaml（UI 元数据、调用策略、工具依赖）Antigravity 会忽略，不冲突
+用户级个人 Skill 按平台分别放各自目录
+Skill 名称全项目唯一，不允许同名 Skill 出现在不同路径
+21.3 Codex 的 Skill 额外能力
+Codex 的 Skill 支持 agents/openai.yaml 配置文件，可定义：
+
+interface:
+  display_name: "用户可见名称"
+  short_description: "用户可见描述"
+  icon_small: "./assets/icon.svg"
+  brand_color: "#3B82F6"
+  default_prompt: "默认使用提示"
+
+policy:
+  allow_implicit_invocation: false  # 设为 false 则 AI 不会自动激活，只能 $skill-name 显式调用
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "server-name"
+      description: "依赖的 MCP 服务器"
+      transport: "streamable_http"
+      url: "https://..."
+Codex 内置 $skill-creator 可交互式创建新 Skill；$skill-installer <name> 可从社区安装 Skill。
+
+21.4 Antigravity 的 Skill 额外能力
+Antigravity 的 Skill 与 Workflows 配合：
+
+Skill 封装单一操作流程
+Workflow 编排多个 Skill 的执行顺序（/workflow-name 调用）
+Skill 稳定后 → Codex 侧可转为 Automation（定时自动执行）
+Antigravity 还支持 @filename 在 Rules/Skills 中引用文件，以及 Knowledge Items 自动持久化关键发现。
+
+21.5 新 Skill 创建流程
+当识别到可复用的操作模式时：
+
+CTO 在指令中描述 Skill 目标和触发条件
+Agent 在 .agents/skills/<skill-name>/ 下创建 SKILL.md
+如需脚本辅助，创建 scripts/ 子目录
+验证：两个平台分别测试 Skill 是否被正确发现和执行
+稳定后纳入项目标准 Skill 集合
+CTO 决策准则：
+
+手动执行同类操作超过 2 次 → 创建 Skill
+Skill 只含指令（instruction-only）为默认选择，除非需要确定性行为才加 scripts
+每个 Skill 的 description 必须足够精确，避免误触发
+## 22. 社区 Skill 推荐清单
+22.1 Anthropic 官方 Skills
+仓库：https://github.com/anthropics/skills （Apache 2.0）
+
+遵循 Agent Skills 开放标准，虽然设计给 Claude，但 SKILL.md 格式通用，instruction-only 类型可直接复制到 .agents/skills/ 供 Antigravity / Codex 使用。
+
+推荐按需安装：
+
+Skill	用途	适用场景
+frontend-design	避免 AI 生成通用美学，做大胆设计决策（React + Tailwind）	有前端的项目
+webapp-testing	用 Playwright 测试本地 Web 应用，生成截图验证	需要 UI 回归测试
+mcp-builder	创建高质量 MCP 服务器的完整指导	需要自建 MCP 集成
+docx / pdf / pptx / xlsx	创建/编辑/分析 Office 文档	需要生成报告/文档
+canvas-design	用设计哲学创建 .png/.pdf 视觉艺术	需要生成图形资产
+skill-creator	交互式引导创建新 Skill（Q&A 方式）	批量创建项目 Skill
+安装方式（复制 SKILL.md 到项目）：
+
+# 方式 1：直接从 GitHub 下载单个 Skill
+mkdir -p .agents/skills/frontend-design
+curl -o .agents/skills/frontend-design/SKILL.md \
+  https://raw.githubusercontent.com/anthropics/skills/main/skills/frontend-design/SKILL.md
+
+# 方式 2：克隆整个仓库后按需复制
+git clone https://github.com/anthropics/skills.git /tmp/anthropic-skills
+cp -r /tmp/anthropic-skills/skills/webapp-testing .agents/skills/
+22.2 obra/superpowers（社区最佳实践库）
+仓库：https://github.com/obra/superpowers
+
+提供 20+ 经实战检验的 Skill，核心亮点：
+
+TDD 驱动开发工作流
+/brainstorm → /write-plan → /execute-plan 端到端流程
+调试、协作模式、技能搜索
+适合提取其中的 SKILL.md 思路，改写为本项目的 .agents/skills/
+22.3 Trail of Bits 安全 Skills
+仓库：https://github.com/trailofbits/skills
+
+提供：CodeQL/Semgrep 静态分析指导、变体分析、代码审计流程、漏洞检测模式。
+
+适用场景： 项目涉及用户数据、支付、认证等安全敏感功能时，将相关 SKILL.md 复制到 .agents/skills/security-audit/。
+
+22.4 OpenAI 官方 Skills
+仓库：https://github.com/openai/skills
+
+Codex 原生支持。在 Codex 中执行 $skill-installer <skill-name> 安装。
+
+也可手动复制 SKILL.md 到 .agents/skills/ 供 Antigravity 使用（instruction-only 类型兼容）。
+
+22.5 Google Stitch Skills
+仓库：https://github.com/google-labs-code/stitch-skills
+
+安装方式和详细说明见第 5.1 章 ⑧ Google Stitch 集成。
+
+22.6 社区 Skill 安全准则
+只从可信来源安装：优先选择上述官方/知名仓库
+安装前必须审查：阅读完整 SKILL.md 和所有 scripts/ 内容
+警惕脚本类 Skill：scripts/ 中的代码会被 Agent 执行，有权限风险
+先在非生产环境测试：新 Skill 先在 feature 分支验证
+定期审计：每月检查已安装 Skill 是否有更新或已知漏洞
+instruction-only 优先：纯指令型 Skill 安全性远高于含脚本的 Skill

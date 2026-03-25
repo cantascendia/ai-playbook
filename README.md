@@ -17,6 +17,7 @@
 | `prompts/06-cross-review.md` | 交叉审核指令模板 |
 | `prompts/07-spec-session.md` | Spec-Driven 开发启动模板 |
 | `prompts/08-stitch-design.md` | Stitch UI 设计启动模板 |
+| `prompts/09-skill-ecosystem.md` | Agent Skill 生态管理模板 |
 
 ## 使用方式
 
