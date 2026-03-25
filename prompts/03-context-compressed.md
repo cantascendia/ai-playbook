@@ -36,7 +36,7 @@
 **第四步**：继续基于 STATUS.md 中的待办发下一轮指令。
 
 **关键提醒**：
-- Agent指令中的模型只能从手册第5章选：Antigravity 侧有 Gemini 3.1 Pro (High) / Gemini 3.1 Pro (Low) / Gemini 3 Flash / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.6 (Thinking) / GPT-OSS-120b；Codex 侧有 gpt-5.4 / gpt-5.3-codex / gpt-5.3-codex-spark
+- Agent指令中的模型只能从手册第5章选：Antigravity 侧有 Gemini 3.1 Pro (High) / Gemini 3.1 Pro (Low) / Gemini 3 Flash / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.6 (Thinking) / GPT-OSS-120b；Codex 侧有 gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex
 - 必须去 GitHub 实际读代码再发指令，不能凭记忆
 - 所有输出按手册第9章格式
 

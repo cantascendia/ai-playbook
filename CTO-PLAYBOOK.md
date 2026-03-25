@@ -211,6 +211,7 @@
 | 模型 | 特点 |
 |---|---|
 | gpt-5.4 | 旗舰推荐 |
+| gpt-5.4-mini | 轻量快速，省配额 |
 | gpt-5.3-codex | 编码专用 |
 
 **推理强度：** low / medium / high / xhigh
@@ -493,6 +494,7 @@ Codex App 侧：
 | 多任务并行 | Codex App | gpt-5.4 | high | Worktree ×N |
 | 后端逻辑密集 | Codex App | gpt-5.4 | high | Local |
 | 日常编码 | Codex App | gpt-5.4 | medium | Local |
+| 轻量任务/快速迭代 | Codex App | gpt-5.4-mini | medium | Local |
 | 需 AI 生成图像 | Antigravity | 任意 | — | Planning |
 | 需最强推理 | Antigravity | Claude Opus 4.6 Thinking | — | Planning |
 | 定时自动化 | Codex App | — | — | Automation |
