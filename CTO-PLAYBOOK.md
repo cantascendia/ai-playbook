@@ -207,6 +207,28 @@
 
 **⑦ @ Mentions** — Rules 中可 `@filename` 引用文件
 
+**⑧ Google Stitch 集成 — AI UI 设计画布**
+- 官网：`https://stitch.withgoogle.com/`
+- 定位：AI 原生 UI 设计画布，自然语言/图片 → 高保真 UI 设计 + 前端代码（HTML + Tailwind CSS）
+- 连接方式：Antigravity → 设置 → MCP Servers → 搜索 "stitch" 安装 → 填入 Stitch API Key（在 Stitch 设置中生成）
+- SDK：`@google/stitch-sdk`（npm，Apache 2.0），支持编程式生成/编辑/变体，集成 Vercel AI SDK
+- MCP 服务器：SDK 内含 `StitchProxy`，可自建 MCP 端点
+- 开源 Skills：`google-labs-code/stitch-skills`（GitHub，2.4k+ stars），安装示例：
+npx skills add google-labs-code/stitch-skills --skill <skill-name> --global
+
+- 关键 Skills：
+- `stitch-design` — 统一入口：prompt 增强 + 设计系统合成 + 屏幕生成/编辑
+- `stitch-loop` — 单 prompt 生成完整多页网站
+- `design-md` — 分析项目生成 DESIGN.md 设计系统文件
+- `enhance-prompt` — 将模糊想法转为 Stitch 优化 prompt
+- `react-components` — Stitch 屏幕 → React 组件系统（含设计 token 一致性校验）
+- `shadcn-ui` — shadcn/ui 组件集成指导
+- `remotion` — 从 Stitch 项目生成演示 walkthrough 视频
+- DESIGN.md：Agent 友好型 Markdown 设计系统文件，定义品牌色、排版、组件规则，可跨项目导入导出
+- 导出格式：HTML + Tailwind CSS（zip 含代码+图片）、Figma（通过插件）、截图
+- 免费使用（Google Labs 实验阶段），月度上限约 350 次生成（Standard Mode）/ 200 次（Experimental Mode）
+- Design-First 工作流：Stitch 设计 → 迭代精修 → 导出 DESIGN.md → Antigravity 通过 MCP 拉取设计 → Agent 自动实现为项目代码
+
 ### 5.2 工具 B：OpenAI Codex App（桌面 App）
 
 **可选模型：**
@@ -494,6 +516,7 @@ Codex App 侧：
 | 最复杂架构/系统设计 | Codex App | gpt-5.4 | xhigh | Worktree |
 | 复杂全栈开发 | Antigravity | Gemini 3.1 Pro High | — | Planning |
 | 浏览器验证 UI | Antigravity | Gemini 3.1 Pro High | — | Planning |
+| UI 设计与原型 | Stitch → Antigravity | Gemini 3.1 Pro High | — | Planning（MCP） |
 | 多任务并行 | Codex App | gpt-5.4 | high | Worktree ×N |
 | 后端逻辑密集 | Codex App | gpt-5.4 | high | Local |
 | 日常编码 | Codex App | gpt-5.4 | medium | Local |
@@ -534,6 +557,8 @@ Codex App 侧：
 | `远景 [新功能描述]` | 将新功能纳入产品愿景，评估技术影响 |
 | `刷新手册` | 重新抓取本操作手册刷新记忆 |
 | 🆕 `更新记忆` | 生成指令让 Agent 更新 `docs/ai-cto/` 下所有记忆文件 |
+| 🆕 `UI 设计 [描述]` | 通过 Stitch MCP 生成 UI 设计 → Antigravity Agent 实现到代码 |
+| 🆕 `设计系统 [URL或描述]` | 用 Stitch 提取/生成 DESIGN.md → 应用到项目 |
 
 ---
 
