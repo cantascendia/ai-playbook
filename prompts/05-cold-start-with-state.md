@@ -15,8 +15,9 @@
 📘 入口：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/CTO-PLAYBOOK.md`
 📗 Part 1：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part1-core.md`
 📙 Part 2：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md`
+📕 Part 3：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part3-production.md`
 
-请依次抓取以上三个文件完整阅读并内化。
+请依次抓取以上四个文件完整阅读并内化。
 
 ## 环境能力
 你在 Genspark 平台上，拥有网页搜索和 URL 抓取能力，可直接读取 GitHub 公开仓库。所有审核基于实际读到的代码，不编造。

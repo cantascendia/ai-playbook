@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — AI Agent 闭环指挥操作手册 v1.4.1
+# CTO-PLAYBOOK — AI Agent 闭环指挥操作手册 v1.5.0
 
 > **⚡ 快速回忆区** — 压缩/刷新后先读这段恢复核心记忆
 >
@@ -30,7 +30,7 @@
 12. [竞品分析原则](playbook/part1-core.md#12-竞品分析原则)
 13. [配置迭代原则](playbook/part1-core.md#13-配置迭代原则)
 
-**Part 2 — 决策框架与高级流程（§14-§25）**
+**Part 2 — 决策框架与高级流程（§14-§20）**
 
 14. [决策框架](playbook/part2-extend.md#14-决策框架)
 15. [快捷命令](playbook/part2-extend.md#15-快捷命令)
@@ -39,27 +39,34 @@
 18. 🆕 [Spec-Driven 开发流程](playbook/part2-extend.md#18-spec-driven-开发流程)
 19. 🆕 [交叉审核与多模型策略](playbook/part2-extend.md#19-交叉审核与多模型策略)
 20. 🆕 [TDD 强制流程](playbook/part2-extend.md#20-tdd-强制流程)
-21. 🆕 [Agent Skills 开放标准与 Skill 生态](playbook/part2-extend.md#21-agent-skills-开放标准与-skill-生态)
-22. 🆕 [社区 Skill 推荐清单](playbook/part2-extend.md#22-社区-skill-推荐清单)
-23. 🆕 [CI/CD 流水线](playbook/part2-extend.md#23-cicd-流水线)
-24. 🆕 [发布管理](playbook/part2-extend.md#24-发布管理)
-25. 🆕 [可观测性](playbook/part2-extend.md#25-可观测性)
+
+**Part 3 — Skill 生态与生产就绪（§21-§28）**
+
+21. 🆕 [Agent Skills 开放标准与 Skill 生态](playbook/part3-production.md#21-agent-skills-开放标准与-skill-生态)
+22. 🆕 [社区 Skill 推荐清单](playbook/part3-production.md#22-社区-skill-推荐清单)
+23. 🆕 [CI/CD 流水线](playbook/part3-production.md#23-cicd-流水线)
+24. 🆕 [发布管理](playbook/part3-production.md#24-发布管理)
+25. 🆕 [可观测性](playbook/part3-production.md#25-可观测性)
+26. 🆕 [设计系统](playbook/part3-production.md#26-设计系统)
+27. 🆕 [无障碍](playbook/part3-production.md#27-无障碍accessibility)
+28. 🆕 [隐私合规](playbook/part3-production.md#28-隐私合规)
 
 ---
 
 ## 📖 手册分卷阅读指引
 
-本手册因体量较大，拆分为两个文件以确保任何 AI 平台均能单次完整读取。
+本手册因体量较大，拆分为三个文件以确保任何 AI 平台均能单次完整读取。
 
 | 文件 | 章节 | Raw URL |
 |---|---|---|
 | `playbook/part1-core.md` | §1-§13：环境能力、产品愿景、代码同步、上下文管理、工具栈规范、配置边界、安全策略、独立思考、输出格式、启动序列、每轮流程、竞品分析、配置迭代 | `https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part1-core.md` |
-| `playbook/part2-extend.md` | §14-§25：决策框架、快捷命令、沟通风格、记忆持久化、Spec-Driven、交叉审核、TDD、Agent Skills 标准、社区 Skill 清单、CI/CD、发布与可观测性 | `https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md` |
+| `playbook/part2-extend.md` | §14-§20：决策框架、快捷命令、沟通风格、记忆持久化、Spec-Driven、交叉审核、TDD | `https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md` |
+| `playbook/part3-production.md` | §21-§28：Agent Skills 标准、社区 Skill、CI/CD、发布管理、可观测性、设计系统、无障碍、隐私合规 | `https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part3-production.md` |
 
 ### 阅读规则
 
-- **第零轮 / 恢复会话**：两个文件都读，先 Part 1 后 Part 2
-- **对话中压缩退化**：至少重读 Part 1；如果决策框架/模型列表也丢了，再读 Part 2
+- **第零轮 / 恢复会话**：三个文件都读，按 Part 1 → Part 2 → Part 3 顺序
+- **对话中压缩退化**：至少重读 Part 1；如果决策框架/模型列表丢了，再读 Part 2；如果 Skill/发布/合规丢了，再读 Part 3
 - **快速刷新**：只需重读与当前问题相关的 Part
 
 ### 模型速查（避免退化时选错）
@@ -81,3 +88,4 @@
 | v1.3.0 | 2026-03-28 | 八维审核（+功能完整性+UX可用性）；指令格式加验收标准和用户验收字段；回传格式加UI验证；铁律加禁止硬编码占位和不可交互UI；TDD扩展到端到端和UI交互；决策框架加UX审核行；新建 ux-quality-checklist Skill |
 | v1.4.0 | 2026-03-28 | 国际化铁律+环境分离铁律；新增 §23 CI/CD 流水线、§24 发布管理、§25 可观测性；八维审核扩展i18n和环境检查项；决策框架加 CI/CD 和发布行；快捷命令加发布检查/搭建CI/埋点清单；新建 i18n-enforcement 和 release-readiness Skill；新建 prompts/12-release-checklist |
 | v1.4.1 | 2026-03-28 | 新增"禁止删除重建替代精确修复"铁律；修正 gpt-5.3-codex 描述；§22.3 新增 trailofbits/skills-curated；prompts 06-09 加手册刷新提示；新建 prompts/11-model-update.md 模型更新模板 |
+| v1.5.0 | 2026-03-28 | Part 2 拆分为 Part 2（§14-§20）+ Part 3（§21-§28）解决截断问题；新增 §26 设计系统、§27 无障碍、§28 隐私合规；新建 design-system-enforcement 和 accessibility-checklist Skill |

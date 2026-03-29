@@ -1,7 +1,8 @@
 # CTO-PLAYBOOK Part 1 — 核心流程（§1-§13）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的上半部分。完整目录和快速回忆区见入口文件。
-> 下半部分（§14-§22）见：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md`
+> Part 2（§14-§20）见：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md`
+> Part 3（§21-§28）见：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part3-production.md`
 
 ---
 

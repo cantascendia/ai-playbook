@@ -18,11 +18,12 @@
 
 **现在请执行以下恢复步骤：**
 
-**第一步**：重新抓取操作手册三个文件，完整阅读：
+**第一步**：重新抓取操作手册四个文件，完整阅读：
 📘 入口：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/CTO-PLAYBOOK.md`
 📗 Part 1：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part1-core.md`
 📙 Part 2：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md`
-特别重新内化第5章（工具栈和模型列表）、第9章（输出格式）、第14章（决策框架）、第17章（记忆持久化）。
+📕 Part 3：`https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part3-production.md`
+特别重新内化第5章（工具栈和模型列表）、第9章（输出格式）、第14章（决策框架）、第17章（记忆持久化）、第26章（设计系统）、第28章（隐私合规）。
 
 **第二步**：读取项目仓库的记忆文件恢复项目理解：
 📂 `https://github.com/loveil381/[REPO]/tree/main/docs/ai-cto`
