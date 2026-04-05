@@ -1,50 +1,108 @@
-# AI Playbook — CTO Agent 指挥系统
+# AI Playbook — CTO Agent 闭环指挥系统 v2.0
 
-本仓库存放 AI CTO 指挥系统的操作手册和对话指令模板。
+Claude Code 优先的 AI CTO 指挥系统。CTO 以 Claude Code 为主执行环境，直接读取本地项目代码，规划任务，按需委派给 Antigravity / Codex 等平台执行。
 
-所有项目共用同一套手册，每个项目的记忆持久化在各自仓库的 `docs/ai-cto/` 目录中。
+## 支持平台
+
+| 平台 | 角色 | 适用场景 |
+|---|---|---|
+| **Claude Code** | 主平台（推荐） | CTO 规划、编码、审核、测试 — 大多数任务直接执行 |
+| Antigravity | 辅助委派 | 浏览器验证 UI、Stitch UI 设计、AI 图像生成 |
+| Codex App | 辅助委派 | 隔离并行 Worktree、定时 Automation、最强外部推理 |
+
+## 快速开始
+
+### Claude Code（推荐）
+
+```bash
+# 在目标项目中启动 CTO
+/cto-start
+
+# 恢复之前的会话
+/cto-resume
+
+# 更多命令
+/cto-refresh    # 刷新手册
+/cto-review     # 交叉审核
+/cto-spec       # Spec-Driven 开发
+/cto-release    # 发布检查
+```
+
+### 目标项目集成
+
+将 `templates/CLAUDE.md` 复制到目标项目根目录，填写项目特定规则：
+
+```bash
+cp [ai-playbook-path]/templates/CLAUDE.md [your-project]/CLAUDE.md
+```
 
 ## 文件说明
 
 | 文件 | 用途 |
 |---|---|
-| `CTO-PLAYBOOK.md` | 操作手册入口（快速回忆区 + 目录 + 阅读指引） |
-| `playbook/part1-core.md` | 手册 Part 1：核心流程 §1-§13 |
-| `playbook/part2-extend.md` | 手册 Part 2：决策框架与高级流程 §14-§20 |
-| `playbook/part3-production.md` | 手册 Part 3：Skill 生态与生产就绪 §21-§28 |
-| `prompts/01-first-session.md` | 新项目第一次对话时粘贴 |
-| `prompts/02-resume-session.md` | 同项目开新对话时粘贴（对话断了/换会话）|
-| `prompts/03-context-compressed.md` | 对话中途 Claude 退化时粘贴 |
-| `prompts/04-refresh-handbook.md` | 快速一句话刷新 |
-| `prompts/05-cold-start-with-state.md` | 带手动状态的完整冷启动模板 |
-| `prompts/06-cross-review.md` | 交叉审核指令模板 |
-| `prompts/07-spec-session.md` | Spec-Driven 开发启动模板 |
-| `prompts/08-stitch-design.md` | Stitch UI 设计启动模板 |
-| `prompts/09-skill-ecosystem.md` | Agent Skill 生态管理模板 |
-| `prompts/10-self-audit.md` | Playbook 自审质检模板 |
-| `prompts/11-model-update.md` | 模型列表更新模板 |
-| `prompts/12-release-checklist.md` | 发布前全面检查模板 |
-| `.agents/skills/ux-quality-checklist/SKILL.md` | UI 提交前 UX 质量检查清单 |
-| `.agents/skills/i18n-enforcement/SKILL.md` | 国际化合规检查 |
-| `.agents/skills/release-readiness/SKILL.md` | 发布就绪检查 |
-| `.agents/skills/design-system-enforcement/SKILL.md` | 设计系统合规检查 |
-| `.agents/skills/accessibility-checklist/SKILL.md` | 无障碍合规检查 |
+| `CTO-PLAYBOOK.md` | 操作手册入口（快速回忆区 + 目录 + 模型速查 + 版本历史） |
+| `playbook/handbook.md` | 完整操作手册 §1-§28（环境、流程、决策、质量、生产就绪） |
+| `CLAUDE.md` | CTO 系统提示词（Claude Code 每次会话自动加载） |
+| `templates/CLAUDE.md` | 目标项目用的精简 CTO 模板（复制到项目根目录使用） |
+| `.claude/commands/cto-start.md` | 新项目第零轮启动 |
+| `.claude/commands/cto-resume.md` | 恢复会话继续工作 |
+| `.claude/commands/cto-refresh.md` | 刷新手册恢复行为规范 |
+| `.claude/commands/cto-review.md` | 交叉审核关键改动 |
+| `.claude/commands/cto-spec.md` | Spec-Driven 开发启动 |
+| `.claude/commands/cto-design.md` | UI 设计流程 |
+| `.claude/commands/cto-skills.md` | Skill 生态管理 |
+| `.claude/commands/cto-audit.md` | Playbook 自审质检 |
+| `.claude/commands/cto-models.md` | 模型列表更新 |
+| `.claude/commands/cto-release.md` | 发布前全面检查 |
+| `.claude/settings.json` | Claude Code 项目配置 |
+| `.agents/skills/ux-quality-checklist/` | UI 提交前 UX 质量检查 |
+| `.agents/skills/i18n-enforcement/` | 国际化合规检查 |
+| `.agents/skills/release-readiness/` | 发布就绪检查 |
+| `.agents/skills/design-system-enforcement/` | 设计系统合规检查 |
+| `.agents/skills/accessibility-checklist/` | 无障碍合规检查 |
 
-## 为什么拆分？
+## 架构
 
-CTO-PLAYBOOK 原始文件约 44KB / 18,700 tokens。大多数 AI 平台（包括 Genspark）的 URL 抓取有 ~10,000 token 上限，单次读取会被截断，导致 §14 之后的决策框架、快捷命令、记忆持久化、高级流程、Skill 生态、CI/CD、发布管理、可观测性等章节丢失。
+```
+ai-playbook/
+├── CTO-PLAYBOOK.md              # 入口 + 目录 + 快速回忆
+├── CLAUDE.md                     # CTO 系统提示词
+├── playbook/
+│   └── handbook.md              # 完整手册 §1-§28
+├── templates/
+│   └── CLAUDE.md                # 目标项目模板
+├── .claude/
+│   ├── settings.json            # 项目配置
+│   └── commands/                # 10 个斜杠命令
+│       ├── cto-start.md
+│       ├── cto-resume.md
+│       ├── cto-refresh.md
+│       ├── cto-review.md
+│       ├── cto-spec.md
+│       ├── cto-design.md
+│       ├── cto-skills.md
+│       ├── cto-audit.md
+│       ├── cto-models.md
+│       └── cto-release.md
+└── .agents/skills/              # 跨平台 Skills（Claude Code / AG / Codex 共用）
+    ├── ux-quality-checklist/
+    ├── i18n-enforcement/
+    ├── design-system-enforcement/
+    ├── accessibility-checklist/
+    └── release-readiness/
+```
 
-拆分后入口 + Part 1 + Part 2 + Part 3 各自控制在更易抓取的体量内，任何平台均能单次完整读取。入口文件包含快速回忆区和模型速查，即使 CTO 只读了入口也不会选错模型。
+## 记忆系统
 
-## 使用方式
+每个目标项目中维护 `docs/ai-cto/` 目录，存储 CTO 的项目状态记忆：
 
-1. `loveil381` 已预填为 GitHub 用户名
-2. 将 `[REPO]` 替换为目标项目仓库名
-3. 将 `[BRANCH]` 替换为当前工作分支（如适用）
+- `PRODUCT-VISION.md` — 产品愿景理解
+- `TECH-VISION.md` — 技术愿景
+- `ARCHITECTURE.md` — 架构图 + 演进路线
+- `STATUS.md` — 进度、质量评分、待办
+- `DECISIONS.md` — ADR 风格决策记录
+- `COMPETITOR-ANALYSIS.md` — 竞品分析
+- `REVIEW-BACKLOG.md` — 审核问题列表
+- `TECH-STACK.md` — 技术选型
 
-## 手册 Raw URL
-
-- 入口：https://raw.githubusercontent.com/loveil381/ai-playbook/main/CTO-PLAYBOOK.md
-- Part 1：https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part1-core.md
-- Part 2：https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part2-extend.md
-- Part 3：https://raw.githubusercontent.com/loveil381/ai-playbook/main/playbook/part3-production.md
+新会话自动从 `docs/ai-cto/` 恢复上下文，无需从头分析。
