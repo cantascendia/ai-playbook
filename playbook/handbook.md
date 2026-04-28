@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§37）
+# CTO-PLAYBOOK — 完整操作手册（§1-§40）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
 
@@ -2723,3 +2723,263 @@ jobs:
 - CONSTITUTION 修改需双签：CTO + 一位 senior engineer
 - 所有 SPEC / PLAN / 代码 PR 在描述中引用 Constitution 相关条款编号
 - AI 在生成代码前必须读 CONSTITUTION.md（写入 CLAUDE.md 的"会话开始流程"）
+
+---
+
+## 38. Agent Loop 模式（执行循环范式）
+
+> 单一模式已过时。生产 agent 系统是 **hybrid**：高层 planner + 低层执行者 + 关键节点自评。
+
+### 38.1 六大主流模式对照
+
+| 模式 | 起源 | 适用场景 | 核心循环 | 在 CTO playbook 中的位置 |
+|---|---|---|---|---|
+| **ReAct** | 2022 经典 | 简单查询、单步任务、低预算探索 | Thought → Action → Observation → 重复 | 默认单步执行（Sonnet 4.6 直接 Bash/Read） |
+| **Plan-and-Execute** | 2023 LangChain | 多步、依赖明确、可预审 | Plan all → Execute steps → Evaluate | Claude Code Plan mode + `/cto-spec` |
+| **ReWOO**（Reasoning WithOut Observation）| 2023 | 工具可并行、计划稳定 | Plan + 占位变量 → 全部并行 → Solve | 委派 Codex 隔离并行 Worktree |
+| **Reflexion** | 2023 | 多约束、需自批评、迭代提升 | Act → Self-evaluate → Refine → 重做 | `/cto-review` + 八维审核 |
+| **Tree/Graph-of-Thoughts** | 2023-2024 | 决策分支多、需回溯、最优路径搜索 | 树 / 图 探索 + 剪枝 | 架构选型决策（深度规划） |
+| **Recursive Decomposition** | 2024-2025 | 大任务拆 sub-task，并行执行 | Decompose → Spawn sub-agent → Merge | Claude Code sub-agent / Antigravity Manager Surface |
+
+### 38.2 选型决策树
+
+```
+任务规模？
+├── 单步可解 → ReAct
+├── 多步但路径明确 → Plan-and-Execute
+└── 多步需回溯探索 → Tree-of-Thoughts
+
+是否有强约束 / 安全敏感？
+├── 是 → 加 Reflexion 自评层
+└── 否 → 不加
+
+子任务能并行？
+├── 能 → ReWOO 或 Recursive Decomposition
+└── 不能 → 顺序执行
+
+输出可验证（测试 / 编译 / 类型检查）？
+├── 能 → Reflexion + Verification Loop
+└── 不能 → 加人工 review gate
+```
+
+### 38.3 模式组合示例（生产级 hybrid）
+
+**典型 CTO 任务："给项目加一个新功能"**：
+
+```
+1. Plan-and-Execute（Opus 4.6 in Plan mode）
+   → 输出 PLAN.md 和分支策略
+
+2. Recursive Decomposition（主 Claude Code）
+   → 拆为 N 个 sub-agent 任务（前端 / 后端 / 测试 / 文档）
+   → 并行执行（部分用 Codex 隔离 Worktree）
+
+3. Reflexion（Opus 4.6 / cto-review）
+   → 八维审核每个 sub-agent 的输出
+   → 发现问题 → 反馈给对应 sub-agent 修正
+
+4. Verification Loop（Validator）
+   → 跑 test + lint + eval
+   → 通过才进入合并
+```
+
+### 38.4 反模式
+
+- **ReAct 滥用**：复杂任务硬塞给 ReAct，每步都没记忆，容易循环卡死
+- **Plan 一次定终身**：Plan-and-Execute 不允许中途改 plan，遇到环境变化失败
+- **Reflexion 无限循环**：自评层没有终止条件，反复改改改不收敛
+- **Decomposition 过度**：拆得太细，sub-agent 协调成本超过执行成本
+
+### 38.5 CTO 职责
+
+- 第零轮：根据项目特性（探索 / 维护 / 重构）选择默认 loop 模式，写入 CLAUDE.md
+- 模型路由表新增 Loop 模式列：每个任务类型对应一个推荐模式
+- 出现 loop 失败（卡死 / 不收敛 / 过度拆解） → 写入 Rules 防再犯
+- 每月：审视实际任务的 loop 模式分布，识别错配模式
+
+---
+
+## 39. Multi-Agent 编排范式
+
+> 2025-10 Microsoft 把 AutoGen 与 Semantic Kernel 合并为 Microsoft Agent Framework；OpenAI Agents SDK / Google ADK / Anthropic Agent SDK 全部上线。多 agent 框架进入收敛阶段。
+
+### 39.1 四大主流模式
+
+#### A. Manager-Worker（主从）— 推荐默认
+
+```
+        ┌─── Worker A ───┐
+Manager ─┼─── Worker B ───┼── 汇总结果
+        └─── Worker C ───┘
+```
+
+- **代表**：CrewAI、Cognition Devin、Antigravity Manager Surface、Claude Code sub-agent
+- **优点**：强可控、易调试、清晰职责边界
+- **缺点**：Manager 是瓶颈，并行度受限于 Manager 决策速度
+- **适用**：90% 的 CTO 场景（包括本 playbook 默认模式）
+
+#### B. Pipeline / Graph（流水线）
+
+```
+Stage 1 → Stage 2 → Stage 3 → ...
+   ↓         ↓         ↓
+  Check    Check    Check  （checkpoint 可重放）
+```
+
+- **代表**：LangGraph（directed graph + checkpointing）、Microsoft Semantic Kernel
+- **优点**：状态管理强、可重放、支持审批节点
+- **缺点**：图结构改动成本高、不适合探索性任务
+- **适用**：有明确审批流的工作流（合同审批、医疗诊断、合规检查）
+
+#### C. Peer-to-Peer / GroupChat（对等协作）
+
+```
+Agent A ←──→ Agent B
+   ↕            ↕
+Agent C ←──→ Agent D
+```
+
+- **代表**：AutoGen / AG2 v0.4（selector 决定下一个发言者）
+- **优点**：灵活、agent 自由协商
+- **缺点**：成本高、不易复现、调试困难
+- **适用**：需要多视角辩论的任务（架构选型、产品设计 brainstorm）
+
+#### D. Swarm（蜂群 / Handoff）
+
+```
+Agent A ──handoff──> Agent B ──handoff──> Agent C
+```
+
+- **代表**：OpenAI Swarm（轻量 handoff 模型）
+- **优点**：轻量、状态短暂、低延迟
+- **缺点**：状态不持久、不适合长任务
+- **适用**：客服路由、查询分发、简单 routing
+
+### 39.2 选型决策树
+
+```
+任务能否被一个 leader 拆解？
+├── 是 → Manager-Worker（默认推荐）
+└── 否 ↓
+
+需要 checkpoint / 可重放 / 审批节点？
+├── 是 → Pipeline / LangGraph
+└── 否 ↓
+
+需要 agent 之间自由协商辩论？
+├── 是 → Peer-to-Peer / AutoGen
+└── 否 ↓
+
+只是简单路由 / 分发任务？
+└── 是 → Swarm
+```
+
+### 39.3 三平台 Multi-Agent 能力对照
+
+| 平台 | 模式 | 实现 |
+|---|---|---|
+| **Claude Code** | Manager-Worker | sub-agent（共享父 context） |
+| **Antigravity** | Manager-Worker + AgentKit | Manager Surface + 16 专家 sub-agent |
+| **Codex** | Manager-Worker（隔离） | Worktree threads + Automations |
+| **LangGraph** | Pipeline | directed graph + checkpoint |
+| **AutoGen / AG2** | P2P | GroupChat + selector |
+| **OpenAI Swarm** | Swarm | handoff |
+
+### 39.4 升级路径
+
+CTO 不必一开始就上 LangGraph。**渐进式升级**：
+
+1. **起步**：Claude Code 主线 + 偶尔 sub-agent（Manager-Worker，default）
+2. **成长**：加 Codex 并行 Worktree（仍 Manager-Worker，提高并行度）
+3. **复杂**：引入 LangGraph（需要 checkpoint 时）
+4. **成熟**：多框架混合（核心走 Manager-Worker，特定子流程走 Pipeline / P2P）
+
+### 39.5 CTO 职责
+
+- 第零轮：默认 Manager-Worker，记录在 CLAUDE.md
+- 出现以下场景升级架构：
+  - 需要审批 / 可重放 → Pipeline
+  - 需要多视角辩论 → P2P
+  - 需要简单分发 → Swarm
+- 每个升级决策写入 `docs/ai-cto/DECISIONS.md`（ADR 格式）
+- 警惕过度工程：90% 项目不需要 LangGraph
+
+---
+
+## 40. AI Pair Programming 模式
+
+> **2025 共识**：经典 pair programming 角色反转——**人是 navigator（产品意图 + 审核），AI 是 driver（打字）**。
+
+### 40.1 三种 Pair 模式
+
+| 模式 | 同步性 | 工具代表 | 适用场景 |
+|---|---|---|---|
+| **同步 Pair**（Live Coding） | 实时 | Cursor Tab、Cline plan mode、Continue.dev、GitHub Copilot Chat | 探索 / 学习 / 复杂调试 |
+| **异步 Pair**（Async Review） | 非实时 | PR 评论、Claude PR Review、CodeRabbit、Greptile | 大型 PR 审核、跨时区协作 |
+| **隔离 Pair**（Isolated Worker） | 后台 | Codex Worktree、Antigravity Manager Surface、Devin | 长任务 / 独立模块 / 多任务并行 |
+
+### 40.2 Driver-Navigator 角色定义
+
+```
+传统 Pair：
+  Driver (人) 打字 + 思考
+  Navigator (人) 高层指引 + 审核
+
+AI Pair（2025+）：
+  Driver (AI) 打字 + 局部决策
+  Navigator (人) 产品意图 + 架构决策 + 审核 + 验收
+```
+
+**人不能完全放弃 Driver 角色**：
+- AI 局部最优 ≠ 全局最优
+- 关键路径（§32.1 高风险路径）人必须接管 Driver
+- 偶尔做"反向 Pair"（人 driver / AI navigator）以保持手感
+
+### 40.3 同步 Pair 工作流
+
+```
+1. 人描述意图 / 选中代码 → Cursor Tab / Cline 提建议
+2. 人 review 建议（30 秒内决策）→ accept / refine / reject
+3. AI 执行后人立即看 diff
+4. 进入下一轮
+```
+
+**节奏**：人/AI 交互 ≤ 1 分钟一次。超过 1 分钟人就要主动暂停看 diff。
+
+### 40.4 异步 Pair 工作流
+
+```
+1. 人开 PR 描述意图（链接到 SPEC）
+2. AI Reviewer（Claude PR Review / CodeRabbit）行级评论
+3. 人 review AI 的评论 → accept / discuss / dismiss
+4. AI 自动应用 accepted 评论的修改
+5. 人最终 approve 合并
+```
+
+**节奏**：单 PR 1-2 轮 AI review + 1 轮人审。
+
+### 40.5 隔离 Pair 工作流
+
+```
+1. 人写明确的任务 spec（input / output / acceptance criteria）
+2. 委派给 AI Worker（Codex / Antigravity / Devin）→ 进入隔离 Worktree
+3. 人不参与中间过程，只看最终 PR
+4. 人 review PR，accept / reject / request changes
+```
+
+**节奏**：单任务 1-4 小时不等，期间人做别的事。
+
+### 40.6 何时不要用 AI Pair
+
+- 需要深度学习的领域（让 AI 写代码 = 自己学不到）
+- 极简改动（手写比指挥 AI 快）
+- 高度耦合的旧代码库（AI 不理解上下文，瞎改）
+- 探索性研究（人需要思考过程，AI 跳过过程直接给答案）
+
+### 40.7 CTO 职责
+
+- 第零轮：根据团队特点选择默认 Pair 模式
+- 在 CLAUDE.md 中记录哪些任务用哪种 Pair 模式
+- 培训团队：人始终是 Navigator，不能放弃产品判断
+- 每月审视：AI Pair 的 PR 通过率、bug 率、回滚率
+- 出现 AI Pair 制造事故 → 该路径降级为人工 Driver

@@ -52,7 +52,7 @@ cp [ai-playbook-path]/templates/CLAUDE.md [your-project]/CLAUDE.md
 | 文件 | 用途 |
 |---|---|
 | `CTO-PLAYBOOK.md` | 操作手册入口（快速回忆区 + 目录 + 模型速查 + 版本历史） |
-| `playbook/handbook.md` | 完整操作手册 §1-§37（环境、流程、决策、质量、生产就绪、安全、性能、Vibe Coding、Harness 设计、Eval-Driven、Self-Healing、Constitution） |
+| `playbook/handbook.md` | 完整操作手册 §1-§40（含 Vibe / Harness / Eval-Driven / Self-Healing / Constitution / Agent Loop / Multi-Agent / AI Pair Programming） |
 | `CLAUDE.md` | CTO 系统提示词（Claude Code 每次会话自动加载） |
 | `templates/CLAUDE.md` | 目标项目用的精简 CTO 模板（复制到项目根目录使用） |
 | `.claude/commands/cto-init.md` | **一键初始化**目标项目完整 CTO 系统 |
@@ -80,7 +80,7 @@ ai-playbook/
 ├── CTO-PLAYBOOK.md              # 入口 + 目录 + 快速回忆
 ├── CLAUDE.md                     # CTO 系统提示词
 ├── playbook/
-│   └── handbook.md              # 完整手册 §1-§37
+│   └── handbook.md              # 完整手册 §1-§40
 ├── templates/
 │   └── CLAUDE.md                # 目标项目模板
 ├── .claude/

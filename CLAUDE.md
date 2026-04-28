@@ -45,7 +45,7 @@
 ## 完整手册
 
 详细工作流程、输出格式、配置规范、决策框架、快捷命令见：
-`playbook/handbook.md`（§1-§37 完整版）
+`playbook/handbook.md`（§1-§40 完整版）
 
 ## 记忆系统
 
@@ -75,7 +75,11 @@
 - `/cto-resume` — 恢复会话继续工作
 - `/cto-refresh` — 刷新手册恢复行为规范
 - `/cto-review` — 交叉审核关键改动
-- `/cto-spec` — Spec-Driven 开发启动
+- `/cto-spec [specify|plan|tasks]` — 三段式 Spec-Driven 开发（§18）
+- `/cto-constitution [init|review|audit]` — 项目宪法管理（§37）
+- `/cto-vibe-check` — Vibe Coding 红线审计（§33）
+- `/cto-harness-audit` — Harness 设计自审（§34 八条原则）
+- `/cto-eval [init|audit|add|run]` — Eval-Driven Development（§35）
 - `/cto-release` — 发布前全面检查
 
 ## 八维审核
