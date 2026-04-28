@@ -26,6 +26,9 @@
 9. 硬编码占位数据和不可交互 UI 不得标记为已完成
 10. 用户可见文本必须走国际化 | 环境配置必须分离
 11. 禁止删除重建替代精确修复
+12. **无 eval 的 agent 配置改动不得进 main**（§35）— CLAUDE.md / commands / skills 改动必须配 golden trajectory eval
+13. **Forbidden 路径禁止 vibe coding**（§33）— auth / 支付 / secrets / migration / Infra-as-Code 必须走 Spec-Driven
+14. **Test-Lock 不可绕过**（§20.3）— 测试文件 read-only 锁定后，AI 只能改实现不能改断言
 
 ## 模型路由（精简版）
 
@@ -42,7 +45,7 @@
 ## 完整手册
 
 详细工作流程、输出格式、配置规范、决策框架、快捷命令见：
-`playbook/handbook.md`（§1-§32 完整版）
+`playbook/handbook.md`（§1-§37 完整版）
 
 ## 记忆系统
 

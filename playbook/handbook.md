@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§32）
+# CTO-PLAYBOOK — 完整操作手册（§1-§37）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
 
@@ -165,6 +165,51 @@ Claude Code 的同步方式：
 
 上下文变长时主动压缩，并建议用户保存摘要以防会话中断。
 用户回传太长时，告诉用户只需回传关键部分。
+
+### 4.1 Context Engineering（取代 Prompt Engineering）
+
+> Anthropic 工程团队（2025-09）：*"Context engineering is the next evolution of prompt engineering. The question shifts from 'how do I write a good prompt' to 'what should I put in the model's attention budget at each step?'"*
+
+**三大核心手段：**
+
+**① Just-in-Time 加载** — agent 持有轻量 ID/引用（文件路径、ticket ID、URL），运行时按需用工具拉取数据，不预先塞入。
+- ✅ 给 file path → 调 Read 工具
+- ❌ 直接把全部代码贴进 system prompt
+
+**② Selective Compaction（选择性压缩）**
+- `/compact <instructions>` 主动压缩，保留关键决策、丢弃冗余 tool 输出
+- 自动压缩触发于 context > 80% 上限
+- 压缩时优先保留：当前任务 spec / 已做决策 / 错误历史；优先丢弃：成功 tool 输出的全文
+
+**③ Verification Loop（验证循环）**
+- 给 agent 跑测试 / 对比截图 / 比对 git diff 的能力是 **最高 ROI 的动作**
+- Claude Code 实践："Explore → Plan → Code → Verify"四段式
+
+### 4.2 Attention Budget 管理
+
+把上下文当成**稀缺预算**：
+
+| 区域 | 占比建议 | 内容 |
+|---|---|---|
+| **永驻上下文** | 5–10% | CLAUDE.md（系统提示）、CONSTITUTION.md（项目原则） |
+| **任务上下文** | 30–40% | 当前 SPEC + PLAN + 相关代码读取 |
+| **工具调用** | 20–30% | tool 的输出（应及时压缩） |
+| **对话历史** | 20–30% | 最近 N 轮 + 重要决策摘要 |
+| **预留余量** | 10–15% | 防止溢出 |
+
+### 4.3 Lazy Tool Loading（延迟加载工具）
+
+Claude Code 的 MCP 工具默认走 `ToolSearch` 延迟加载（Anthropic 实测 **95% 上下文减少**）：
+- 不要在 settings.json 中预启用所有 MCP 服务器
+- 用关键词搜索后再加载工具 schema
+- Codex 的 Plugins 同理：按需启用
+
+### 4.4 CTO 职责
+
+- 第零轮：审视 CLAUDE.md 大小（< 8 KB 为佳，绝不超 16 KB）
+- 每 3 轮：检查 docs/ai-cto/ 文件总量是否在按需引用，而非被一次性塞入
+- 任务切换处用 `/clear` 重置 context
+- 出现 context 溢出 → 优化 tool 输出而非加 token 上限
 
 ---
 
@@ -1327,6 +1372,50 @@ CTO 系统使用三层互补的记忆机制：
 - docs/ai-cto/ 在项目仓库中持久化，Antigravity / Codex / Claude Code 都能读取
 - 会话上下文由 Claude Code 自动管理，必要时通过轮次摘要和记忆文件持久化关键信息
 
+### 17.8 三层记忆模型映射（Episodic / Semantic / Procedural）
+
+> 借鉴认知心理学（Tulving 1972）→ 2026 agent stack 的三层记忆划分。
+
+| 记忆类型 | 含义 | 在 CTO playbook 中的载体 |
+|---|---|---|
+| **Episodic（情景记忆）** | 最近 N 轮对话 + 当前任务历史 | 会话 transcript + `docs/ai-cto/STATUS.md` |
+| **Semantic（语义记忆）** | 提炼后的事实 / 决策 / 实体关系 | `docs/ai-cto/DECISIONS.md`、`PRODUCT-VISION.md`、`TECH-VISION.md`、`TECH-STACK.md`、`ARCHITECTURE.md`、`COMPETITOR-ANALYSIS.md` |
+| **Procedural（过程记忆）** | 学到的工作流 / 反复用的能力 | `CLAUDE.md`、`docs/ai-cto/CONSTITUTION.md`、`playbook/handbook.md`、`.claude/commands/`、`.agents/skills/`、`docs/ai-cto/HARNESS-CHANGELOG.md` |
+
+### 17.9 Hot Path / Cold Path 双层架构
+
+借鉴 mem0 / Letta / Zep 的 2026 生产共识：
+
+```
+Hot Path（每轮 agent turn 必读）
+├── CLAUDE.md（procedural）
+├── docs/ai-cto/CONSTITUTION.md（procedural）
+└── docs/ai-cto/STATUS.md（episodic）
+
+Cold Path（按需读取）
+├── docs/ai-cto/DECISIONS.md（semantic，查决策时读）
+├── docs/ai-cto/COMPETITOR-ANALYSIS.md（semantic，竞品分析时读）
+├── docs/ai-cto/REVIEW-BACKLOG.md（semantic，审核时读）
+└── 项目源码（procedural / semantic 混合）
+```
+
+**记忆整合任务**（`anthropic-skills:consolidate-memory` Skill 自动化）：
+- 每 3 轮：扫描 STATUS.md 中的临时摘要，提炼关键决策 → DECISIONS.md
+- 每周：去重 / 合并矛盾 / 修正过期事实
+- 每月：审视 procedural memory（CLAUDE.md / commands / skills）是否需要重构
+
+### 17.10 mem0 / Letta / Zep 集成（可选）
+
+如果项目记忆量超出文件级管理（> 100 个事实条目），可引入：
+
+| 框架 | 强项 | 集成成本 |
+|---|---|---|
+| **mem0 v1.0** | 三层 scope（user/session/agent）+ vector/graph/KV 混合 | 低（API 调用） |
+| **Letta**（前 MemGPT） | Core Memory Blocks（始终在 context）+ External Memory（archival） | 中（需独立服务） |
+| **Zep** | Temporal Knowledge Graph（跨长时间窗口的实体关系推理） | 高（图数据库） |
+
+**CTO 默认策略**：先用结构化文件（docs/ai-cto/）+ 按需读取，等记忆复杂度真的超标再上框架。
+
 ---
 
 > 💡 完整的会话启动/恢复/压缩恢复流程见 `.claude/commands/` 目录下的斜杠命令。
@@ -1369,6 +1458,46 @@ CTO 系统使用三层互补的记忆机制：
 - **必须用**：跨模块功能、新架构引入、涉及安全的改动
 - **建议用**：bug 修复涉及多文件、性能优化涉及架构变更
 - **可跳过**：单文件小修、文档更新、配置调整
+
+### 18.4 与 GitHub Spec Kit 的兼容（2025 业界标准）
+
+GitHub 在 2025 年发布了 **Spec Kit**（github/spec-kit，72k+ stars），定义了跨工具的 Spec-Driven 工作流：
+**Constitution → Specify → Plan → Tasks → Implement**
+
+| Spec Kit | CTO playbook | 命令 |
+|---|---|---|
+| `constitution.md` | `docs/ai-cto/CONSTITUTION.md`（§37） | 双签创建 |
+| `spec.md` | `docs/ai-cto/SPEC.md` | `/cto-spec specify` |
+| `plan.md` | `docs/ai-cto/PLAN.md` | `/cto-spec plan` |
+| `tasks.md` | `docs/ai-cto/TASKS.md` | `/cto-spec tasks` |
+| `/speckit.implement` | 按 PLAN 逐步执行 | 直接进入编码 |
+
+**已内置 Spec Kit 集成的工具**：GitHub Copilot、Claude Code、Gemini CLI、Cursor。
+
+### 18.5 三段式 `/cto-spec` 命令
+
+升级后的 `/cto-spec` 拆为三段：
+
+```
+/cto-spec specify [功能描述]
+  → 输出 docs/ai-cto/SPEC.md（What & Why）
+
+/cto-spec plan
+  → 读 SPEC.md，输出 docs/ai-cto/PLAN.md（How）
+
+/cto-spec tasks
+  → 读 PLAN.md，输出 docs/ai-cto/TASKS.md（按 user story + 依赖排序）
+```
+
+每段 CTO 都要审核确认后才进入下一段。
+
+### 18.6 Spec → Test → Code 顺序
+
+为防止 AI 改测试迁就实现（详见 §20.3），强制以下顺序：
+1. SPEC 确定后，**先生成测试用例**（手动或 AI 辅助）
+2. 测试通过 review，**锁定测试文件**（read-only）
+3. 然后 AI 实现代码，目标是让锁定的测试通过
+4. 测试不能动，只能动实现
 
 ---
 
@@ -1418,9 +1547,55 @@ CTO 系统使用三层互补的记忆机制：
 3. **Refactor**：改善代码质量，保持测试绿色
 4. **Repeat**：下一个功能点，重复以上循环
 
-### 20.3 配置落地
+### 20.3 AI 时代 TDD 五条防作弊规则
 
-将规则写入 CLAUDE.md（Claude Code）/ `.agents/rules/tdd.md`（Antigravity）/ `AGENTS.md`（Codex），由 CTO 在生成初始配置时包含。
+> **核心风险**：AI 没有"作弊"概念，看到测试失败时最省力的路径是改/删测试。Aider、Cursor 已实测此现象。
+
+| # | 规则 | 实施 |
+|---|---|---|
+| 1 | **Test-Lock**（测试锁定） | `tests/**` 在 spec 锁定后进入 read-only allowlist，AI 改测试需显式 unlock + 二次确认。配置 hooks 拦截 |
+| 2 | **Spec → Test → Code 顺序** | 先由 spec 生成测试，人工 review 通过后才进入 implement，测试即"契约"（详见 §18.6） |
+| 3 | **Mutation Gate**（变异测试门禁） | CI 中跑 Stryker（JS）/ PIT（Java）/ mutmut（Python），mutation score < 80% 阻止合并，专杀 AI 写的弱断言 |
+| 4 | **Property-based 强制** | 复杂业务逻辑要求 fast-check / Hypothesis 至少 1 条 property test，AI 不容易"作弊"通过 property test |
+| 5 | **失败回灌**（盲修复） | 测试红时**只把 stderr 喂给 AI**，不允许 AI 看测试源码——只能改实现 |
+
+### 20.4 推荐工具（2026）
+
+| 工具 | 语言 | 用途 |
+|---|---|---|
+| **Stryker** | JS / TS / C# / Scala | mutation testing |
+| **PIT** | Java | mutation testing |
+| **mutmut** | Python | mutation testing |
+| **fast-check** | JS / TS | property-based |
+| **Hypothesis** | Python | property-based |
+| **Codium / Qodo** | 多语言 | AI 测试生成（mutation score 81–92%） |
+
+### 20.5 配置落地
+
+将规则写入：
+- CLAUDE.md（Claude Code）
+- `.agent/rules/tdd.md`（Antigravity）
+- `AGENTS.md`（Codex）
+- `.claude/settings.json` hooks（PreToolUse 拦截 `tests/**` 写入）
+
+由 CTO 在生成初始配置时包含。
+
+### 20.6 hooks 实现 Test-Lock 示例
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Edit|Write",
+      "filter": "tests/**",
+      "hooks": [{
+        "type": "command",
+        "command": "echo 'BLOCKED: tests/ is locked. Run /tests-unlock first.' && exit 1"
+      }]
+    }]
+  }
+}
+```
 
 ---
 
@@ -2216,10 +2391,335 @@ project-b/             ← 目标项目 B
 - [ ] 已写测试用例覆盖边界（空输入 / 越权 / 并发）
 ```
 
-### 32.5 CTO 职责
+### 32.5 六大 AI 工程反模式
+
+> 2026 数据：**91.5% vibe-coded 应用至少含 1 个 AI 幻觉漏洞**（Q1 2026）。MIT Tech Review 12/2025："AI coding 普及但信任尚未跟上。"
+
+| # | 反模式 | 表现 | CTO 检测方法 |
+|---|---|---|---|
+| 1 | **Vibe Shipping** | 不读代码就部署 | 强制 PR diff 必有人类 review；commit 含 `AI-only` 标记禁止入 main |
+| 2 | **Yes-man AI** | AI 顺从用户错误想法 | 铁律 #5"敢于挑战"；定期 `/cto-review` 让另一模型反驳 |
+| 3 | **Hallucination Amplification** | 错误代码反复迭代加深 | 每 3 轮强制重读源码而非依赖对话历史；STATUS.md 写"假设清单"显式标注未验证项 |
+| 4 | **Dependency Hallucination** | AI 编造不存在的库 | CI 加 `npm audit` + 包存在性检查；新依赖入库需 ADR |
+| 5 | **Context Starvation** | 给的上下文不足导致瞎写 | 任务前必读 docs/ai-cto/ 全套；超过 5 文件改动强制先生成 spec |
+| 6 | **Eval Gaming** | AI 优化指标但偏离实际目标 | 指标外加"产品愿景对齐"问句（铁律 #1）；mutation testing 抓弱测试 |
+
+### 32.6 CTO 职责
 
 - 第零轮：识别项目中的高风险路径，写入 CODEOWNERS
 - 每次涉及黑名单路径的改动：拒绝单一 AI 审核，强制走 §19 + 人工
 - Agent 在黑名单路径出错 → 立即写入 CLAUDE.md 防再犯
 - 新增高风险路径（如新增支付方式）→ 立即更新 CODEOWNERS 和 §32.1
 - 月度审计：检查实际触发双签的 PR 是否都执行到位
+- 检测到反模式 → 立即写入 CLAUDE.md 对应防御规则
+
+---
+
+## 33. Vibe Coding 红线分级
+
+> "Vibe coding"（Karpathy, 2025-02）：用语音/自然语言对 AI 描述意图，AI 生成代码，人不读 diff，"接受所有"。Karpathy 自己定位为 **throwaway weekend projects**。
+>
+> 2026 风险数据：**45% AI 代码命中 OWASP Top 10**（Veracode 测 100+ LLM）；AI 提交泄露 secrets 的概率是人类的 **2.13 倍**（GitGuardian）；Cloud Security Alliance 报 AI 归因的 CVE 从 2026-01 的 6 个跳到 03 月的 35 个。
+
+### 33.1 三档分级
+
+| 档级 | 场景 | 是否允许 vibe | CTO 约束 |
+|---|---|---|---|
+| **🟢 Throwaway Vibe** | 一次性脚本、原型探索、discovery spike、本地实验 | ✅ 完全放任 | 仓库标识 `experimental/` 目录或 `*.spike.ts` 后缀，禁止合入 main |
+| **🟡 Spec-Driven Vibe** | 内部工具、非关键路径功能、UI 微调 | ⚠️ 受限 | 必须先有 SPEC（§18），AI 写完后必须读 diff 并跑测试 |
+| **🔴 Forbidden** | 用户数据路径、auth/支付/secrets/migration、Infra-as-Code、加密 | ❌ 完全禁止 | 强制 §32 双签机制；Vibe 触发 CI 阻断 |
+
+### 33.2 Forbidden 路径自动检测
+
+CI 中扫描 commit 消息和 author 元数据，触发条件：
+- commit 含 `vibe`、`yolo`、`accept all`、`auto-merge` 等关键词
+- author 是 AI bot（`[bot]` 后缀）但路径命中 §32.1 黑名单
+
+**门禁规则**：触发即标记 `requires-double-review` 标签，必须满足 §32.2 双签后才能合并。
+
+### 33.3 Vibe Coding 工作流（仅 🟢 档）
+
+```
+1. 用户口语描述意图  →  AI 生成代码
+2. AI 提交到 experimental/ 目录
+3. 人不必读 diff，但必须跑能跑通
+4. 验证 idea 后 → 重写为正式代码（脱离 vibe 模式，进入 §18 Spec-Driven）
+5. 删除 experimental/ 草稿
+```
+
+### 33.4 CTO 职责
+
+- 在 CLAUDE.md 中明确划定 Vibe 允许目录（如 `experimental/`、`spike/`）
+- 所有 vibe 产物有效期 ≤ 7 天，过期自动清理
+- 任何要进 main 的代码必须脱离 vibe 模式，走 Spec-Driven 流程
+- 如团队成员尝试在 Forbidden 路径 vibe → 写入 Rules 防再犯
+
+---
+
+## 34. Harness 设计自审
+
+> "Harness" = 包裹 LLM 的整个执行系统（loop / tools / memory / prompts / validation gates）。**Claude Code 本身就是一个 harness**。CTO 在每个项目中也在隐式设计 harness（CLAUDE.md + commands + hooks + skills + memory files 的组合）。
+>
+> Anthropic 工程团队（2025-2026）：*"Every component encodes an assumption about what the model can't do on its own."*
+
+### 34.1 八条 Harness 设计原则
+
+| # | 原则 | CTO 自审问题 |
+|---|---|---|
+| 1 | **Context Engineering > Prompt Engineering** | CLAUDE.md 是否在 token 预算内承载了"永驻 context"？docs/ai-cto/ 是按需引用还是被主动塞入？ |
+| 2 | **Lazy Tool Loading** | MCP 工具是否走 ToolSearch 延迟加载？（Claude Code 实测 95% 上下文减少） |
+| 3 | **Self-contained, Non-overlapping Tools** | 每个 tool 是否单一职责？两个工具能做同一件事就该合并 |
+| 4 | **Token-efficient Tool Outputs** | tool 输出是否裁剪噪音？长输出是否分页/摘要？ |
+| 5 | **Minimal Necessary Intervention** | hooks 只在模型无法自纠或不可逆边界介入，不要把 hooks 当 prompt 用 |
+| 6 | **Fail-Fast + Recovery Path** | 错误能否被工具自身检测并返回结构化错误？是否有重试/回退路径？ |
+| 7 | **Multi-Agent Separation** | planner / generator / evaluator 是否分离？（Anthropic 三 agent 模式） |
+| 8 | **Durable State + Validation Gates** | 长任务靠 docs/ai-cto/ 持久化而非长 context？关键节点有 eval/test gate？ |
+
+### 34.2 Anthropic 三 Agent Harness 模式
+
+```
+Planner Agent（Opus 4.6 / Plan mode）
+    ↓ 输出计划
+Generator Agent（Sonnet 4.6 / 多个并行）
+    ↓ 输出代码
+Evaluator Agent（Opus 4.6 / Reflexion mode）
+    ↓ eval gate
+Validator（CI / 测试 / Lint）
+```
+
+CTO playbook 的实现映射：
+- Planner = Claude Code Plan mode + `/cto-spec`
+- Generator = Claude Code 主线 + sub-agents 并行 / Codex Worktree
+- Evaluator = `/cto-review` + Antigravity Browser Subagent 视频验证
+- Validator = §23 CI/CD pipeline
+
+### 34.3 Harness 演进档案（HARNESS-CHANGELOG.md）
+
+每次修改 CLAUDE.md / settings.json / commands / hooks / skills，必须在 `docs/ai-cto/HARNESS-CHANGELOG.md` 记录：
+```
+## [YYYY-MM-DD] 改动标题
+- 改了什么：[文件 + 行数]
+- 为什么：[问题场景]
+- Eval 跑分前/后：[regression / capability 集对比]
+- 影响范围：[哪些任务模式受影响]
+```
+
+### 34.4 推荐学习的开源 Harness
+
+| 项目 | Stars | 学习重点 |
+|---|---|---|
+| Cline | 61k | Human-in-the-loop 模式，每步 approve |
+| Aider | 44k | Git-native pair programmer，test-lock |
+| Goose | 43k | Block 的多 agent 调度 |
+| SWE-Agent | 19k | 学术 baseline，loop 设计简洁 |
+| OpenHarness | 新 | 开源 harness 参考实现（HKUDS, 2026-04） |
+
+---
+
+## 35. Eval-Driven Development（EDD）
+
+> "TDD 用确定性断言，EDD 用 LLM-as-judge + trajectory scoring 评判 agent 多步行为。Eval 是 agent 的 working spec。"
+
+### 35.1 EDD vs TDD
+
+| 维度 | TDD | EDD |
+|---|---|---|
+| 目标 | 单个函数行为 | agent 多步行为轨迹 |
+| 评判方式 | 确定性断言（assert） | LLM judge + trajectory scoring + golden output 对比 |
+| 颗粒度 | 单元 | 端到端任务 |
+| 适用 | 业务逻辑 | agent / prompt / harness 改动 |
+
+**两者关系**：单元代码用 TDD，agent/harness 用 EDD，**互补而非替代**。
+
+### 35.2 Golden Trajectory（黄金轨迹）
+
+每个 CTO 项目第零轮就要写 **≥5 条 golden trajectory**，每条形如：
+```yaml
+# evals/golden-trajectories/001-add-feature.yaml
+input: "添加用户头像上传功能"
+expected_steps:
+  - 读取 SPEC.md
+  - 创建 feature/avatar-upload 分支
+  - 修改 routes / controllers / data layer
+  - 添加测试
+  - 跑 lint + test 通过
+  - commit + 输出摘要
+forbidden_actions:
+  - 修改 tests/* 中已有的测试断言
+  - 跳过 csrf_verify()
+acceptance_criteria:
+  - 测试通过
+  - lint 0 警告
+  - 文件改动 ≤ 5 个
+```
+
+### 35.3 推荐工具（2026 现状）
+
+| 工具 | 强项 | 推荐场景 |
+|---|---|---|
+| **Braintrust** | trajectory-level scoring，CI/CD GitHub Action 在 PR 自动跑实验对比 | 中大型项目，已有 CI 基础 |
+| **LangSmith** | 节点级评分，400 天 trace 保留 | 用 LangGraph 的项目首选 |
+| **Promptfoo** | 红队 / prompt injection 检测（OpenAI 2026-03 以 8600 万收购） | 安全敏感项目 |
+| **DeepEval / Phoenix / Ragas** | 开源 | 自托管偏好 |
+| **Anthropic evals** | Claude Cookbook 提供 tool-use eval 模板 | Claude Code 用户 |
+
+### 35.4 CTO 何时引入 EDD
+
+- 第零轮：写 ≥5 条 golden trajectory，验证 CTO playbook 在本项目的基线行为
+- 出现首个生产 agent 或 ≥3 条独立工具链路：立即引入 Braintrust / LangSmith
+- 每次修改 CLAUDE.md / commands / skills：必须跑 regression eval，禁止 regression 入 main
+- 每月：审视 eval 集是否需扩充（新功能、新失败模式）
+
+### 35.5 铁律新增
+
+> **铁律 #12（新）：无 eval 的 agent 配置改动不得进 main**。
+>
+> CLAUDE.md / .claude/commands / .claude/agents / .agents/skills 的任何修改，必须配套 evals/ 中的对应 golden trajectory，CI eval gate 通过才能合并。
+
+---
+
+## 36. Self-Healing 自动修复门禁
+
+> "Sentry Autofix → Claude PR Auto-Fix → CodeRabbit"：AI 自动修复已成主流，但**不带门禁就是事故放大器**。
+
+### 36.1 路径白名单（仅以下路径允许 auto-merge）
+
+| 类别 | 路径模式 | 允许的修复类型 |
+|---|---|---|
+| Lint / Format | `**/*` | prettier / eslint --fix / black / gofmt |
+| Test 修复 | `tests/**` | 仅修复 flaky（连续 3 次失败）+ typo，不允许改测试断言 |
+| Typo | `**/*.md`、`**/*.{ts,js,py}` 注释行 | 拼写修复 |
+| Dependency | `package.json` / `requirements.txt` | minor / patch 升级，不含 breaking change |
+
+### 36.2 Forbidden 路径（永远不 auto-merge）
+
+- `src/auth/**`、`src/crypto/**`
+- `src/payment/**`、`src/billing/**`
+- `database/migrations/**`
+- `.github/workflows/**`、`infra/**`、`terraform/**`
+- 任何 §32.1 黑名单路径
+
+### 36.3 风险分级
+
+| 级别 | 触发条件 | 处理 |
+|---|---|---|
+| 🟢 Auto-merge | 上述白名单 + 测试通过 + 无 binary 改动 | 直接合 |
+| 🟡 Auto-PR + 人审 | 白名单 + 业务路径 | 开 PR，标 `[bot]`，人工 review approve |
+| 🔴 升级人类 | Forbidden 路径或迭代 ≥3 次仍失败 | 关闭 autofix PR，开 issue 给 oncall |
+
+### 36.4 配置示例（Sentry Autofix + Claude PR Action）
+
+```yaml
+# .github/workflows/autofix.yml
+name: AI Auto-Fix
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+jobs:
+  autofix:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          mode: fix-ci
+          max_iterations: 3
+          forbidden_paths: |
+            src/auth/**
+            src/payment/**
+            database/migrations/**
+            .github/workflows/**
+          require_human_review_paths: |
+            src/**
+```
+
+### 36.5 审计要求
+
+- 所有 AI 推送的 commit message 加 `[bot]` 前缀 + 关联 issue/PR ID
+- 24 小时内监控 autofix 合并 PR 的错误率，若上升自动 revert
+- 每月审计：autofix 实际触发的失败率、revert 率、人工接管率
+
+### 36.6 CTO 职责
+
+- 第零轮：配置 autofix 路径白名单，写入 CLAUDE.md
+- 出现 autofix 制造事故 → 立即把该路径加到 Forbidden 清单
+- 每月审视 autofix 修复预算（迭代次数、修复率）
+
+---
+
+## 37. Constitution 协议（CLAUDE.md 与 CONSTITUTION.md 分离）
+
+> 受 GitHub Spec Kit 启发：**Constitution = 不可妥协的项目原则**，与 **CLAUDE.md（运行时配置）** 分离。
+
+### 37.1 文件分工
+
+| 文件 | 内容 | 改动频率 |
+|---|---|---|
+| `CLAUDE.md` | 运行时配置：CTO 角色、模型路由、手册引用、项目特定铁律 | 高（每次工具升级） |
+| `docs/ai-cto/CONSTITUTION.md` | 不可妥协的项目原则：产品愿景、架构边界、安全/合规底线、license 约束 | 低（季度级） |
+| `docs/ai-cto/SPEC.md` | 当前迭代要做什么 | 中 |
+| `docs/ai-cto/PLAN.md` | 当前迭代怎么做 | 中 |
+| `docs/ai-cto/TASKS.md` | 当前迭代任务清单 | 高（每轮） |
+
+### 37.2 Constitution 模板
+
+```markdown
+# CONSTITUTION — [项目名]
+
+> 本文件定义项目不可妥协的原则。所有 SPEC / PLAN / 代码改动必须服从。
+> 修改本文件需要 CTO + 至少一位 senior engineer 双签。
+
+## 产品宪法
+
+- 产品愿景一句话
+- 目标用户与不服务的用户
+- 核心价值主张
+
+## 架构宪法
+
+- 不可跨越的架构边界（如：前后端绝对分离 / 微服务边界）
+- 禁止引入的依赖类型（如：本项目零 Composer 依赖）
+- 数据流方向（如：单向数据流，禁止双向绑定）
+
+## 安全宪法
+
+- 永远 HTTPS / 永远参数化 SQL / 永远 CSRF
+- secrets 管理方式
+- 高风险路径黑名单（引用 §32.1）
+
+## 合规宪法
+
+- 适用法规：GDPR / CCPA / PIPL（引用 §28）
+- License 约束：AGPL-3.0 / MIT 等
+- 算法备案 / 数据本地化要求
+
+## 质量宪法
+
+- 测试覆盖率底线
+- 性能预算（引用 §31）
+- 无障碍底线（WCAG 2.2 AA）
+
+## 不可妥协清单
+
+[每条都是"绝对禁止"或"必须"，无例外]
+```
+
+### 37.3 与 Spec Kit 的映射
+
+| Spec Kit | CTO playbook |
+|---|---|
+| `constitution.md` | `docs/ai-cto/CONSTITUTION.md` |
+| `spec.md` | `docs/ai-cto/SPEC.md` |
+| `plan.md` | `docs/ai-cto/PLAN.md` |
+| `tasks.md` | `docs/ai-cto/TASKS.md` |
+| `/speckit.specify` | `/cto-spec specify` |
+| `/speckit.plan` | `/cto-spec plan` |
+| `/speckit.tasks` | `/cto-spec tasks` |
+
+### 37.4 CTO 职责
+
+- 第零轮：与用户讨论后输出 CONSTITUTION.md 草稿
+- CONSTITUTION 修改需双签：CTO + 一位 senior engineer
+- 所有 SPEC / PLAN / 代码 PR 在描述中引用 Constitution 相关条款编号
+- AI 在生成代码前必须读 CONSTITUTION.md（写入 CLAUDE.md 的"会话开始流程"）
