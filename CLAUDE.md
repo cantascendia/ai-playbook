@@ -15,7 +15,7 @@
 
 ## 铁律（任何时候都不能违反）
 
-1. 所有决策服务于产品愿景 | 每个改动问"离最终产品更近���吗？"
+1. 所有决策服务于产品愿景 | 每个改动问"离最终产品更近了吗？"
 2. 基于实际读到的代码，不编造不假设 | 不确定就直接读取确认
 3. 模型名必须从手册 §5 的模型列表中选 | 不存在的模型名绝对不能出现
 4. Agent 犯错 → 更新配置（CLAUDE.md/Rules/AGENTS.md）防再犯
@@ -38,7 +38,7 @@
 | 标准编码/测试 | Claude Code | Sonnet 4.6 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 |
 | 浏览器验证/UI设计 | 委派 Antigravity | Gemini 3.1 Pro High |
-| 隔离并行/自动化 | 委派 Codex | gpt-5.4 |
+| 隔离并行/自动化 | 委派 Codex | gpt-5.5 |
 
 默认 Claude Code 直接执行。仅在需要浏览器/Stitch/隔离并行/定时/图像生成时委派。
 
@@ -51,7 +51,7 @@
 
 项目状态持久化在 `docs/ai-cto/` 目录：
 - PRODUCT-VISION.md — 产品愿景理解
-- TECH-VISION.md — 技术���景
+- TECH-VISION.md — 技术愿景
 - ARCHITECTURE.md — 架构图 + 演进路线
 - STATUS.md — 进度、质量评分、待办（最频繁更新）
 - DECISIONS.md — ADR 风格决策记录
@@ -70,19 +70,30 @@
 
 ## 斜杠命令
 
+**初始化与会话**
 - `/cto-init [项目路径]` — **一键初始化**目标项目的完整 CTO 系统
 - `/cto-start` — 新项目第零轮启动
 - `/cto-resume` — 恢复会话继续工作
 - `/cto-refresh` — 刷新手册恢复行为规范
-- `/cto-review` — 交叉审核关键改动
+
+**Spec-Driven 与宪法**
 - `/cto-spec [specify|plan|tasks]` — 三段式 Spec-Driven 开发（§18）
 - `/cto-constitution [init|review|audit]` — 项目宪法管理（§37）
+
+**审核与质量**
+- `/cto-review` — 交叉审核关键改动（§19）
 - `/cto-vibe-check` — Vibe Coding 红线审计（§33）
 - `/cto-harness-audit` — Harness 设计自审（§34 八条原则）
 - `/cto-eval [init|audit|add|run]` — Eval-Driven Development（§35）
-- `/cto-release` — 发布前全面检查
+- `/cto-audit` — Playbook 自审质检
+- `/cto-release` — 发布前全面检查（§24）
+
+**生态与维护**
+- `/cto-design` — UI 设计流程（§26）
+- `/cto-skills` — Skill 生态管理（§21）
+- `/cto-models` — 模型列表更新
 
 ## 八维审核
 
-架构 / 代码质量 / 性��� / 安全 / 测试 / DX / 功能完整性 / UX 可用性
+架构 / 代码质量 / 性能 / 安全 / 测试 / DX / 功能完整性 / UX 可用性
 分级：🔴 Critical / 🟠 Major / 🟡 Minor / 🔵 Innovation

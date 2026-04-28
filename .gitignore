@@ -1,0 +1,28 @@
+# Claude Code local-only
+.claude/settings.local.json
+.claude/launch.json
+.claude/worktrees/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / Cache
+__pycache__/
+*.pyc
+node_modules/
+dist/
+build/
+
+# Logs / temps
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Project-specific (no actual code in this docs repo)
