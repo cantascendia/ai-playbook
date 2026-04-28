@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§28）
+# CTO-PLAYBOOK — 完整操作手册（§1-§32）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
 
@@ -27,12 +27,15 @@
 | Claude Sonnet 4.6 | 旗舰编码，均衡性能 | 标准编码、测试、日常任务 |
 | Claude Haiku 4.5 | 最快响应，轻量高效 | 快速查询、配置生成、轻量任务 |
 
+> 模型 ID 完整列表与最新别名：`https://platform.claude.com/docs/en/about-claude/models/overview`
+> 切换：会话内 `/model`，启动时 `--model <id>`。
+
 ### 1.3 辅助委派平台
 
 当 Claude Code 本地执行不够时，可委派给以下平台：
 
-**Antigravity**（Google Agent-First IDE）— 浏览器验证、Stitch UI 设计、AI 图像生成
-**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation、最强外部推理
+**Antigravity**（Google Agent-First IDE）— 浏览器视频验证、Stitch 2.0 UI 设计、Manager Surface 多代理编排、AI 图像生成（旗舰：Gemini 3.1 Pro High）
+**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation 跨会话长任务、Plugins 生态、Computer Use（旗舰：gpt-5.5）
 
 详细规范见 §5。
 
@@ -175,70 +178,209 @@ Claude Code 是 CTO 的主执行环境，所有任务默认在此执行。
 
 **① CLAUDE.md — 系统提示词**
 - 项目根目录：`CLAUDE.md`（每次会话自动加载）
-- 父目录：向上查找直到 `~`
+- 父目录：向上查找直到 `~`，逐级合并（近的优先）
+- 用户级：`~/.claude/CLAUDE.md`（跨所有项目）
 - 职责：CTO 角色定义、铁律、核心循环、模型路由、手册引用
 
-**② .claude/settings.json — 项目配置**
-- 路径：`.claude/settings.json`
-- 职责：权限策略、允许的工具、环境配置
+**② Settings 三层架构 — 权限与配置**
+
+| 层级 | 路径 | 用途 | 是否纳入 Git |
+|---|---|---|---|
+| User | `~/.claude/settings.json` | 跨项目通用偏好（模型、theme、env） | ❌ 不入 |
+| Project | `.claude/settings.json` | 项目共享配置（团队约定的权限、MCP 服务器） | ✅ 入 |
+| Local | `.claude/settings.local.json` | 个人本地覆盖（敏感 env、个人偏好） | ❌ gitignore |
+
+**优先级**：Local > Project > User。三层逐级合并，同名键近的覆盖远的。
+
+**关键配置项**：
+- `permissions.allow` / `permissions.deny` / `permissions.defaultMode`
+- `permissions.additionalDirectories`（允许访问项目外的目录）
+- `mcpServers`（MCP 服务器声明）
+- `hooks`（事件钩子）
+- `env`（注入环境变量）
+- `model`（默认模型 ID）
+- `outputStyle`、`statusLine`
+
+**Permission 模式**（Shift+Tab 切换）：
+- `Default` — 每次询问
+- `auto-accept-edits` — 编辑自动通过，命令仍询问
+- `plan` — 计划模式，不实际修改
+- `bypassPermissions` — 全部放行（仅可信环境）
 
 **③ .claude/commands/ — 斜杠命令**
 - 路径：`.claude/commands/<name>.md`
 - 调用：`/cto-init`、`/cto-start`、`/cto-resume` 等
-- 职责：封装常用 CTO 操作流程
+- 支持 frontmatter 字段：
+  ```yaml
+  ---
+  description: 命令简介
+  argument-hint: "[文件路径]"
+  allowed-tools: ["Read", "Edit", "Bash"]
+  model: opus
+  ---
+  ```
+- 命令体内可用 `$ARGUMENTS` / `$0` / `$1` 占位符
+- 命令体内可用 `!` 前缀执行 shell 注入动态上下文（如 `!git status`）
 
-**④ Sub-agents — 并行任务委派**
-- 启动子代理处理独立任务（编码、搜索、审核等）
-- 可选模型：Opus / Sonnet / Haiku
-- 支持 worktree 隔离执行
+**④ Sub-agents — 专用子代理**
 
-**⑤ MCP 服务器 — 外部工具集成**
-- 浏览器自动化（Claude in Chrome）
-- UI 设计（Stitch）
-- 自定义集成
+定义位置：`.claude/agents/<name>.md`，frontmatter 字段：
+```yaml
+---
+description: 这个代理擅长什么
+tools: ["Read", "Glob", "Grep", "Bash"]
+model: sonnet  # 或 opus / haiku
+---
+你是一个专业的 [角色]，专注于 [领域]...
+```
 
-**⑥ Hooks — 自动化触发**
-- Pre/Post commit hooks
-- 自定义事件触发
+**内置代理类型**：
+- `general-purpose` — 通用研究、多步任务
+- `Explore` — 快速代码库探索（quick / medium / very thorough）
+- `Plan` — 软件架构规划，输出实施步骤
+- `claude-code-guide` — Claude Code 自身能力问答
 
-**⑦ .agents/skills/ — 跨平台 Skills（与 AG/Codex 共用）**
-- 路径：`.agents/skills/<folder>/SKILL.md`
-- Claude Code 直接读取 SKILL.md 执行
-- 同一份 Skill 在三个平台通用
+**调用方式**：通过 `Agent` 工具，并行委派多个独立任务。每个 Agent 一次返回结果，无记忆；要继续上一个 Agent 用 SendMessage。
+
+**Worktree 隔离**：`isolation: "worktree"` 创建临时 git worktree，Agent 在隔离副本中工作，不污染主分支。
+
+**⑤ MCP — Model Context Protocol 服务器**
+
+配置位置：`.claude/settings.json` 的 `mcpServers` 字段：
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    },
+    "stitch": {
+      "command": "npx",
+      "args": ["-y", "@google/stitch-sdk", "mcp"],
+      "env": {"STITCH_API_KEY": "..."}
+    }
+  }
+}
+```
+
+**Tool Search 机制**：MCP 工具默认延迟加载（lazy load）。用 `ToolSearch` 工具按关键词搜索后才把工具 schema 加载到上下文，节省 token。
+
+**常用 MCP 服务器**：
+- `claude-in-chrome` — 浏览器自动化（点击、读取 DOM、截图）
+- `Claude_Preview` — 启动本地 dev server 并预览
+- `computer-use` — 桌面控制（screenshot / click / type）
+- `filesystem` — 受限制目录的文件访问
+- `git` — Git 仓库元数据
+- 项目自定义：`@modelcontextprotocol/registry` 搜索官方注册表
+
+**⑥ Hooks — 事件钩子（自动化触发）**
+
+配置位置：`.claude/settings.json` 的 `hooks` 字段。
+
+**支持事件**：
+| 事件 | 触发时机 |
+|---|---|
+| `SessionStart` | 会话启动时 |
+| `UserPromptSubmit` | 用户提交 prompt 时（可注入额外 context） |
+| `PreToolUse` | 工具调用前（可拦截） |
+| `PostToolUse` | 工具调用后 |
+| `PermissionRequest` | 权限请求时 |
+| `Notification` | 通知触发时 |
+| `Stop` | 主代理停止时 |
+| `SubagentStop` | 子代理停止时 |
+
+**Handler 类型**：`command`（执行 shell）/ `prompt`（注入提示词）/ `mcp_tool`（调 MCP 工具）/ `agent`（启动子代理）/ `http`（POST webhook）
+
+**实战示例**：PostToolUse 在每次 Edit 后自动 lint：
+```json
+"hooks": {
+  "PostToolUse": [{
+    "matcher": "Edit|Write",
+    "hooks": [{"type": "command", "command": "pnpm lint --fix"}]
+  }]
+}
+```
+
+**⑦ Skills — 可复用流程封装**
+
+跨平台路径：`.agents/skills/<folder>/SKILL.md`（Claude Code / Antigravity / Codex 三平台共读）
+
+**SKILL.md frontmatter**：
+```yaml
+---
+name: ux-quality-checklist
+description: UI 提交前 UX 五态质量检查
+when_to_use: 修改 UI 组件后、PR 提交前
+allowed-tools: ["Read", "Glob", "mcp__Claude_Preview__*"]
+argument-hint: "[页面路径]"
+user-invocable: true
+---
+```
+
+**目录结构**：可包含 `scripts/`、`references/`、`assets/` 子目录（渐进披露，需要时加载）。
+
+**触发方式**：自动（基于 description 匹配）/ 手动 `/skill-name` / 通过 Skill 工具调用。
+
+**Skill 评测**：用 `anthropic-skills:skill-creator` 创建 + 跑 evals 检验触发准确率。
+
+**⑧ Plugin Marketplace — 插件生态**
+
+通过 `/plugin` 命令管理。Plugin = Skills + MCP servers + slash commands + agents 的打包：
+- `/plugin install <plugin-id>` — 安装插件
+- `/plugin list` — 查看已安装
+- 官方 Marketplace：anthropic-skills、obra/superpowers、design 系列等
+
+**⑨ Output Styles & Status Lines — 个性化**
+- `outputStyle`：`default` / `explanatory`（解释决策）/ `learning`（教学模式）/ 自定义
+- `statusLine`：自定义状态栏脚本，显示 git 分支、token 用量、当前模型等
+
+**⑩ 模型查询与切换**
+- `/model` — 交互式切换当前会话模型
+- `--model <id>` — 启动时指定
+- 模型 ID 完整列表：`https://platform.claude.com/docs/en/about-claude/models/overview`
 
 ### 5.1 辅助平台 A：Google Antigravity（Agent-First AI IDE）
 
-**委派场景**：浏览器验证 UI、Stitch UI 设计、AI 图像生成、需视觉确认的任务
+**委派场景**：浏览器验证 UI、Stitch UI 设计、AI 图像生成、多代理编排、视频验证
 
-**可选推理模型：**
+**可选推理模型（截至 2026-04）：**
 
-| 模型 | 特点 |
-|---|---|
-| Gemini 3.1 Pro (High) | Google 旗舰，复杂全栈/前端 |
-| Gemini 3.1 Pro (Low) | 省配额 |
-| Gemini 3 Flash | 最快 |
-| Claude Sonnet 4.6 (Thinking) | 深度推理 |
-| Claude Opus 4.6 (Thinking) | 最强推理 |
-| GPT-OSS-120b | 通用 |
+| 模型 | 特点 | 备注 |
+|---|---|---|
+| Gemini 3.1 Pro (High) | Google 旗舰，复杂全栈/前端 | 2026-02 加入 |
+| Gemini 3.1 Pro (Low) | 省配额变体 | |
+| Gemini 3 Flash | 最快响应 | 2025-12 加入 |
+| Claude Sonnet 4.6 (Thinking) | 深度推理 | |
+| Claude Opus 4.6 (Thinking) | 最强推理 | |
+| GPT-OSS-120b | 开源通用 | |
+| Gemini 2.5 Computer Use | 浏览器子代理专用 | 不可主推理用 |
+| Nano Banana Pro / Gemini 2.5 Image | 图像生成/编辑 | 不可主推理用 |
 
 **Agent 模式：** Planning（先规划后执行）/ Fast（直接执行）
 **审核策略：** Artifact Review + Terminal Command（Request Review / Always Proceed）
 
 **原生配置能力：**
 
-**① GEMINI.md — 全局规则**
-- 路径：`~/.gemini/GEMINI.md`
-- 跨所有工作区生效，12,000 字符上限
-- 职责：通用代码质量标准、编码风格、安全准则（不含项目特定内容）
+**① 配置文件优先级（2026 跨工具标准）**
+
+```
+GEMINI.md  >  AGENTS.md  >  .agent/rules/*.md
+```
+
+- **GEMINI.md** — Antigravity 专属（路径：`~/.gemini/GEMINI.md` 全局，工作区根目录也可放），12,000 字符上限
+- **AGENTS.md** — 跨工具事实标准（Codex / Cursor / Aider / Antigravity 共读）
+- **.agent/rules/** — 工作区项目规则（注意官方目录名：`.agent/rules/`，与 Codex/Claude 用的 `.agents/skills/` 一字之差）
+
+> ⚠️ 已知冲突：Antigravity Global Rules 与 Gemini CLI 共享 `~/.gemini/GEMINI.md`（GitHub gemini-cli issue #16058），建议用工作区根的 `GEMINI.md` 隔离。
 
 **② Workspace Rules — 工作区规则**
-- 路径：`.agents/rules/*.md`
+- 路径：`.agent/rules/*.md`
 - 激活模式：Always On / Manual（@提及）/ Model Decision / Glob（如 `*.ts`）
 - 12,000 字符/文件，可创建多个
 - 职责：项目特定技术规范、框架约定、目录规则
 
 **③ Skills — 技能**
-- 工作区：`.agents/skills/<folder>/SKILL.md`
+- 工作区：`.agents/skills/<folder>/SKILL.md`（与 Claude Code / Codex 共用）
 - 全局：`~/.gemini/antigravity/skills/<folder>/SKILL.md`
 - YAML frontmatter（name + description），Agent 自动发现或手动调用
 - 可含 scripts/ + references/ + assets/
@@ -246,54 +388,99 @@ Claude Code 是 CTO 的主执行环境，所有任务默认在此执行。
 
 **④ Workflows — 工作流**
 - `/workflow-name` 调用，可嵌套，12,000 字符/文件
-- 职责：编排多步骤重复流程
 - 创建时机：同类操作手动执行超过 2 次
-- 也可指示 Agent 根据对话历史自动生成 Workflow
 
-**⑤ Knowledge Items — 持久记忆**
-- Antigravity 自动从对话中提取关键信息，跨会话持久保存
-- 含自动生成的文档、代码示例、用户指令记忆
+**⑤ Manager Surface — 多代理编排（2026 新）**
+
+可同时 spawn / observe / archive / restart 多个 Agent，跨 workspace 异步并行。
+- **AgentKit 2.0**（2026-03）：内置 16 个专家 sub-agent（前端 / 后端 / 测试 / DevOps / 安全 / 文档 等）
+- 适合：大型 PR 拆分、多模块并行重构、跨服务集成验证
+- CTO 委派模式：Manager Surface 启动 N 个 sub-agent，每个负责一个模块，最后合并 Artifact
+
+**⑥ Browser Subagent — 浏览器验证（2026 新）**
+
+原生 Chrome 集成，能力：
+- 点击、输入、读 console、读 network、截图
+- **录制视频**：Agent 视频成为默认验证 Artifact
+- 五态测试自动化（空 / 加载 / 成功 / 错误 / 部分）
+
+> 验证流程：CTO 委派任务 → Browser Subagent 执行 → 自动录视频 → 视频附在 Artifact → CTO 在 Claude Code 中观看回放确认。
+
+**⑦ Knowledge Items — 持久记忆**
+- 自动从对话中提取关键信息，跨会话持久保存
 - Agent 自动检索相关 Knowledge Item 辅助回答
-- 你可以在指令中让 Agent 主动将重要发现保存到 Knowledge
+- CTO 可在指令中让 Agent 主动保存重要发现到 Knowledge
 
-**⑥ Artifacts — 产出物**
-- Agent 在 Planning 模式下创建 Artifact（架构图、代码 diff、markdown 文档、浏览器录制等）
-- 可在 Artifact 上留反馈
+**⑧ Artifacts — 产出物 + 选区评论**
+- Agent 在 Planning 模式下创建 Artifact（架构图、代码 diff、markdown、浏览器视频等）
+- **Google Docs 式选区评论**（2026 新）：在 Artifact 任意位置高亮文字 → 留评论 → Agent 增量响应不重启任务
 
-**⑦ @ Mentions** — Rules 中可 `@filename` 引用文件
+**⑨ MCP 服务器配置**
 
-**⑧ Google Stitch 集成 — AI UI 设计画布**
+在 Antigravity 设置中配置 `mcpServers`（JSON 格式）：
+```json
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "node",
+      "args": ["C:/absolute/path/to/stitch-mcp/server.js"],
+      "env": {"STITCH_API_KEY": "..."}
+    }
+  }
+}
+```
+
+> ⚠️ **不支持 `${workspaceFolder}` 等变量，必须绝对路径**。
+>
+> v1.20.5 引入 **Trusted Workspaces**：写权限 MCP（如 `write_file`）仅在被标记为可信的工作区启用。
+
+**⑩ Google Stitch 2.0 集成 — AI UI 设计画布（2026-03 升级）**
+
 - 官网：`https://stitch.withgoogle.com/`
-- 定位：AI 原生 UI 设计画布，自然语言/图片 → 高保真 UI 设计 + 前端代码（HTML + Tailwind CSS）
-- 连接方式：Antigravity → 设置 → MCP Servers → 搜索 "stitch" 安装 → 填入 Stitch API Key（在 Stitch 设置中生成）
-- SDK：`@google/stitch-sdk`（npm，Apache 2.0），支持编程式生成/编辑/变体，集成 Vercel AI SDK
-- MCP 服务器：SDK 内含 `StitchProxy`，可自建 MCP 端点
-- 开源 Skills：`google-labs-code/stitch-skills`（GitHub，2.4k+ stars），安装示例：
-  `npx skills add google-labs-code/stitch-skills --skill <skill-name> --global`
-- 关键 Skills：
-  - `stitch-design` — 统一入口：prompt 增强 + 设计系统合成 + 屏幕生成/编辑
-  - `stitch-loop` — 单 prompt 生成完整多页网站
-  - `design-md` — 分析项目生成 DESIGN.md 设计系统文件
-  - `enhance-prompt` — 将模糊想法转为 Stitch 优化 prompt
-  - `react-components` — Stitch 屏幕 → React 组件系统（含设计 token 一致性校验）
-  - `shadcn-ui` — shadcn/ui 组件集成指导
-  - `remotion` — 从 Stitch 项目生成演示 walkthrough 视频
-- DESIGN.md：Agent 友好型 Markdown 设计系统文件，定义品牌色、排版、组件规则，可跨项目导入导出
-- 导出格式：HTML + Tailwind CSS（zip 含代码+图片）、Figma（通过插件）、截图
-- 免费使用（Google Labs 实验阶段），月度上限约 350 次生成（Standard Mode）/ 200 次（Experimental Mode）
-- Design-First 工作流：Stitch 设计 → 迭代精修 → 导出 DESIGN.md → Antigravity 通过 MCP 拉取设计 → Agent 自动实现为项目代码
+- 定位：AI 原生 UI 设计画布
+- **2.0 升级要点**：
+  - **AI 原生 infinite canvas**（无限画布）
+  - **一次生成 5 屏**（流程图式批量产出）
+  - **Vibe Design** 模式（关键词氛围 → 视觉风格自动统一）
+  - **语音指令**支持
+- 连接方式：Antigravity → 设置 → MCP Servers → 搜索 "stitch" 安装 → 填入 API Key
+- SDK：`@google/stitch-sdk`（npm，Apache 2.0），集成 Vercel AI SDK
+
+**月度限额（2026-04）**：
+- 总计 **550/月**：350 Standard Mode（Gemini 3.0/2.5 Flash）+ 200 Experimental Mode（Gemini 3.0/2.5 Pro）
+- **每日限额（新增）**：400 设计 credits + 15 redesign credits/天
+
+**开源 Skills**：`google-labs-code/stitch-skills`（GitHub，~5k stars），安装：
+```bash
+npx add-skill google-labs-code/stitch-skills --skill <skill-name> --global
+```
+
+**关键 Skills**：
+- `stitch-design` — 统一入口（prompt 增强 + 设计系统合成 + 屏幕生成/编辑）
+- `stitch-loop` — 单 prompt 生成多页网站
+- `design-md` — 分析项目生成 DESIGN.md
+- `enhance-prompt` — 模糊想法 → Stitch 优化 prompt
+- `react-components` — Stitch 屏幕 → React 组件（设计 token 一致性校验）
+- `shadcn-ui` — shadcn/ui 组件集成
+- `remotion` — Stitch 项目 → 演示视频
+
+**DESIGN.md**：Agent 友好型设计系统文件，定义品牌色、排版、组件规则，跨项目导入导出。
+**导出格式**：HTML + Tailwind CSS（zip）/ Figma（插件）/ 截图。
+**Design-First 工作流**：Stitch 设计 → 迭代 → 导出 DESIGN.md → Antigravity MCP 拉取 → Agent 自动实现。
 
 ### 5.2 辅助平台 B：OpenAI Codex App（桌面 App）
 
-**委派场景**：隔离并行 Worktree、定时 Automation、需要最强外部推理
+**委派场景**：隔离并行 Worktree、定时 Automation、跨会话长任务、最强外部推理
 
-**可选模型：**
+**可选模型（截至 2026-04）：**
 
-| 模型 | 特点 |
-|---|---|
-| gpt-5.4 | 旗舰推荐 |
-| gpt-5.4-mini | 轻量快速，省配额 |
-| gpt-5.3-codex | 编码专精（gpt-5.4 的编码底座） |
+| 模型 | 特点 | 备注 |
+|---|---|---|
+| **gpt-5.5** | **当前旗舰，推荐默认** | 2026 新发布 |
+| gpt-5.4 | 次旗舰 / 通用 | 仍可用 |
+| gpt-5.4-mini | 轻量快速，省配额 | |
+| gpt-5.3-codex | 编码专精（gpt-5.4 的编码底座） | |
+| gpt-5.3-codex-spark | Pro 用户研究预览，近实时迭代 | 实验性 |
 
 **推理强度：** low / medium / high / xhigh
 **线程模式：** Local / Worktree / Cloud
@@ -301,33 +488,85 @@ Claude Code 是 CTO 的主执行环境，所有任务默认在此执行。
 
 **原生配置能力：**
 
-**① AGENTS.md — 项目指令**
+**① AGENTS.md — 项目指令（跨工具事实标准）**
+
+AGENTS.md 已成为 **跨平台事实标准**，被 Codex / Cursor / Copilot / Aider / Antigravity 共读。
+
 - 全局：`~/.codex/AGENTS.md`（个人偏好）
 - 项目：仓库根 `AGENTS.md`（项目规则、构建/测试命令、审核标准）
-- 子目录：`AGENTS.override.md`（覆盖上级）
-- 逐级合并，近的优先，上限 32 KiB
-- Agent 犯重复错误 → 更新 AGENTS.md 防再犯
+- 子目录：`AGENTS.override.md`（替换同级 AGENTS.md，**不是叠加**）
+- 上限 **32 KiB**（`project_doc_max_bytes` 可调，建议改为 64 KiB）
+
+> ⚠️ **重要修正**：AGENTS.md **不是逐级合并**，而是 **逐级覆盖**。子目录 `AGENTS.md` 完全替代父级，不继承内容。`AGENTS.override.md` 同理：替换同级 `AGENTS.md`，不是"在上级基础上覆盖"。
+>
+> ⚠️ **静默截断风险**：超 32 KiB 不报错，**直接截断**。CTO 应定期 `wc -c AGENTS.md` 监控（参见 GitHub openai/codex issue #7138）。
+>
+> Agent 犯重复错误 → 更新 AGENTS.md 防再犯。
 
 **② Skills — 技能**
-- 路径：`.agents/skills/<folder>/SKILL.md`
+- 路径：`.agents/skills/<folder>/SKILL.md`（与 Claude Code / Antigravity 共用）
 - 全局：`$HOME/.agents/skills/`
-- 可含 scripts/ + references/ + assets/ + agents/openai.yaml
+- 可含 `scripts/` + `references/` + `assets/` + `agents/openai.yaml`（Codex 专属配置）
 - `$skill-name` 调用或 AI 隐式调用
 - `$skill-creator` 创建新 Skill
 
 **③ config.toml — 全局配置**
-- 关键项：model、model_reasoning_effort、plan_mode_reasoning_effort、approval_policy、sandbox_mode、personality、web_search
+路径：`~/.codex/config.toml`
+关键项：
+- `model` — 默认模型（推荐 `gpt-5.5`）
+- `model_reasoning_effort` — low / medium / high / xhigh
+- `plan_mode_reasoning_effort` — 计划模式的推理强度
+- `approval_policy` — auto / on-request
+- `sandbox_mode` — read-only / workspace-write / unrestricted
+- `personality` — friendly / pragmatic / none
+- `web_search` — 是否允许网页搜索
 
-**④ Automations — 定时自动化**
+**④ MCP 集成（2026 新）**
+
+Codex CLI + IDE 扩展原生支持 MCP servers，是当前接外部工具的主路径。
+
+```toml
+# ~/.codex/config.toml
+[[mcp_servers]]
+name = "filesystem"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
+```
+
+**与 Skills 互补**：Skills 定义流程，MCP 提供工具。复杂工作流通常 Skills 包装多个 MCP 调用。
+
+**⑤ Plugins 生态（2026-04 新）**
+
+桌面 App 大更新引入 **Plugins**：90+ 官方插件 = Skills + App 集成 + MCP servers 的打包。
+
+**优先级**：使用官方 Plugin > 自建 Skill。
+**典型 Plugin**：
+- Slack / Gmail / Notion / Linear / Jira 集成
+- Figma 设计读取
+- Stripe / GitHub Actions 自动化
+- 浏览器自动化、PDF 处理
+
+**⑥ Computer Use & 内置浏览器（2026 新）**
+
+桌面 App 已具备：
+- **Computer Use**：屏幕截图 + 鼠标 / 键盘控制（类似 Anthropic Computer Use）
+- **In-app Browser**：内嵌浏览器，简单网页验证可不再委派 Antigravity
+
+**何时仍委派 Antigravity**：复杂 UI 设计（Stitch）、专业浏览器视频录制、Manager Surface 多代理编排。
+**简单网页验证**：直接在 Codex 用 in-app browser 即可。
+
+**⑦ Automations — 跨会话长任务（2026 升级）**
+
 - 组合 Skills + 定时调度 + 专用 Worktree
-- 适合：Bug 扫描、CI 报告、代码变更摘要
+- **Thread 持久化**：可复用已有 thread，跨天 / 跨周长任务（多日 PR 跟进、Slack/Gmail/Notion 异步处理）
+- 适合：Bug 扫描、CI 报告、代码变更摘要、依赖升级跟进
 - 规则：先手动跑通 Skill，稳定后再变 Automation
 
-**⑤ /plan 模式 + /review 命令**
+**⑧ /plan 模式 + /review 命令**
 - `/plan` 或 Shift+Tab 让 Agent 先规划再执行
 - `/review` 可对比分支、检查未提交变更、审查 commit
 
-**三平台 Skills 兼容：** `.agents/skills/` 三个平台都读取。Codex 特有的 `agents/openai.yaml` Antigravity 和 Claude Code 会忽略，不冲突。
+**三平台 Skills 兼容**：`.agents/skills/` 三平台都读取。Codex 特有的 `agents/openai.yaml` Antigravity 和 Claude Code 会忽略，不冲突。
 
 ---
 
@@ -337,13 +576,19 @@ Claude Code 是 CTO 的主执行环境，所有任务默认在此执行。
 |---|---|---|---|
 | CTO 系统提示 | CLAUDE.md | — | — |
 | 通用代码质量 | CLAUDE.md | GEMINI.md | ~/.codex/AGENTS.md |
-| 项目特定规则 | CLAUDE.md | .agents/rules/*.md | 仓库根 AGENTS.md |
-| 项目配置 | .claude/settings.json | — | config.toml |
-| 快捷流程 | .claude/commands/ | — | — |
+| 项目特定规则 | CLAUDE.md（+ AGENTS.md 跨工具镜像） | .agent/rules/*.md（+ AGENTS.md） | 仓库根 AGENTS.md |
+| 项目配置 | .claude/settings.json（user/project/local 三层） | Antigravity 设置 UI | ~/.codex/config.toml |
+| 权限策略 | permissions.allow/deny + modes | Trusted Workspaces | sandbox_mode + approval_policy |
+| MCP 服务器 | .claude/settings.json mcpServers | Antigravity mcpServers JSON | config.toml [[mcp_servers]] |
+| 快捷流程 | .claude/commands/ | /workflow-name | $skill-name |
 | 可复用操作 | .agents/skills/ | .agents/skills/ | .agents/skills/ |
-| 多步编排 | sub-agents | Workflows | Automations |
-| 子目录规则 | — | 子目录 rules | AGENTS.override.md |
+| 子代理 | .claude/agents/<name>.md | Manager Surface + AgentKit 2.0 | Worktree threads |
+| 自动化触发 | hooks (8 events) | — | Automations（跨会话 thread） |
+| 多步编排 | Sub-agents 并行 | Workflows + Manager Surface | Automations + Skills |
+| 浏览器/UI | claude-in-chrome MCP | Browser Subagent + Stitch 2.0 | Computer Use + in-app browser |
+| 子目录规则 | 子目录 CLAUDE.md | 子目录 rules | AGENTS.md（覆盖式）|
 | 持久记忆 | docs/ai-cto/ | Knowledge Items | AGENTS.md 迭代 |
+| 插件生态 | /plugin Marketplace | Stitch / 第三方 MCP | Plugins（90+ 官方） |
 
 **同一条规则不在多个文件中重复。共用写 Skills，平台特有的分开写。**
 
@@ -1368,18 +1613,49 @@ jobs:
 
 ### 23.3 进阶流水线（项目成熟后添加）
 
-- 集成测试 / 端到端测试
-- 代码覆盖率报告
+按四大主题组织：
+
+#### A. 依赖管理与安全
+- **Renovate** / **Dependabot**：依赖自动更新 PR
+- **CodeQL**（GitHub Advanced Security）：静态语义分析，CWE 漏洞扫描
+- **Snyk** / **OSV-Scanner** / **Trivy**：开源依赖漏洞扫描
+- **gitleaks** / **trufflehog**：密钥泄露扫描
+- **Semgrep**：自定义规则的 SAST
+
+#### B. 供应链安全（SLSA / SBOM）
+- **SBOM 生成**（Software Bill of Materials）：CycloneDX / SPDX 格式
+  - 工具：`syft`、`cdxgen`、`anchore/sbom-action`
+- **构建签名**：Sigstore / `cosign` 签名 Docker 镜像和 release artifact
+- **SLSA Level 2+**：可证伪的构建溯源
+- **Reproducible Builds**：构建产物可复现验证
+
+#### C. AI 辅助评审（PR 合并前置门禁）
+- **Claude PR Review**：Anthropic 官方 GitHub Action（`anthropics/claude-code-action`）
+- **CodeRabbit** / **Greptile**：AI Code Review SaaS，行级评论
+- **Codium / Qodo**：AI 测试生成 + PR 描述自动化
+- **CTO 策略**：AI Review 作为初筛（必过），人工 Review 作为终审（关键路径必须）
+
+#### D. GitHub Actions 工程化
+- **Reusable Workflows**：抽取共用 CI 逻辑（如 `.github/workflows/_lint.yml`），多仓库 / 多分支共用
+- **Composite Actions**：自定义可复用步骤
+- **Matrix builds**：多 OS / 多语言版本并行
+- **Concurrency 控制**：相同 PR 新 push 自动取消旧 run
+- **缓存策略**：`actions/cache` 加速 npm/pnpm/pip/composer
+
+#### E. 通用进阶项
+- 集成测试 / 端到端测试（Playwright / Cypress）
+- 代码覆盖率报告（Codecov / Coveralls）
 - 自动构建测试包上传到分发平台
-- 自动生成 CHANGELOG
+- 自动生成 CHANGELOG（`semantic-release` / `release-please`）
 - 版本号自动递增
 
 ### 23.4 CTO 职责
 
-- 第零轮：任务中包含创建 `.github/workflows/ci.yml`
+- 第零轮：任务中包含创建 `.github/workflows/ci.yml` + 至少一个安全扫描（gitleaks 必装）
 - 每轮：检查 CI 状态（通过/失败）；CI 失败则优先修复
 - Agent 犯错导致 CI 红 → 写入 Rules 防再犯
 - 每 3 轮审视：CI 流水线是否需要加新步骤
+- 关键路径（认证、支付、加密）的 PR 必须 AI Review + 人工 Review 双签
 
 ---
 
@@ -1445,17 +1721,39 @@ CTO 在发出"发布"指令前，必须逐项确认：
 
 ### 25.2 最小可用集成（第零轮或第一轮必须搭建）
 
-**崩溃监控（必选其一）：**
-- Firebase Crashlytics（免费，Flutter 原生支持）
-- Sentry（开源可自建，支持全平台）
+**OpenTelemetry First** — OTel 已成事实标准，所有新项目优先采用 OTel SDK + Collector，避免 vendor lock-in。
 
-**性能监控（建议）：**
-- Firebase Performance Monitoring
-- 自建关键指标采集：冷启动时间、页面加载时间、帧率
+**三件套：Logs / Metrics / Traces**
 
-**用户行为分析（建议）：**
-- Firebase Analytics
+| 类型 | 推荐栈 | 备选 |
+|---|---|---|
+| **Traces** | OpenTelemetry SDK → OTLP Collector → Jaeger / Tempo | Datadog APM |
+| **Metrics** | OTel SDK → Prometheus / Grafana Mimir | Datadog Metrics |
+| **Logs** | OTel SDK → Loki / Elasticsearch | Datadog Logs |
+| **崩溃监控** | Sentry（开源可自建，支持全平台 + AI 错误归因） | Firebase Crashlytics（仅 mobile） |
+
+**性能监控**：
+- Web：Web Vitals（LCP / INP / CLS）+ RUM（Real User Monitoring）
+- Mobile：冷启动时间、页面加载时间、帧率、ANR
+- Backend：p50 / p95 / p99 延迟、错误率、QPS
+
+**用户行为分析**：
+- PostHog（开源 self-hosted）/ Amplitude / Mixpanel
 - 关键埋点：核心功能使用率、用户路径、留存相关事件
+
+### 25.5 AI 应用专属可观测性
+
+LLM 应用有独特的观测维度，传统 APM 工具不够用。
+
+| 维度 | 工具 | 关键指标 |
+|---|---|---|
+| **LLM 调用链** | Langfuse / Helicone / Arize Phoenix | 每次调用的 prompt / completion / 模型 / latency |
+| **Token 成本** | Langfuse / Helicone | 按用户 / 按功能 / 按模型聚合的 token 消耗和金额 |
+| **Eval 指标** | Langfuse / Promptfoo / Anthropic evals | 输出质量评分（人工 + 自动）、回归测试 |
+| **AI 错误归因** | Sentry AI / Datadog Bits AI / Honeycomb AI | 自动定位异常 trace 的根因 |
+| **Prompt 版本** | Langfuse / PromptLayer | A/B 测试不同 prompt 版本 |
+
+**集成时机**：项目第二轮（验证 LLM 调用稳定后），先接 Langfuse 观察基线，再决定是否需要更重的工具。
 
 ### 25.3 关键埋点清单
 
@@ -1519,7 +1817,9 @@ AI Agent 没有审美一致性。没有统一的设计系统，Agent 每次写 U
 
 ## 27. 无障碍（Accessibility）
 
-### 27.1 最低要求
+> **标准基线：WCAG 2.2 AA**（W3C 2023 推荐标准，向下兼容 2.1）。欧盟 EAA（European Accessibility Act）于 2025-06 强制生效，影响所有面向欧盟用户的电子产品和服务。
+
+### 27.1 最低要求（WCAG 2.2 AA）
 
 **语义标签：**
 - 所有图片有 `semanticLabel`（Flutter）/ `alt`（Web）/ `contentDescription`（Android）
@@ -1527,28 +1827,39 @@ AI Agent 没有审美一致性。没有统一的设计系统，Agent 每次写 U
 - 所有可交互元素有语义描述
 
 **对比度：**
-- 正文文字与背景色对比度 ≥ 4.5:1（WCAG AA 级）
+- 正文文字与背景色对比度 ≥ 4.5:1（WCAG AA）
 - 大号文字（≥18px 粗体或 ≥24px 常规）≥ 3:1
+- UI 组件和图形对象 ≥ 3:1（边框、图标）
 
 **触控目标：**
-- 所有可点击元素最小 48x48 dp
-- 相邻可点击元素间距 ≥ 8dp
+- 所有可点击元素最小 **24×24 CSS px**（WCAG 2.2 新增 2.5.8 Target Size Minimum）
+- 移动端建议 ≥ 48×48 dp（Material）/ 44×44 pt（iOS）
+- 相邻可点击元素间距 ≥ 8 dp
 
 **焦点与导航：**
 - Tab / 方向键导航顺序合理
 - 屏幕阅读器遍历顺序与视觉顺序一致
 - 焦点状态有明显视觉反馈
+- **焦点不被遮挡**（WCAG 2.2 新增 2.4.11 Focus Not Obscured）：sticky header / footer / dialog 不能挡住当前焦点元素
+
+**输入辅助（WCAG 2.2 新增）：**
+- **3.2.6 Consistent Help**：帮助按钮位置在所有页面保持一致
+- **3.3.7 Redundant Entry**：用户已输入的信息不重复要求（自动填充或可复制）
+- **3.3.8 Accessible Authentication**：登录不能仅依赖记忆/解谜（需提供替代如生物识别 / 复制粘贴）
+- **2.5.7 Dragging Movements**：拖拽操作必须有非拖拽替代（点击两次、按钮选择）
 
 **动态内容：**
 - 支持系统级字体缩放
-- 动画可被系统"减少动态效果"设置关闭
-- 加载状态对屏幕阅读器有语音提示
+- 动画可被系统"减少动态效果"设置关闭（`prefers-reduced-motion`）
+- 加载状态对屏幕阅读器有语音提示（`aria-live`）
 
 ### 27.2 CTO 职责
 
-- 第零轮八维审核中的 UX 维度覆盖无障碍基础检查
+- 第零轮八维审核中的 UX 维度覆盖 WCAG 2.2 AA 基础检查
 - 在配置文件中写入无障碍规则
-- 发布前检查清单中确认无障碍基础项通过
+- 发布前检查清单中确认 WCAG 2.2 新增 9 条准则全部通过
+- 面向欧盟用户的产品需在 SPEC.md 中明确 EAA 合规承诺
+- 使用 `accessibility-checklist` Skill 自动化检查
 
 ---
 
@@ -1585,12 +1896,30 @@ AI Agent 没有审美一致性。没有统一的设计系统，Agent 每次写 U
 | 追踪透明度 | ATT 弹窗（IDFA） | 不强制但建议 |
 | 儿童保护 | COPPA 合规 | 家庭政策合规 |
 
-### 28.3 CTO 职责
+### 28.3 全球三足合规矩阵
 
-- 第零轮：分析产品涉及的用户数据类型，输出合规需求清单
-- 在 SPEC.md 中明确数据处理方式
+| 法规 | 适用范围 | CTO 关键义务 |
+|---|---|---|
+| **GDPR**（欧盟） | 欧盟用户 | DPA（数据处理协议）、SCC（标准合同条款）跨境传输、72 小时报告数据泄露、DPO（数据保护官）、用户权利（访问/更正/删除/可携带） |
+| **CCPA / CPRA**（加州） | 加州居民 | "Do Not Sell My Personal Information" 链接、数据类别披露、最小化收集、12 个月内 2 次免费查询 |
+| **PIPL 个保法**（中国） | 中国境内用户或处理境内信息 | 同意前充分告知、单独同意（敏感信息/跨境传输）、个人信息保护影响评估（PIA）、跨境传输需通过国家网信办安全评估或标准合同 |
+| **数据安全法 / 网络安全法**（中国） | 在中国运营 | 网络安全等级保护（等保 2.0）、关键数据本地化、数据分类分级 |
+| **生成式 AI 服务管理暂行办法**（中国，2023-08）| 提供生成式 AI 服务给中国用户 | **算法备案**、训练数据合法性、内容安全审核、防止生成歧视/虚假信息 |
+
+### 28.4 AI 时代的隐私新议题
+
+- **AI 训练数据使用同意**：用户数据是否被用于训练模型？必须显式告知和同意（GDPR Article 22 / PIPL 第 24 条）
+- **AI 输入数据脱敏**：发往第三方 LLM API 的数据需先脱敏（PII 替换为占位符）
+- **AI 生成内容标识**：生成式 AI 产出的内容必须标识（中国《生成式 AI 服务管理暂行办法》第 17 条）
+- **AI 输出留存策略**：模型输出是否记录？记录多久？谁能访问？
+
+### 28.5 CTO 职责
+
+- 第零轮：分析产品涉及的用户数据类型 + 用户地理分布，输出合规需求清单（GDPR / CCPA / PIPL 三检）
+- 在 SPEC.md 中明确数据处理方式 + 跨境传输路径 + AI 训练数据使用策略
 - 在发布前检查清单中确认隐私相关项通过
-- 如果项目涉及敏感数据（健康、金融、儿童），标记为必须交叉审核（§19）
+- 如果项目涉及敏感数据（健康、金融、儿童、政治倾向、宗教信仰），标记为必须交叉审核（§19）
+- 中国市场产品：检查算法备案状态、关键数据本地化部署
 
 ## 29. 新项目集成教程
 
@@ -1714,3 +2043,183 @@ project-b/             ← 目标项目 B
 2. 每人在本机的 ai-playbook 路径可能不同 — CLAUDE.md 中的手册路径需要各自配置
 3. 建议将 CLAUDE.md 加入 `.gitignore`（因为路径因人而异），或使用相对路径/环境变量
 4. `docs/ai-cto/` 建议纳入版本控制，团队共享 CTO 记忆
+
+---
+
+## 30. 安全工程基线
+
+> AI 生成代码的注入与依赖混淆风险显著高于人工代码，必须建立分层防御。
+
+### 30.1 OWASP Top 10（2025 版）
+
+| 排名 | 类别 | AI 生成代码常见风险 |
+|---|---|---|
+| A01 | Broken Access Control | AI 容易遗漏授权检查（仅做认证） |
+| A02 | Cryptographic Failures | AI 倾向用过时算法（MD5/SHA-1）、硬编码盐值 |
+| A03 | Injection（含 LLM Prompt Injection） | AI 倾向字符串拼接 SQL；LLM 应用易被 prompt injection |
+| A04 | Insecure Design | AI 不会主动设计威胁模型 |
+| A05 | Security Misconfiguration | 默认配置上线，CORS 全开 |
+| A06 | Vulnerable Components | AI 倾向用旧版本依赖（训练数据滞后） |
+| A07 | Identification & Authentication Failures | AI 写的会话管理易出错 |
+| A08 | Software and Data Integrity Failures | 依赖源未校验签名 |
+| A09 | Security Logging & Monitoring Failures | AI 不会主动加安全日志 |
+| A10 | Server-Side Request Forgery | AI 容易用用户输入构造 URL |
+
+### 30.2 三件套：SAST + DAST + SCA
+
+| 工具类 | 推荐 | 何时跑 |
+|---|---|---|
+| **SAST**（静态分析） | Semgrep / CodeQL / Snyk Code | 每次 PR |
+| **DAST**（动态扫描） | OWASP ZAP / Burp Suite | 每次部署到 staging |
+| **SCA**（依赖审计） | Trivy / OSV-Scanner / Dependabot | 每次 PR + 每日全量 |
+| **Secret Scanning** | gitleaks / trufflehog / GitHub Secret Scanning | 每次 commit（pre-commit hook） |
+| **License Audit** | FOSSology / Trivy | 每次 PR |
+
+### 30.3 LLM 应用专属安全
+
+- **Prompt Injection 防御**：用户输入不直接拼到 system prompt；用结构化模板 + 输入审查
+- **PII 脱敏**：发往第三方 LLM API 前替换敏感字段
+- **Output Validation**：LLM 输出不直接 eval / 拼 SQL；过 schema 校验
+- **Rate Limit**：按用户限速，防止 DDoS / 烧 token
+- **审计日志**：每次 LLM 调用记录完整 prompt + response（满足合规）
+
+### 30.4 CTO 职责
+
+- 第零轮：威胁建模（STRIDE / DREAD）输出威胁清单
+- CI 必装：gitleaks（密钥）+ Semgrep（代码）+ Trivy（依赖）
+- 关键路径（认证 / 加密 / 支付 / 权限 / 文件上传 / 反序列化）的代码必须人工逐行审
+- 每月：检查依赖漏洞通报（CVE / GHSA）
+- 使用 `trail-of-bits` 安全 Skills 自动化检查
+
+---
+
+## 31. 性能预算与 SLO
+
+> 量化预算 + CI 门禁，让性能回归在合并前被拦截。
+
+### 31.1 前端性能预算（Web Vitals）
+
+| 指标 | Good | Needs Improvement | Poor | 测量工具 |
+|---|---|---|---|---|
+| **LCP**（最大内容绘制） | < 2.5s | 2.5–4.0s | > 4.0s | Lighthouse / Web Vitals JS |
+| **INP**（交互响应） | < 200ms | 200–500ms | > 500ms | RUM |
+| **CLS**（累积布局偏移） | < 0.1 | 0.1–0.25 | > 0.25 | Lighthouse |
+| **FCP**（首次内容绘制） | < 1.8s | 1.8–3.0s | > 3.0s | Lighthouse |
+| **TTFB**（首字节时间） | < 800ms | 800–1800ms | > 1800ms | RUM |
+
+**Bundle Size 预算**：
+- 主入口 JS gzip ≤ 170 KB（First Load）
+- 单页 JS gzip ≤ 50 KB
+- 单图片 ≤ 200 KB（用 AVIF / WebP）
+- 字体文件 ≤ 100 KB（subset + WOFF2）
+
+**工具**：`size-limit` / `bundlesize` / Next.js `@next/bundle-analyzer`
+
+### 31.2 后端 SLO（Service Level Objective）
+
+| 指标 | 目标值（建议起点） | 度量周期 |
+|---|---|---|
+| **可用性** | 99.9%（每月停机 ≤ 43m） | 滚动 30 天 |
+| **p99 延迟** | API < 500ms / DB query < 100ms | 滚动 7 天 |
+| **错误率** | < 0.1% | 滚动 1 小时 |
+| **容量利用率** | < 70%（CPU/内存/连接池） | 实时 |
+
+**Error Budget**：99.9% SLO 意味着每月 0.1% (~43min) 错误预算。预算耗尽 → 冻结新功能，全力修稳定性。
+
+### 31.3 数据库性能预算
+
+- **N+1 查询**：禁止（用 eager loading / batch query）
+- **慢查询阈值**：> 100ms 必须索引或重构
+- **连接池**：使用率 > 70% 触发告警
+- **索引覆盖率**：`EXPLAIN` 显示 `Using filesort` / `Using temporary` 必须优化
+
+### 31.4 CI 门禁
+
+```yaml
+# .github/workflows/perf.yml
+- name: Lighthouse CI
+  uses: treosh/lighthouse-ci-action@v10
+  with:
+    budgetPath: ./lighthouse-budget.json
+    # budget.json 中 LCP/INP/CLS 阈值超出则 fail
+- name: Bundle Size
+  uses: andresz1/size-limit-action@v1
+```
+
+### 31.5 CTO 职责
+
+- 第零轮：根据产品愿景制定预算（B2C 高流量 vs B2B 低延迟权衡）
+- CI 必装：Lighthouse CI（前端）+ k6/Locust 压测（后端）
+- 每 3 轮检查：Web Vitals 趋势 + p99 延迟趋势
+- 性能回归 → 立即开 issue + 阻断发布
+- 大版本前：完整压测 + 容量规划
+
+---
+
+## 32. AI 代码生成的人工审核边界
+
+> AI 生成代码的最大事故源不是 bug，而是"看起来对但实际有安全/逻辑漏洞"。明确划定必须人工逐行审的高风险路径。
+
+### 32.1 高风险路径黑名单（强制人工逐行审）
+
+| 类别 | 具体场景 | 为什么 AI 容易出错 |
+|---|---|---|
+| **加密 / 认证** | 密码哈希、JWT 签发/验证、OAuth flow、TOTP、加密算法选择 | AI 倾向用过时算法或错误的库 API |
+| **SQL / 数据库** | 原生 SQL、动态查询、迁移脚本、删除操作 | AI 容易拼接 SQL 或忽略事务 |
+| **权限 / 授权** | RBAC 检查、多租户隔离、行级权限、API 鉴权中间件 | AI 倾向只做认证不做授权 |
+| **支付 / 金额** | 价格计算、折扣应用、退款流程、订单状态机、汇率转换 | 浮点数精度、状态机绕过、并发扣款 |
+| **数据库迁移** | DROP / ALTER / 不可逆变更 | 数据丢失，无法回滚 |
+| **Infrastructure as Code** | Terraform / Ansible / K8s manifests | 错误配置可能导致资源泄露或全网开放 |
+| **正则 / eval / 反序列化** | 用户输入构造的正则、`eval()`、`pickle` / 反射 | 注入 / ReDoS / RCE |
+| **生产删除脚本** | 数据清理、用户删除、文件批量操作 | 一个 typo 就是事故 |
+| **跨境数据传输** | 用户数据流向、第三方 API 调用 | 合规风险（GDPR / PIPL） |
+| **AI Prompt 设计** | System prompt、tool 定义、安全限制 | Prompt injection / 越权调用 |
+
+### 32.2 强制双签机制
+
+**触发规则**：变更涉及上述黑名单中的文件 → CI 自动添加 `requires-double-review` 标签 → 必须满足：
+1. **Human Review**：CODEOWNERS 中指定的安全 / 资深工程师 approve
+2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 4.6 ↔ gpt-5.5）独立审一遍
+
+### 32.3 CODEOWNERS 配置示例
+
+```
+# .github/CODEOWNERS
+# 加密/认证 — 必须 security 团队签字
+/src/auth/        @security-team @cto
+/src/crypto/      @security-team @cto
+
+# 支付 — 必须 finance 团队签字
+/src/payment/     @finance-team @cto
+
+# 迁移 — 必须 DBA 签字
+/database/migrations/  @dba-team
+
+# Infra — 必须 SRE 签字
+/infra/           @sre-team
+/.github/workflows/    @sre-team @cto
+```
+
+### 32.4 PR 模板钩子
+
+`.github/PULL_REQUEST_TEMPLATE.md` 中根据路径自动注入审核清单：
+
+```markdown
+## 高风险路径检查（自动检测）
+
+<!-- 如果改动了 /auth/、/crypto/、/payment/、/migrations/，以下必填 -->
+
+- [ ] 已读 §32.1 高风险路径黑名单
+- [ ] 已运行 §30.2 SAST/SCA 工具
+- [ ] 已请求第二个模型独立审核（§19）
+- [ ] 已请求 CODEOWNERS 中指定的人工审核
+- [ ] 已写测试用例覆盖边界（空输入 / 越权 / 并发）
+```
+
+### 32.5 CTO 职责
+
+- 第零轮：识别项目中的高风险路径，写入 CODEOWNERS
+- 每次涉及黑名单路径的改动：拒绝单一 AI 审核，强制走 §19 + 人工
+- Agent 在黑名单路径出错 → 立即写入 CLAUDE.md 防再犯
+- 新增高风险路径（如新增支付方式）→ 立即更新 CODEOWNERS 和 §32.1
+- 月度审计：检查实际触发双签的 PR 是否都执行到位

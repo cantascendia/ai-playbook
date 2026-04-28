@@ -42,7 +42,7 @@
 19. [交叉审核与多模型策略](playbook/handbook.md#19-交叉审核与多模型策略)
 20. [TDD 强制流程](playbook/handbook.md#20-tdd-强制流程)
 
-**Skill 生态与生产就绪（§21-§28）**
+**Skill 生态与生产就绪（§21-§32）**
 
 21. [Agent Skills 开放标准与 Skill 生态](playbook/handbook.md#21-agent-skills-开放标准与-skill-生态)
 22. [社区 Skill 推荐清单](playbook/handbook.md#22-社区-skill-推荐清单)
