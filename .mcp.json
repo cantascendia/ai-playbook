@@ -17,10 +17,8 @@
     },
     "codex": {
       "command": "codex",
-      "args": ["serve", "--mcp-port", "8723"],
-      "env": {
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
-      }
+      "args": ["mcp-server"],
+      "env": {}
     }
   }
 }

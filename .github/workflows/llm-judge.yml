@@ -39,9 +39,11 @@ jobs:
 
       - name: PR description completeness
         id: desc
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          DESC="${{ github.event.pull_request.body }}"
-          LEN=${#DESC}
+          # 注意：PR_BODY 通过 env 传入，避免 ${{ ... }} 直接插入 shell 导致 injection
+          LEN=${#PR_BODY}
           if [ $LEN -lt 50 ]; then
             echo "score=fail" >> $GITHUB_OUTPUT
             echo "PR description < 50 chars"

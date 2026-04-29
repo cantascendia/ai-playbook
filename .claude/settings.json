@@ -120,7 +120,7 @@
           },
           {
             "type": "command",
-            "command": "git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^(src|app|lib|apps|packages)/' && ! git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '(auth|payment|secrets|migration|crypto|infra)/' && test -f .agents/skills/codex-bridge/SKILL.md && echo '🔄 §48 触发 cross-review (Stop hook → codex-bridge)... 异步执行，结果将出现在 docs/ai-cto/REVIEW-QUEUE.md' || true"
+            "command": "test -x .agents/skills/codex-bridge/run.sh && bash .agents/skills/codex-bridge/run.sh HEAD && echo '🔄 §48 cross-review 已在后台触发（forbidden+业务路径已过滤；同 commit 去重）。结果稍后出现在 docs/ai-cto/REVIEW-QUEUE.md' || true"
           }
         ]
       }

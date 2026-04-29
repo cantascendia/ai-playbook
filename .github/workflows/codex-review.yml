@@ -20,6 +20,9 @@ jobs:
     if: |
       github.event.pull_request.draft == false &&
       !contains(github.event.pull_request.labels.*.name, 'skip-codex-review')
+    # FIX: secret 必须在 job-level env 暴露，否则 step 的 if 表达式看不到
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +35,15 @@ jobs:
             grep -cE '(auth|payment|secrets|migration|crypto|infra)/' || true)
           [ -z "$FORBIDDEN" ] && FORBIDDEN=0
           echo "count=$FORBIDDEN" >> $GITHUB_OUTPUT
+
+      - name: Detect API key availability
+        id: key
+        run: |
+          if [ -n "$OPENAI_API_KEY" ] || [ "${{ vars.CODEX_REVIEW_ENABLED }}" = "true" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Comment skip if forbidden
         if: steps.forbidden.outputs.count != '0'
@@ -48,9 +60,7 @@ jobs:
       - name: Run Codex review
         if: |
           steps.forbidden.outputs.count == '0' &&
-          (env.OPENAI_API_KEY != '' || vars.CODEX_REVIEW_ENABLED == 'true')
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          steps.key.outputs.available == 'true'
         run: |
           echo "Run codex review (placeholder — actual integration needs openai/codex-action@v1)"
           # 真实集成时使用：
@@ -63,9 +73,7 @@ jobs:
           #   eval_dimensions: "architecture,quality,perf,security,test,dx,functional,ux"
 
       - name: Skip notice
-        if: |
-          env.OPENAI_API_KEY == '' &&
-          vars.CODEX_REVIEW_ENABLED != 'true'
+        if: steps.key.outputs.available == 'false'
         run: |
           echo "OPENAI_API_KEY secret 未配置；跳过 Codex review。"
-          echo "本地若 codex serve --mcp-port 8723 在运行，Stop hook 会处理。"
+          echo "本地若已 codex login，Stop hook 会通过 codex-bridge skill 处理。"
