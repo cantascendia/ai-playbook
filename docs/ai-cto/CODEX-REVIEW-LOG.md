@@ -7,3 +7,4 @@
 ---
 
 2026-04-29T19:27:00+09:00 | sha=de3a019 | mode=success | bytes=71500 | findings=3 | severity=P1+2P2 | engine=codex-cli-0.125.0 | model=gpt-5.5 | trigger=manual-smoke-test
+2026-04-29T20:04:09+09:00 | sha=c6db520 | mode=fallback-to-claude | reviewer=claude-fallback-opus | bytes=1844

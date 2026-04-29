@@ -3923,6 +3923,51 @@ codex review --commit HEAD
 }
 ```
 
+### 48.7.1 业务路径 SSOT（v3.6.1 新增 — 教训之上的修复）
+
+**v3.6 教训**：原 `run.sh` hardcode 业务路径过滤为 `^(src|app|lib|apps|packages)/`（generic 项目假设）。aegis-panel（自研模块在 `dashboard/src/` `hardening/` `ops/`）一整个会话 11+ commit 全被 silent skip — Stop hook 触发但 BUSINESS 为空 exit 0，REVIEW-QUEUE.md 一直空。
+
+**v3.6.1 修复**：业务路径提取为 SSOT `scripts/business-paths.txt`，每个项目可按实际业务结构自己定制。
+
+```
+# scripts/business-paths.txt
+src/
+app/
+lib/
+apps/
+packages/
+
+# 项目自定义示例：
+# dashboard/src/    # aegis-panel 嵌套前端
+# hardening/        # aegis-panel 自研安全
+# actions/          # dian PHP 风格控制器
+# routes/           # Express / Fastify
+# components/       # React / Vue 组件根
+```
+
+**run.sh 读取逻辑**（带 fallback）：
+```bash
+if [ -f scripts/business-paths.txt ]; then
+  BIZ_PATTERN=$(grep -v '^#' scripts/business-paths.txt | grep -v '^$' \
+                | sed 's|^|^|' | tr '\n' '|' | sed 's/|$//')
+else
+  BIZ_PATTERN='^(src|app|lib|apps|packages)/'  # 默认 generic
+fi
+BUSINESS=$(git diff --name-only ...| grep -E "$BIZ_PATTERN")
+```
+
+**对照 forbidden-paths.txt**：
+- `forbidden-paths.txt` = **safety guard**（含此路径 → 跳过）
+- `business-paths.txt` = **trigger guard**（含此路径 → 触发；否则跳过）
+
+两者**互补**：必须先过 forbidden（不触及敏感）+ 再过 business（确实是业务代码改动）才会真调 Codex/Claude。
+
+**实战诊断**：如果 §48 在你项目从未触发，按这个顺序排查：
+1. `cat docs/ai-cto/CODEX-REVIEW-LOG.md` 看有无任何 entry
+2. 若空 → 检查 `git diff --name-only HEAD~1 HEAD` 是否含 business-paths 中的路径
+3. 若都不含 → 改 `scripts/business-paths.txt` 加你项目的路径片段
+4. 重跑 `bash .agents/skills/codex-bridge/run.sh HEAD` 验证
+
 ### 48.8 CTO 职责
 
 - 第零轮：决定项目是否启用（forbidden 路径多 / 商业敏感 → 谨慎或不启用）

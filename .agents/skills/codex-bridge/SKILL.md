@@ -141,6 +141,27 @@ mkdir -p docs/ai-cto
 - max_iterations 超限 → 强制结束 + 写 INCIDENT
 - prompt > 32 KiB（Codex 限制）→ 分块（diff 按文件分），分别 review
 
+## 路径过滤的两个 SSOT（v3.6.1）
+
+**1. Forbidden 路径**（safety guard，跳过 codex 上传）：
+- 文件：`scripts/forbidden-paths.txt`（项目根）
+- 默认含：`auth/ payment/ secrets/ migration crypto/ infra/ ...` 共 12 项
+- 触及任一 → run.sh 直接 exit 0（不调 codex/claude）
+
+**2. Business 路径**（trigger guard，**新增于 v3.6.1**）：
+- 文件：`scripts/business-paths.txt`（项目根）
+- 默认含：`src/ app/ lib/ apps/ packages/`（generic 项目）
+- **每个项目应按实际业务路径 customize**，例如：
+  - `aegis-panel` 加 `dashboard/src/` `hardening/` `ops/`
+  - `dian` 加 `actions/` `admin/`（PHP 风格）
+  - `witch-gacha` 用 `apps/` `packages/`（pnpm monorepo，默认即可）
+  - 嵌套前端工程加 `<dir>/src/`
+
+**为什么需要 business-paths SSOT**（v3.6 教训）：
+> v3.6 把业务路径 hardcode 在 run.sh 里，假设 generic `^(src|app|lib|apps|packages)/`。
+> aegis-panel 跑了一个会话有 11+ 个业务 commit，但全在 `dashboard/src/`，结果 silent skip — REVIEW-QUEUE.md 一直空。
+> v3.6.1 提取为 SSOT，每个项目自己 customize。
+
 ## 降级策略（v3.6）
 
 | 场景 | Reviewer | Mode 标记 | REVIEW-QUEUE 处理 |

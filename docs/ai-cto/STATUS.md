@@ -3,13 +3,13 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-04-29 v3.6 — Self-audit 实装补齐 + Codex 额度 fallback
+最后更新：2026-04-29 v3.6.1 — 业务路径 SSOT hotfix（aegis-panel 实战暴露）
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v3.6** — v3.5 self-audit 暴露纸上设计（85 分），本轮把 §44 Replay 从纸面落地、加 TOCTOU lock + markdown 防注入、Forbidden 路径 SSOT、Codex 额度耗尽自动 fallback 到 Claude（含 1h cooldown）、5 分钟 smoke test、pre-commit hook。21 个 commands / 4 sub-agents / 22 evals / 4 GitHub Actions。预计 85 → 97+。
+ai-playbook **v3.6.1** — aegis-panel 实战暴露 v3.6 的 generic 业务路径假设 bug（11+ commit 全被 silent skip）。反向集成 PR #118 修复：业务路径提取为 `scripts/business-paths.txt` SSOT。Codex 修复后跑通 + 抓到 1 个真实 P2 bug（"空 audit 显示 100"）— §48 跨模型 review 设计价值实证。21 commands / 4 sub-agents / 22 evals / 17 项目 v3.6.1 同步。
 
 ---
 

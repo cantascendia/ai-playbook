@@ -52,3 +52,41 @@
 - 用 ChatGPT 订阅认证（不需 API key）
 
 ---
+
+## 2026-04-29T20:04:09+09:00 — Review for c6db520
+**Reviewer**: claude-fallback-opus | **Mode**: fallback-to-claude
+
+> ⚠️ Codex 额度耗尽（1h 冷却中），本次由 Claude 完成。**失去跨模型价值**（Claude 自审有相同认知偏差）。建议恢复 codex 配额后重跑 `/cto-cross-review`。
+
+```markdown
+## 八维评审报告 — `c6db520`
+
+> `test: v3.6 sandbox for fallback verify` — 新增 `src/sandbox/example.ts`（4 行）
+
+| 维度 | 评级 | 发现 |
+|---|---|---|
+| **架构** | ✅ | sandbox 隔离目录，不影响主模块，无耦合风险 |
+| **代码质量** | 🔴 Critical | L3: `return a - b` — 函数名 `add` 但实现是减法。**故意植入的 bug**（注释已标明），但若此文件被误引用即为生产缺陷 |
+| **性能** | ✅ | 纯算术函数，无性能问题 |
+| **安全** | ✅ | 无 I/O、无外部依赖、无敏感路径 |
+| **测试** | ⚠️ | 无配套单元测试。作为"测试 sandbox"文件，自身反而没有 test case 验证 `add(2,3) === 5` 的预期行为 |
+| **DX** | ⚠️ | L1 注释说明了意图（故意 bug），但 commit message 未提及这是**红队/canary 测试**用途，后续维护者看 git log 无法判断是否该修 |
+| **功能完整性** | ✅ | sandbox 范围内，功能本身就是验证用途，scope 合理 |
+| **UX** | ✅ | 非用户可见路径，不适用 |
+
+### 汇总
+
+| 级别 | 数量 | 关键项 |
+|---|---|---|
+| 🔴 Critical | 1 | `add` 实现为减法（L3），需确保 `src/sandbox/` 在 tsconfig `exclude` 或 `.npmignore` 中，防止被打包 |
+| ⚠️ Warning | 2 | 缺配套测试；commit message 缺意图说明 |
+| ✅ Pass | 5 | 架构 / 性能 / 安全 / 功能 / UX |
+
+### 建议
+
+1. 🔴 确认 `src/sandbox/` 已被 `tsconfig.json` 的 `exclude` 排除——否则 `import { add } from './sandbox/example'` 可被自动补全引入生产代码
+2. 🟡 补一个 `src/sandbox/example.test.ts`，断言 `add(2,3)` 应返回 `5`（这样 fallback reviewer 的检测能力才能被量化验证）
+3. 🟡 commit message 建议改为 `test: add intentional-bug sandbox for cross-review fallback verify`，让 git log 自解释
+```
+
+---

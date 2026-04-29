@@ -13,6 +13,35 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-04-29] v3.6.1 — hotfix: 业务路径 SSOT（aegis-panel 实战暴露的 bug）
+
+**反向集成自 aegis-panel PR #118**。这是 §48 设计实证：用户在 aegis-panel 项目跑了一会，发现 codex-bridge 从未触发，REVIEW-QUEUE.md 一直空。诊断出 v3.6 的 generic 假设盲区。
+
+- **改了什么**：
+  - 新增 `scripts/business-paths.txt`（中央默认 + 各项目可 customize）
+  - `run.sh` 第 47-56 行：从 hardcode 改为读 SSOT，含 fallback 兼容
+  - handbook §48.7.1 文档化业务路径 SSOT + 实战诊断步骤
+  - SKILL.md 加"两个 SSOT 对照"章节（forbidden = safety guard / business = trigger guard）
+  - 17 个项目同步：
+    - aegis-panel：保留已有自定义（dashboard/src/ hardening/ ops/ deploy/ tests/ app/）
+    - dian：自动配置为 PHP 风格（actions/ admin/ api/ includes/ templates/ data/ database/）
+    - witch-gacha：自动配置为 pnpm monorepo（apps/ packages/ functions/）
+    - 其他 14 个：默认 generic + 注释建议路径
+- **为什么**：
+  - v3.6 把业务路径 hardcode 为 `^(src|app|lib|apps|packages)/`，generic 项目假设
+  - aegis-panel 自研业务全在 `dashboard/src/` `hardening/` `ops/` — 行首匹配失败
+  - 11+ 个业务 commit 全被 Stop hook silent skip — 用户看不到 codex review
+  - 用户报告 + 修复 + 反向集成（dogfooding 闭环）
+- **§48 设计实证**：
+  - aegis-panel 修复后 force-trigger 一次 review，**Codex 抓到一个真实 P2 bug**：
+    - `dashboard/src/modules/reality/components/audit-summary-card.tsx:121-122`
+    - "空 audit 显示 worst_score=100" — security theater（误导性绿灯）
+    - Claude 同会话 Phase 1 review 没抓到（只抓 worstGradeFor 漂移）
+    - 跨模型独立审 → 抓到不同问题 — §48 价值印证
+- **Eval 跑分前/后**：22 → 22（结构无变化，eval 仍在）
+
+---
+
 ## [2026-04-29] v3.6 — Self-audit 实装补齐 + Codex 额度容错
 
 继 v3.5（85/100）self-audit 暴露纸上设计后，按 plan v3.6 全 10 步执行。
