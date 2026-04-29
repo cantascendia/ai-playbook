@@ -1,3 +1,11 @@
+---
+name: cto-constitution
+description: 项目 Constitution 管理（§37）— 创建 / 审视 / 审计 docs/ai-cto/CONSTITUTION.md，双签变更
+argument-hint: "[init|review|audit]"
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep"]
+model: opus
+disable-model-invocation: false
+---
 # 创建 / 维护项目 Constitution（手册 §37）
 
 为项目创建或修改 `docs/ai-cto/CONSTITUTION.md`，定义不可妥协的项目原则。

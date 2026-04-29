@@ -1,3 +1,11 @@
+---
+name: cto-relink-all
+description: 批量迁移多个项目到 fallback 模板（§29.8）— 扫描 + diff 预览 + 批量替换"完整手册"区段
+argument-hint: "[扫描目录|--dry-run|--projects-list]"
+allowed-tools: ["Read", "Edit", "Glob", "Bash(*)"]
+model: sonnet
+disable-model-invocation: false
+---
 # 批量迁移多个项目到新 fallback 模板（手册 §29.8）
 
 把硬编码 ai-playbook 路径的旧版 CLAUDE.md，批量迁移到新的 fallback 多路径模板。

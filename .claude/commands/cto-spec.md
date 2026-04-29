@@ -1,3 +1,11 @@
+---
+name: cto-spec
+description: Spec-Driven 三段式开发（§18，对齐 GitHub Spec Kit）— specify/plan/tasks 顺序产出 + 用户审核
+argument-hint: "[specify|plan|tasks|audit] [描述]"
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(git*)"]
+model: opus
+disable-model-invocation: false
+---
 # Spec-Driven 开发启动（三段式，对齐 GitHub Spec Kit）
 
 按手册 §18 三段式 Spec-Driven 工作流，从 SPEC → PLAN → TASKS。

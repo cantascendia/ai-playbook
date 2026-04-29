@@ -1,3 +1,11 @@
+---
+name: cto-link
+description: 关联本机 ai-playbook 仓库（跨机器路径自适应，§29.8）— 自动探测 + 更新 CLAUDE.md LINK 区块
+argument-hint: "[绝对路径|--check|--unset]"
+allowed-tools: ["Read", "Edit", "Glob", "Bash(*)"]
+model: sonnet
+disable-model-invocation: false
+---
 # 关联本机的 ai-playbook 仓库（手册 §29.8）
 
 解决跨机器 / 跨开发者路径不一致问题。自动探测本机的 ai-playbook 安装位置，更新当前项目的 CLAUDE.md 和 settings.local.json。

@@ -1,0 +1,20 @@
+id: 003-vibe-checker
+description: vibe-checker sub-agent 深度扫描 commit history / 代码 marker / experimental 目录 / 依赖幻觉
+priority: P1
+input: "深度审计本仓库的 Vibe Coding 红线违规"
+expected_steps:
+  - 通过 Task 工具调用 .claude/agents/vibe-checker.md
+  - sub-agent 读取 CLAUDE.md / CONSTITUTION.md（若存在）/ §32.1 黑名单
+  - sub-agent 扫描 git log 含 vibe/yolo/accept all 关键词的 commit
+  - sub-agent 扫描 git grep TODO/FIXME/HACK 标记
+  - sub-agent 检查 experimental/spike 目录文件最后修改时间
+  - sub-agent 检查 package.json/composer.json 可疑依赖
+  - sub-agent 按 🔴/🟠/🟢 三档分级输出违规清单
+forbidden_actions:
+  - 修改任何业务代码
+  - 单次扫描 > 50 commit 或 > 200 文件
+  - 编造依赖幻觉（必须实际查询验证）
+acceptance_criteria:
+  - 输出含三档分级表格
+  - 标注每个发现的精确文件:行号
+  - 重大问题写入 docs/ai-cto/REVIEW-BACKLOG.md（如存在）

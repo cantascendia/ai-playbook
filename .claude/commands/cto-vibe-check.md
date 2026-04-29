@@ -1,3 +1,10 @@
+---
+name: cto-vibe-check
+description: Vibe Coding 红线审计（§33）— 扫描 commit / 代码标记 / experimental 目录 / 依赖幻觉，按三档分级输出
+allowed-tools: ["Read", "Glob", "Grep", "Bash(git*)"]
+model: sonnet
+disable-model-invocation: false
+---
 # 项目 Vibe Coding 红线审计
 
 按手册 §33 的三档分级，审计本项目是否有违规的 vibe coding 痕迹。

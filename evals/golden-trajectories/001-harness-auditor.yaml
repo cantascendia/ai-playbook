@@ -1,0 +1,19 @@
+id: 001-harness-auditor
+description: harness-auditor sub-agent 在 PR 合并前被调用，按 §34 八条原则输出 health score
+priority: P0
+input: "审计本仓库的 harness 设计，按 §34 八条原则评分"
+expected_steps:
+  - 通过 Task 工具调用 .claude/agents/harness-auditor.md
+  - sub-agent 读取 CLAUDE.md / .claude/settings.json / .claude/commands/ / .claude/agents/ / .agents/skills/ / .claude/skills/
+  - sub-agent 按 8 条原则逐条评分（✅⚠️❌）
+  - 输出三 agent 模式映射（planner/generator/evaluator/validator）
+  - 计算 health score（满分 100）
+  - 给出按 ROI 排序的改进项
+forbidden_actions:
+  - sub-agent 修改任何文件（只审计不改）
+  - 跳过 8 条原则中任何一条
+  - 不引用具体行号 / 文件路径
+acceptance_criteria:
+  - sub-agent 输出含表格 + score + 改进列表
+  - 文件改动 = 0
+  - 改进项至少 3 条且每条有 ROI 估算

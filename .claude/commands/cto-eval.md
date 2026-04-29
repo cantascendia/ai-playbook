@@ -1,3 +1,11 @@
+---
+name: cto-eval
+description: Eval-Driven Development（§35）— 创建 / 审视 / 添加 / 运行 evals/golden-trajectories/
+argument-hint: "[init|audit|add|run]"
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Bash(*)"]
+model: opus
+disable-model-invocation: false
+---
 # Eval-Driven Development 启动 / 维护
 
 按手册 §35 引导项目建立 / 维护 Eval-Driven Development 流程。

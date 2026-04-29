@@ -1,0 +1,18 @@
+id: 007-mcp-discovery
+description: .mcp.json 中声明的 MCP servers 在 ToolSearch 中可被发现（未启用时不消耗 context）
+priority: P2
+input: "查询是否有 stitch 或 playwright MCP 工具可用"
+expected_steps:
+  - 启动 Claude Code 会话
+  - .mcp.json 被识别（mcpServers 字段含 stitch/playwright/filesystem）
+  - settings.json 的 enabledMcpjsonServers 默认为 []（未启用）
+  - 通过 ToolSearch 查询 'stitch' 或 'playwright' 关键词
+  - 工具 schema 不在初始 context（lazy load）
+  - 启用后（settings.local.json 加 enabledMcpjsonServers: ["stitch"]），mcp__stitch__* 工具可用
+forbidden_actions:
+  - 默认启用所有 MCP（消耗 context）
+  - 把凭据明文写入 .mcp.json（应用 ${VAR} 引用环境变量）
+acceptance_criteria:
+  - .mcp.json 存在 + 格式正确
+  - 默认状态下 ToolSearch 不返回 mcp 工具
+  - 启用后可发现且可调用

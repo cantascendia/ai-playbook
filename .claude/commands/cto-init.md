@@ -1,3 +1,11 @@
+---
+name: cto-init
+description: 一键初始化目标项目的完整 CTO 系统（CLAUDE.md + commands + skills + settings + 检测技术栈）
+argument-hint: "<目标项目绝对路径>"
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(*)"]
+model: opus
+disable-model-invocation: false
+---
 # 一键初始化目标项目 CTO 系统
 
 你是 AI Playbook 的安装助手。用户要在目标项目中启用完整的 CTO + Tech Lead 指挥系统。

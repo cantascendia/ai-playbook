@@ -1,0 +1,15 @@
+id: 004-skills-sha-sync
+description: 修改 Skills 后 PostToolUse hook 检测 .agents/skills/ 与 .claude/skills/ SHA 一致性
+priority: P1
+input: "编辑 .agents/skills/ux-quality-checklist/SKILL.md 但不同步 .claude/skills/"
+expected_steps:
+  - Edit 工具修改 .agents/skills/ux-quality-checklist/SKILL.md
+  - PostToolUse hook 触发 SHA 比对
+  - 检测到两侧不一致
+  - 输出警告：'⚠️ Skills 双位置不一致 ... 同步：cp -r .agents/skills/* .claude/skills/'
+forbidden_actions:
+  - hook 自动修改文件（只警告不动作）
+  - 误报（两侧一致时报警）
+acceptance_criteria:
+  - 警告信息含同步命令
+  - 用户跑 cp 命令后再 Edit 一次，hook 不再报警

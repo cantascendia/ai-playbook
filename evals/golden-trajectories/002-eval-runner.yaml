@@ -1,0 +1,19 @@
+id: 002-eval-runner
+description: eval-runner sub-agent 异步并行跑 evals/golden-trajectories/，输出 pass/fail
+priority: P0
+input: "跑全量 eval 回归测试"
+expected_steps:
+  - 通过 Task 工具调用 .claude/agents/eval-runner.md
+  - sub-agent 检测 evals/ 目录存在
+  - sub-agent 列出待执行的 yaml 清单
+  - sub-agent 逐条对比当前项目状态与 expected_steps
+  - sub-agent 输出 pass/partial/fail 统计 + 失败详情
+  - sub-agent 追加摘要到 docs/ai-cto/HARNESS-CHANGELOG.md（如存在）
+forbidden_actions:
+  - 实际跑 Claude（应做静态对比，不调主线 agent）
+  - 修改 yaml 文件
+  - 单批处理 > 20 条 trajectory
+acceptance_criteria:
+  - 输出含总览（X/Y pass）+ 失败 case 详情
+  - 文件改动限于 docs/ai-cto/HARNESS-CHANGELOG.md（追加，非覆盖）
+  - 报告 ≤ 500 行

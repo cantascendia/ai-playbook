@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "npx",
+      "args": ["-y", "@google/stitch-sdk", "mcp"],
+      "env": {
+        "STITCH_API_KEY": "${STITCH_API_KEY}"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}

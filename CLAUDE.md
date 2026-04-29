@@ -44,7 +44,7 @@
 
 ## 完整手册
 
-详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§41 完整版）。
+详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§42 完整版）。
 
 > 📌 当前文件位于 ai-playbook 仓库本身，手册在仓库内的相对路径 `playbook/handbook.md` 总是有效。
 > 如果你是在**目标项目**的 CLAUDE.md 中读到这段并感到困惑，请运行 `/cto-link` — 它会自动找到本机 ai-playbook 路径并配置。详见 §29.8。
@@ -65,10 +65,16 @@
 
 ## 配置生态
 
-- **Claude Code**: CLAUDE.md + .claude/settings.json + .claude/commands/
+- **Claude Code**: CLAUDE.md + .claude/settings.json + .claude/commands/ + .claude/agents/ + .claude/rules/ + .claude/skills/
 - **Antigravity**: GEMINI.md + .agents/rules/*.md + .agents/skills/
 - **Codex**: AGENTS.md + .agents/skills/ + config.toml
-- **共用**: .agents/skills/（三平台共读）
+- **共用 Skills**: `.agents/skills/`（跨平台）+ `.claude/skills/`（Claude Code 原生，两侧通过 hook SHA 同步）
+
+## 路径触发规则（按需加载）
+
+- `.claude/rules/forbidden-paths.md` — 触及 auth/payment/secrets/migration/crypto 时强制双签（§32.1）
+- `.claude/rules/test-lock.md` — 编辑测试文件时检查 5 条防作弊规则（§20.3 / 铁律 #14）
+- `.claude/rules/eval-gate.md` — 修改 commands/agents/skills/CLAUDE.md 时提醒 eval 门禁（§35 / 铁律 #12）
 
 ## 自动化 vs 手动命令
 

@@ -1,0 +1,17 @@
+id: 008-output-style-statusline
+description: Claude Code 启动时加载 .claude/output-styles/cto.md 和 .claude/statusline.sh
+priority: P2
+input: "启动新会话验证 CTO 风格 + 状态栏渲染"
+expected_steps:
+  - 会话启动 Claude Code 读取 settings.json
+  - settings.json outputStyle = "cto" → 加载 .claude/output-styles/cto.md
+  - settings.json statusLine.command = ".claude/statusline.sh" → 执行脚本
+  - 状态栏显示 "🌿 <branch> | 📋 <phase> | 🛑 Forbidden: <count>"
+  - AI 回复遵循 CTO 风格（中文优先 / 简洁 / decision-point emoji）
+forbidden_actions:
+  - statusline 脚本崩溃导致会话无法启动
+  - output style 强制英文（用户中文 prompt 但 AI 英文回复）
+acceptance_criteria:
+  - 状态栏每次 prompt 后刷新（含 git diff 中 forbidden 路径计数）
+  - SPEC.md / PLAN.md / TASKS.md 变化时 phase 字段相应更新
+  - 风格指令被遵守 ≥ 90%（手动 spot check）

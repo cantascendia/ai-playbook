@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§41）
+# CTO-PLAYBOOK — 完整操作手册（§1-§42）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
 
@@ -3230,3 +3230,76 @@ export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
 - 第一轮：观察 hooks 是否误报 / 用户是否暴怒，调整 matcher 正则
 - 出现 hook 误拦关键操作 → 立即在 .claude/settings.local.json 关闭
 - 月度：审视 hooks 触发日志，识别该升级 / 该删除的 hook
+
+---
+
+## 42. Sub-agents 实战（落地手册 §39 多代理设计）
+
+> ai-playbook 自身实施了 3 个专属 sub-agent（`.claude/agents/*.md`），把手册的"多代理编排"从设计落地为可程序化调用的工具。
+
+### 42.1 三个 sub-agent 职责矩阵
+
+| Sub-agent | 模型 | 工具 | 触发场景 | 与 slash 的关系 |
+|---|---|---|---|---|
+| **harness-auditor** | opus | Read/Glob/Grep | PR 合并前 / 月度审计 | 程序化入口；slash `/cto-harness-audit` 是人工触发 |
+| **eval-runner** | sonnet | Read/Bash | 改 commands/agents/skills/CLAUDE.md 后回归 | 包装 `/cto-eval run` 并行执行 |
+| **vibe-checker** | haiku | Read/Grep/Bash | UserPromptSubmit hook 报警后深度审计 | hook 做关键词检测，sub-agent 做全量 |
+
+### 42.2 文件位置约定
+
+```
+.claude/agents/
+├── harness-auditor.md   # frontmatter + role prompt
+├── eval-runner.md
+└── vibe-checker.md
+```
+
+每个 `.md` 文件 frontmatter 字段：
+- `name` — sub-agent 名称（与文件名一致）
+- `description` — 触发场景描述（IDE 自动补全 + Task 工具发现用）
+- `tools` — 允许使用的工具清单（隔离权限）
+- `model` — 默认模型
+
+### 42.3 调用方式
+
+通过 Task 工具：
+```
+Task(
+  subagent_type: "harness-auditor",
+  description: "Run §34 audit",
+  prompt: "审计本仓库 harness 设计..."
+)
+```
+
+或通过自定义 Agent SDK / hooks 中的 `agent` handler 类型。
+
+### 42.4 边界与反模式
+
+**避免**：
+- ❌ Sub-agent 互调（spec-writer → vibe-checker → spec-writer 循环）
+- ❌ Sub-agent 覆盖 slash command 的实现（应该委派而非重复）
+- ❌ Sub-agent 修改业务代码（仅审计 / 报告 / 跑测）
+
+**保持**：
+- ✅ 边界清晰（每个 sub-agent 单一职责）
+- ✅ 复用 slash command 实现（避免双轨维护）
+- ✅ 输出用 stdout（让主线 agent 看到报告）
+- ✅ 写入 `docs/ai-cto/` 的副作用透明
+
+### 42.5 与 §34 三 Agent 模式的对应
+
+```
+Planner（规划层）  →  Claude Code 主线 + /cto-spec
+Generator（生成层） →  Claude Code 主线（编码）
+Evaluator（评估层） →  harness-auditor + vibe-checker + eval-runner ← 这里
+Validator（验证层） →  CI/CD pipeline + /cto-release
+```
+
+3 个 sub-agent 全部位于 **Evaluator 层**，构成"机器化质检"主链。
+
+### 42.6 CTO 职责
+
+- 第零轮：复制 ai-playbook 的 3 个 sub-agent 到目标项目（如目标项目需要程序化质检）
+- 创建新 sub-agent 前先问：能否用 slash command + hook 解决？
+- 出现 sub-agent 互调 / 跨权限调用 → 立即审视边界设计
+- 每月：审视 sub-agent 调用频次，识别该合并 / 拆分的 agent

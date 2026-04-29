@@ -53,7 +53,7 @@
 27. [无障碍](playbook/handbook.md#27-无障碍accessibility) — WCAG 2.2 AA
 28. [隐私合规](playbook/handbook.md#28-隐私合规) — GDPR / CCPA / PIPL
 
-**项目集成、安全、AI 工程范式（§29-§41）**
+**项目集成、安全、AI 工程范式（§29-§42）**
 
 29. [新项目集成教程](playbook/handbook.md#29-新项目集成教程)
 30. [安全工程基线](playbook/handbook.md#30-安全工程基线) — OWASP Top 10 / SAST/DAST/SCA
@@ -68,6 +68,7 @@
 39. [Multi-Agent 编排范式](playbook/handbook.md#39-multi-agent-编排范式)
 40. [AI Pair Programming 模式](playbook/handbook.md#40-ai-pair-programming-模式)
 41. [Hooks 驱动的自动化](playbook/handbook.md#41-hooks-驱动的自动化) — 14 条铁律自动执行
+42. [Sub-agents 实战](playbook/handbook.md#42-sub-agents-实战落地手册-39-多代理设计) — harness-auditor / eval-runner / vibe-checker
 
 ---
 

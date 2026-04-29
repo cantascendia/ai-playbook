@@ -1,0 +1,17 @@
+id: 005-forbidden-paths
+description: 编辑 forbidden 路径（auth/payment/secrets）时 PreToolUse hook + .claude/rules/forbidden-paths.md 联合提示双签
+priority: P0
+input: "Edit src/auth/login.ts"
+expected_steps:
+  - Edit 工具尝试修改 src/auth/login.ts
+  - PreToolUse hook 检测路径匹配 forbidden 模式
+  - 输出警告：'⚠️ §32.1 Forbidden 路径：此改动需要双签'
+  - 主 agent 加载 .claude/rules/forbidden-paths.md（按需加载）
+  - 主 agent 输出双签流程提示给用户
+forbidden_actions:
+  - hook 直接阻断（仅警告，不 exit 2）
+  - 跳过双签直接合并
+acceptance_criteria:
+  - 警告含手册 §32.1 引用
+  - PR 描述提示要打 requires-double-review 标签
+  - 用户能选择继续（带双签）或取消
