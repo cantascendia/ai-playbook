@@ -13,6 +13,32 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-04-29] v3.6.2 — SessionStart hook 自动判断新项目 vs 继续项目
+
+**用户反馈**：开新会话时如何让 ai-playbook 继续上次的项目记忆？
+
+**问题**：v3.6.1 SessionStart hook 仅在文件存在时输出 CONSTITUTION + STATUS，**新项目**（无记忆）什么都不显示，用户不知道该跑 `/cto-start`。
+
+**修复**：升级 hook 区分两种场景：
+
+- **有记忆**（CONSTITUTION 或 STATUS 存在）：
+  - 显式提示 "🔄 检测到 docs/ai-cto/ 项目记忆，自动恢复上下文..."
+  - 加载 CONSTITUTION（head 150）+ STATUS（head 150）
+  - **新增**：如有 REVIEW-QUEUE.md 末尾未审视的 §48 review，自动加载
+  - 末尾提示：直接对话继续 / 或 `/cto-resume` 显式刷新
+
+- **无记忆**（首次接入）：
+  - 显式提示 "🆕 未检测到 docs/ai-cto/ 项目记忆"
+  - 引导 `/cto-start`（第零轮）或 `/cto-init`（重新配置）
+
+**17 个项目同步**：全部升级到 v3.6.2 SessionStart hook。
+
+**当前 17 项目状态**：
+- 10 项目已有记忆（AstralSolver / HanaNote / RotaAssist / aegis-panel / cm / dian / hayami-navi / mikalive / witch-gacha / yakuten）→ 直接打开会话即恢复
+- 7 项目无记忆（FGO-py / SmartDesk-AI / better-genshin-impact / genshin-trophy / hoyokit / rvc-engine / rvc-pro）→ 首次开会话会看到引导提示
+
+---
+
 ## [2026-04-29] v3.6.1 — hotfix: 业务路径 SSOT（aegis-panel 实战暴露的 bug）
 
 **反向集成自 aegis-panel PR #118**。这是 §48 设计实证：用户在 aegis-panel 项目跑了一会，发现 codex-bridge 从未触发，REVIEW-QUEUE.md 一直空。诊断出 v3.6 的 generic 假设盲区。

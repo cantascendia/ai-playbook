@@ -3,7 +3,7 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-04-29 v3.6.1 — 业务路径 SSOT hotfix（aegis-panel 实战暴露）
+最后更新：2026-04-29 v3.6.2 — SessionStart hook 自动判断新/续项目
 
 ---
 

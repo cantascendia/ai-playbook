@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -f docs/ai-cto/CONSTITUTION.md && echo '=== CONSTITUTION ===' && head -150 docs/ai-cto/CONSTITUTION.md; test -f docs/ai-cto/STATUS.md && echo '=== STATUS ===' && head -150 docs/ai-cto/STATUS.md"
+            "command": "if [ -d docs/ai-cto ] && ([ -f docs/ai-cto/CONSTITUTION.md ] || [ -f docs/ai-cto/STATUS.md ]); then echo '🔄 检测到 docs/ai-cto/ 项目记忆，自动恢复上下文...'; test -f docs/ai-cto/CONSTITUTION.md && echo '' && echo '=== CONSTITUTION ===' && head -150 docs/ai-cto/CONSTITUTION.md; test -f docs/ai-cto/STATUS.md && echo '' && echo '=== STATUS ===' && head -150 docs/ai-cto/STATUS.md; if [ -f docs/ai-cto/REVIEW-QUEUE.md ]; then PENDING=$(tail -100 docs/ai-cto/REVIEW-QUEUE.md | grep -c '^## ' 2>/dev/null); [ \"${PENDING:-0}\" -gt 0 ] && echo '' && echo '=== 最近 §48 跨模型 REVIEW（待审视）===' && tail -100 docs/ai-cto/REVIEW-QUEUE.md; fi; echo '' && echo '💡 继续上次工作：直接对话 / 或 /cto-resume 显式刷新进度'; else echo '🆕 未检测到 docs/ai-cto/ 项目记忆。这看起来是首次接入 ai-playbook。'; echo '   建议：运行 /cto-start 启动第零轮（产品愿景 + 八维审核 + 生成记忆文件）'; echo '   或：运行 /cto-init [项目路径] 重新初始化 ai-playbook 配置'; fi"
           }
         ]
       }
