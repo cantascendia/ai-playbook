@@ -26,13 +26,14 @@
 
 #### 3a. CLAUDE.md（核心 — 必须）
 - 复制 `templates/CLAUDE.md` → 目标项目根目录 `CLAUDE.md`
-- **自动替换** `[AI-PLAYBOOK-PATH]` 为实际的 ai-playbook 绝对路径
-- 结果：手册引用变为 `C:\projects\ai-playbook\playbook\handbook.md`（实际路径）
+- **不再硬编码绝对路径**：模板已含 fallback 多路径逻辑（手册 §29.8）
+- 但**写入 LINK 区块**：把当前 ai-playbook 路径作为本机缓存写入 `<!-- AI-PLAYBOOK-LINK:START -->` 区块
+- 这样：当前机器立即可用 + 跨机器迁移时 fallback 列表兜底 + `/cto-link` 可重新发现
 
 #### 3b. .claude/commands/（斜杠命令 — 全部复制）
 - 创建目标项目 `.claude/commands/` 目录
-- 复制所有 `.claude/commands/*.md`（除了 `cto-init.md` 本身）
-- 包括：cto-start, cto-resume, cto-refresh, cto-review, cto-spec, cto-design, cto-skills, cto-audit, cto-models, cto-release
+- 复制所有 `.claude/commands/*.md`（除了 `cto-init.md` 和 `cto-relink-all.md` 本身）
+- 包括：cto-start, cto-resume, cto-refresh, cto-link, cto-review, cto-spec, cto-constitution, cto-vibe-check, cto-harness-audit, cto-eval, cto-design, cto-skills, cto-audit, cto-models, cto-release
 
 #### 3c. .claude/settings.json（Claude Code 配置）
 - 如果目标项目没有 `.claude/settings.json`，复制过去

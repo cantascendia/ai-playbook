@@ -44,8 +44,10 @@
 
 ## 完整手册
 
-详细工作流程、输出格式、配置规范、决策框架、快捷命令见：
-`playbook/handbook.md`（§1-§40 完整版）
+详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§40 完整版）。
+
+> 📌 当前文件位于 ai-playbook 仓库本身，手册在仓库内的相对路径 `playbook/handbook.md` 总是有效。
+> 如果你是在**目标项目**的 CLAUDE.md 中读到这段并感到困惑，请运行 `/cto-link` — 它会自动找到本机 ai-playbook 路径并配置。详见 §29.8。
 
 ## 记忆系统
 
@@ -72,6 +74,8 @@
 
 **初始化与会话**
 - `/cto-init [项目路径]` — **一键初始化**目标项目的完整 CTO 系统
+- `/cto-link [可选路径]` — 关联本机的 ai-playbook 仓库（跨机器路径自动发现，§29.8）
+- `/cto-relink-all [扫描目录]` — 批量迁移多个项目到 fallback 模板（§29.8）
 - `/cto-start` — 新项目第零轮启动
 - `/cto-resume` — 恢复会话继续工作
 - `/cto-refresh` — 刷新手册恢复行为规范

@@ -36,13 +36,18 @@ cp templates/CLAUDE.md [your-project]/CLAUDE.md
 ```bash
 /cto-start              # 新项目第零轮
 /cto-resume             # 恢复会话
+/cto-link               # 换机器后重新关联本机 ai-playbook 路径
 /cto-spec specify [...] # 三段式 Spec-Driven
 /cto-vibe-check         # Vibe Coding 红线审计
 /cto-harness-audit      # Harness 设计自审
 /cto-eval init          # 启动 Eval-Driven Development
 ```
 
-完整命令清单见 [CTO-PLAYBOOK.md](CTO-PLAYBOOK.md#斜杠命令15-个) 的"斜杠命令"章节。
+完整命令清单（17 个）见 [CTO-PLAYBOOK.md](CTO-PLAYBOOK.md#斜杠命令) 的"斜杠命令"章节。
+
+### 跨机器使用
+
+换电脑或团队多人用？运行 `/cto-link` 自动发现本机 ai-playbook 路径，更新当前项目 CLAUDE.md。详见手册 [§29.8 多机器配置](playbook/handbook.md#298-多机器配置路径自适应)。
 
 ## 文件说明
 

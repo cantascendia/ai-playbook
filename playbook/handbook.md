@@ -2176,9 +2176,136 @@ project-b/             ← 目标项目 B
 如果团队多人使用：
 
 1. ai-playbook 仓库 push 到 GitHub/GitLab，所有人 clone 同一份
-2. 每人在本机的 ai-playbook 路径可能不同 — CLAUDE.md 中的手册路径需要各自配置
-3. 建议将 CLAUDE.md 加入 `.gitignore`（因为路径因人而异），或使用相对路径/环境变量
-4. `docs/ai-cto/` 建议纳入版本控制，团队共享 CTO 记忆
+2. 每人在本机的 ai-playbook 路径可能不同 — 使用 §29.8 的 `/cto-link` 机制自动适配
+3. `docs/ai-cto/` 建议纳入版本控制，团队共享 CTO 记忆
+
+### 29.8 多机器配置（路径自适应）
+
+> 解决核心问题：换电脑 / 团队多人 / 不同 OS / 不同盘符时，CLAUDE.md 中硬编码的 ai-playbook 路径会断链。
+
+#### 29.8.1 Claude Code 的路径处理事实（必读）
+
+| 形式 | 是否有效 |
+|---|---|
+| 绝对路径（`/foo/bar` 或 `C:/foo/bar`）| ✅ Read 工具直接可用 |
+| `@import` 语法（`@~/foo.md`）| ✅ Claude Code 原生支持，自动展开 `~` 并把内容拉入上下文 |
+| `~/foo` 不带 `@` | ⚠️ Read 工具不展开 `~`，需先用 Bash 解析 |
+| `$VAR` 环境变量 | ❌ Claude 读 CLAUDE.md 不展开 shell 变量 |
+
+**关键判断**：直接用 `@~/.claude/playbook/handbook.md` 会把整个 ~3000 行手册自动塞进每次会话上下文（浪费 token）。所以推荐**多路径 fallback + Read 按需读取** 而非 `@import`。
+
+#### 29.8.2 推荐方案：多路径 fallback + `/cto-link`
+
+**目标项目的 CLAUDE.md 写法**：
+
+```markdown
+## 完整手册
+
+CTO 操作手册见 ai-playbook 仓库的 `playbook/handbook.md`。
+
+**Claude 在本机查找手册的顺序**（用 Read 工具按序尝试）：
+
+1. `~/.claude/playbook/handbook.md` — 推荐（symlink 或 clone 到此）
+2. `~/ai-playbook/playbook/handbook.md`
+3. `~/projects/ai-playbook/playbook/handbook.md`
+4. `C:/projects/ai-playbook/playbook/handbook.md`（Windows 常用）
+5. 下方 LINK 区块中的本机缓存路径
+
+<!-- AI-PLAYBOOK-LINK:START — 由 /cto-link 自动维护，勿手改 -->
+<!-- 未配置：运行 /cto-link 自动检测 -->
+<!-- AI-PLAYBOOK-LINK:END -->
+```
+
+Claude 看到这段 → 用 Read 逐个尝试 → 第一个成功的即为本机路径。
+
+#### 29.8.3 三平台标准安装位置
+
+为最大化跨机兼容性，推荐统一安装到 `~/.claude/playbook/`：
+
+**Mac / Linux**：
+```bash
+# 方法 A：直接 clone 到此位置
+git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
+
+# 方法 B：symlink 到任意位置（如已有 clone）
+ln -s ~/projects/ai-playbook ~/.claude/playbook
+```
+
+**Windows**（PowerShell 管理员或开发者模式）：
+```powershell
+# 方法 A：clone
+git clone https://github.com/<org>/ai-playbook $env:USERPROFILE\.claude\playbook
+
+# 方法 B：symlink
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
+                                -Target "C:\projects\ai-playbook"
+```
+
+**WSL**：把上面 `~/.claude/playbook` 指向 `/mnt/c/projects/ai-playbook` 的 symlink 即可。
+
+#### 29.8.4 `/cto-link` 命令工作流
+
+```
+新机器首次使用：
+1. clone ai-playbook 到任意位置（推荐 ~/.claude/playbook）
+2. 进入项目目录
+3. 运行 /cto-link
+   → 自动探测候选路径
+   → 把发现的路径写入当前项目 CLAUDE.md 的 LINK 区块
+   → 缓存到 .claude/settings.local.json
+4. 运行 /cto-refresh 验证手册可读
+```
+
+**探测顺序**（命令内置）：
+1. `$ARGUMENTS`（用户传入的绝对路径）
+2. `$AI_PLAYBOOK_PATH` 环境变量
+3. `~/.claude/playbook`
+4. `~/ai-playbook`
+5. `~/projects/ai-playbook`
+6. `~/Documents/ai-playbook`
+7. `C:/projects/ai-playbook`（Windows）
+8. `/opt/ai-playbook`（Linux 服务器）
+
+#### 29.8.5 团队协作的关键约定
+
+| 场景 | 处置 |
+|---|---|
+| 新成员 clone 项目 | fallback 路径 1-4 一般能命中，无需运行 `/cto-link` |
+| 新成员路径非标 | 运行 `/cto-link <路径>` 写本地缓存 |
+| LINK 区块是否提交 | **推荐保持"未配置"提交**（避免污染队友） |
+| 个人电脑切换 | 每台跑一次 `/cto-link` |
+| ai-playbook 升级 | 在 ai-playbook 目录 `git pull`，所有项目自动获得新手册（路径不变） |
+
+#### 29.8.6 17 个已有项目批量迁移
+
+旧版 CLAUDE.md（硬编码路径）批量迁移到新 fallback 模板：
+
+```bash
+# 在 ai-playbook 仓库中运行
+/cto-relink-all
+```
+
+命令会：
+1. 扫描 `~/projects/*` 找含 CLAUDE.md 且引用 ai-playbook 的项目
+2. 显示每个项目的迁移 diff
+3. 询问确认后批量替换"完整手册"区段
+4. 每个项目备份原文件为 `CLAUDE.md.bak`
+
+#### 29.8.7 失败排查
+
+如果 `/cto-link` 报"找不到 ai-playbook"：
+
+```
+诊断步骤：
+1. ls -la ~/.claude/playbook/playbook/handbook.md  # 是否存在
+2. echo $AI_PLAYBOOK_PATH                          # 环境变量是否设置
+3. find / -name "ai-playbook" 2>/dev/null | head   # 全局搜索
+4. /cto-link --check                               # 命令的诊断模式
+
+若仍找不到，重新 clone：
+git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
+/cto-link
+```
 
 ---
 
