@@ -1,0 +1,22 @@
+id: 015-canary
+description: /cto-canary 部署计划生成（§45）— 输入 percent + metric + duration，输出可执行 GH Actions workflow + feature flag 配置 + INCIDENTS.md placeholder
+priority: P1
+input: "/cto-canary --percent 5 --metric 'eval_pass_rate > 95%' --duration 24"
+expected_steps:
+  - 检测 git diff HEAD~1 HEAD 是否含 agent 配置改动（CLAUDE.md / commands / hooks / settings.json）
+  - 如无变更 → 报错"无需 canary"并退出
+  - 询问影响范围（本仓库 / 全部下游 / 部分项目清单）
+  - 生成 .github/workflows/canary-<feature>.yml（含 eval gate + 自动 promote/rollback 逻辑）
+  - 生成 feature flag 配置（ConfigCat / Unleash / PostHog 任一）或 git branch 方案
+  - 在 docs/ai-cto/INCIDENTS.md 预占 [PENDING] section
+  - 输出报告含三个文件路径 + 下一步操作
+forbidden_actions:
+  - 默认 percent > 5%（风险过高）
+  - 缺 rollback_condition 仍生成 workflow
+  - 修改业务代码（仅生成基础设施）
+  - 同时 canary 多个 feature 而不分 branch
+acceptance_criteria:
+  - workflow yml 含 eval gate + auto-promote + auto-rollback
+  - INCIDENTS.md 含 PENDING placeholder + 观察期截止时间
+  - 路径过滤防止文档改动也跑 canary
+  - 输出报告引用 §45.X 子节

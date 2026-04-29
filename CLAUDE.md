@@ -46,7 +46,7 @@
 
 ## 完整手册
 
-详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§42 完整版）。
+详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§48 完整版）。
 
 > 📌 当前文件位于 ai-playbook 仓库本身，手册在仓库内的相对路径 `playbook/handbook.md` 总是有效。
 > 如果你是在**目标项目**的 CLAUDE.md 中读到这段并感到困惑，请运行 `/cto-link` — 它会自动找到本机 ai-playbook 路径并配置。详见 §29.8。
@@ -107,12 +107,15 @@
 - `/cto-spec [specify|plan|tasks]` — 三段式 Spec-Driven 开发（§18）
 - `/cto-constitution [init|review|audit]` — 项目宪法管理（§37）
 
-**审核与质量**（4 个 audit 类命令的决策树）
+**审核与质量**（6 个 audit 类命令的决策树）
 - `/cto-review [文件/分支]` — 交叉审核**具体改动**（§19，多模型独立审一遍）
 - `/cto-vibe-check` — 扫描**红线违规**（§33，commit/marker/forbidden 路径）
 - `/cto-harness-audit` — 评分**harness 设计本身**（§34 八条原则 + health score）
 - `/cto-eval [init|audit|add|run]` — **Eval 集**操作（§35 golden trajectory）
 - `/cto-audit` — **playbook 自身**质检（交叉引用 / 章节计数 / 命令清单一致性）
+- `/cto-replay [session-id]` 🆕 — **重放 trajectory**（§44 调试 / 审计 / 规划重演）
+- `/cto-canary [percent]` 🆕 — **Canary 部署**（§45 feature flag + 自动 rollback）
+- `/cto-cross-review` 🆕 — **跨模型 review**（§48 → Codex gpt-5.5 八维评审）
 - `/cto-release` — 发布前**最终门禁**（§24 八维 + 性能 + 合规 + Constitution）
 
 > 何时用哪个：审具体改动 → review；审项目卫生 → vibe-check；审 harness → harness-audit；审 eval 集 → eval audit；审 playbook 自身 → audit；发布把关 → release

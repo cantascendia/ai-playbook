@@ -3,13 +3,13 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-04-29 by harness-auditor + vibe-checker dogfooding round
+最后更新：2026-04-29 v3.5 — 5 项创新 + README 重塑
 
 ---
 
 ## 一句话状态
 
-ai-playbook v3.4 — Claude Code idiomatic（commands + sub-agents + hooks + MCP + rules + output-style + statusline），17 个下游项目分发稳定，handbook §1-§42（3378 行）。Harness 健康分 ~92/100。
+ai-playbook **v3.5** — v3.4 idiomatic 之上加入前沿创新：§43 ARE / §44 Replay / §45 Canary / §46 Skill Manifest / §47 CI Judge / §48 Cross-Model Review。20 个 commands / 4 sub-agents / 19 evals / 4 GitHub Actions / README 视觉重塑。Harness 健康分预计 92 → 96+。
 
 ---
 
@@ -131,3 +131,7 @@ ai-playbook v3.4 — Claude Code idiomatic（commands + sub-agents + hooks + MCP
 ## 📅 最后同步确认
 
 轮次 v3.4，2026-04-29，并行调度 harness-auditor / vibe-checker / consistency-audit 三个 sub-agent，读取了 .claude/{commands,agents,settings.json,rules,skills,output-styles,statusline.sh} + handbook.md + CLAUDE.md + 6 个 commits 的 git log。
+[2026-04-29T16:45:32+09:00] sub-agent finished
+[2026-04-29T16:46:09+09:00] sub-agent finished
+[2026-04-29T16:46:15+09:00] sub-agent finished
+[2026-04-29T16:52:50+09:00] sub-agent finished

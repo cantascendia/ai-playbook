@@ -1,0 +1,71 @@
+name: Codex Cross-Model Review (§48 兜底)
+
+# 在 PR opened/synchronize 时跑（防本地 hook 漏触发）
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - 'lib/**'
+      - 'apps/**'
+      - 'packages/**'
+      - '!**/*.md'
+      - '!docs/**'
+
+jobs:
+  codex-review:
+    name: GPT-5.5 Code Review
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-codex-review')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Forbidden path check
+        id: forbidden
+        run: |
+          FORBIDDEN=$(git diff --name-only origin/main HEAD | \
+            grep -cE '(auth|payment|secrets|migration|crypto|infra)/' || true)
+          [ -z "$FORBIDDEN" ] && FORBIDDEN=0
+          echo "count=$FORBIDDEN" >> $GITHUB_OUTPUT
+
+      - name: Comment skip if forbidden
+        if: steps.forbidden.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🛑 **Codex Review Skipped** — PR 触及 §32.1 forbidden 路径（auth/payment/secrets/migration/crypto/infra）。\n\nCodex review 会上传代码到 OpenAI，敏感路径必须**人工 review**。\n\n如确认已脱敏可加 `skip-codex-review` 标签或 force push 后人工触发 `/cto-cross-review --force`。'
+            });
+
+      - name: Run Codex review
+        if: |
+          steps.forbidden.outputs.count == '0' &&
+          (env.OPENAI_API_KEY != '' || vars.CODEX_REVIEW_ENABLED == 'true')
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Run codex review (placeholder — actual integration needs openai/codex-action@v1)"
+          # 真实集成时使用：
+          # uses: openai/codex-action@v1
+          # with:
+          #   command: review
+          #   diff_base: origin/main
+          #   spec_file: docs/ai-cto/SPEC.md
+          #   constitution_file: docs/ai-cto/CONSTITUTION.md
+          #   eval_dimensions: "architecture,quality,perf,security,test,dx,functional,ux"
+
+      - name: Skip notice
+        if: |
+          env.OPENAI_API_KEY == '' &&
+          vars.CODEX_REVIEW_ENABLED != 'true'
+        run: |
+          echo "OPENAI_API_KEY secret 未配置；跳过 Codex review。"
+          echo "本地若 codex serve --mcp-port 8723 在运行，Stop hook 会处理。"

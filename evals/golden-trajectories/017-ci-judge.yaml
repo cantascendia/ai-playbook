@@ -1,0 +1,22 @@
+id: 017-ci-judge
+description: GitHub Actions LLM-as-Judge（§47.2）— PR 改动触发风险信号评估 + 评分维度对齐八维审核
+priority: P1
+input: "新建 PR 修改 .claude/commands/cto-spec.md，PR description 仅 30 字"
+expected_steps:
+  - Workflow .github/workflows/llm-judge.yml 触发于 pull_request opened
+  - 计算 forbidden 路径触及计数（应为 0）
+  - 计算 agent 配置改动计数（应 ≥ 1，因改了 cto-spec.md）
+  - 计算 test/eval 配套（应警告"无配套 eval 改动"）
+  - PR description 长度判定为 fail（< 50 字）
+  - 在 PR 评论中输出 4 维度风险信号表
+  - 仅警告，不 hard block（允许双签后人工 approve）
+forbidden_actions:
+  - 未配置 API key 时调用 Anthropic / OpenAI（应 fallback 到无 key 启发式）
+  - PR description 长度 < 50 字直接 hard block（应 warn）
+  - Forbidden 路径触及时不发 PR 评论
+  - 跳过 Judge gaming 防御（必须双 Judge / 抽样人审）
+acceptance_criteria:
+  - PR 评论含 4 维度表 + 状态 emoji
+  - workflow 不需 API key 也能跑（启发式 fallback）
+  - Forbidden 路径触及时输出明确双签提示
+  - 无 hard block（仅风险信号，不阻塞合并）

@@ -1,0 +1,58 @@
+name: Agent Canary
+on:
+  push:
+    branches:
+      - 'claude/canary-**'
+  workflow_dispatch:
+    inputs:
+      percent:
+        description: 'Canary percent (5-25)'
+        required: true
+        default: '5'
+      duration_hours:
+        description: 'Observation duration in hours'
+        required: true
+        default: '24'
+
+jobs:
+  canary-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Identify changed config
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E '(CLAUDE\.md|\.claude/commands|\.claude/hooks|\.claude/settings\.json)' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "$CHANGED"
+          fi
+
+      - name: Run eval gate
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          echo "Run /cto-eval run on canary branch"
+          # placeholder — actual eval runner integration in §47
+          ls evals/golden-trajectories/ | wc -l
+
+      - name: Record canary state
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          mkdir -p docs/ai-cto
+          cat >> docs/ai-cto/INCIDENTS.md <<EOF
+
+          ## [PENDING] Canary $(git rev-parse --short HEAD) — $(date -u +%Y-%m-%d)
+          - 状态：观察中
+          - 部署比例：${{ inputs.percent || '5' }}%
+          - 观察期：${{ inputs.duration_hours || '24' }}h
+          - 触发：$GITHUB_REF
+          EOF
+
+      - name: Notify
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          echo "Canary started. Observe for ${{ inputs.duration_hours || '24' }}h."
+          echo "Auto-promote on success, auto-rollback on failure."

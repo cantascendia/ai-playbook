@@ -1,0 +1,61 @@
+name: Eval Gate (铁律 #12)
+
+# 修改 commands / agents / skills / CLAUDE.md / handbook 时跑全量 eval
+on:
+  pull_request:
+    paths:
+      - '.claude/commands/**'
+      - '.claude/agents/**'
+      - '.claude/skills/**'
+      - '.agents/skills/**'
+      - 'CLAUDE.md'
+      - 'playbook/handbook.md'
+      - 'evals/**'
+  workflow_dispatch:
+
+jobs:
+  eval-gate:
+    name: Run /cto-eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Count eval cases
+        id: count
+        run: |
+          N=$(ls evals/golden-trajectories/*.yaml 2>/dev/null | wc -l)
+          echo "count=$N" >> $GITHUB_OUTPUT
+          echo "Found $N golden trajectories"
+
+      - name: Validate yaml structure
+        run: |
+          for f in evals/golden-trajectories/*.yaml; do
+            python -c "import yaml; data=yaml.safe_load(open('$f')); \
+              assert 'id' in data, '$f missing id'; \
+              assert 'description' in data, '$f missing description'; \
+              assert 'expected_steps' in data, '$f missing expected_steps'; \
+              assert 'forbidden_actions' in data, '$f missing forbidden_actions'; \
+              assert 'acceptance_criteria' in data, '$f missing acceptance_criteria'"
+          done
+
+      - name: Skill manifest consistency
+        run: |
+          if [ -f .agents/skills-manifest.json ]; then
+            python -c "import json; \
+              m = json.load(open('.agents/skills-manifest.json')); \
+              for s in m['skills']: \
+                  import os; \
+                  assert os.path.exists(s['location']), f\"{s['skillId']} missing physical file\""
+          fi
+
+      - name: Frontmatter completeness
+        run: |
+          MISSING=0
+          for f in .claude/commands/cto-*.md; do
+            head -1 "$f" | grep -q '^---$' || { echo "$f missing frontmatter"; MISSING=$((MISSING+1)); }
+          done
+          [ $MISSING -eq 0 ] || (echo "✗ $MISSING commands without frontmatter" && exit 1)
+
+      - name: Summary
+        run: |
+          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories validated)"

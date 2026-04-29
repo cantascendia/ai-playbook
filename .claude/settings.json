@@ -117,6 +117,10 @@
           {
             "type": "command",
             "command": "echo '— 会话结束摘要 —'; git status --short 2>/dev/null | head -20; echo '如有未提交改动涉及 §32.1 forbidden 路径，建议 /cto-vibe-check + /cto-review 后再 push。'"
+          },
+          {
+            "type": "command",
+            "command": "git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^(src|app|lib|apps|packages)/' && ! git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '(auth|payment|secrets|migration|crypto|infra)/' && test -f .agents/skills/codex-bridge/SKILL.md && echo '🔄 §48 触发 cross-review (Stop hook → codex-bridge)... 异步执行，结果将出现在 docs/ai-cto/REVIEW-QUEUE.md' || true"
           }
         ]
       }

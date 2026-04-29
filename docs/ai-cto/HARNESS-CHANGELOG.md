@@ -13,6 +13,35 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-04-29] v3.5 — 5 项前沿创新 + README 视觉重塑
+
+继 v3.4 dogfooding（70.7→~92）后，按用户选择的 TOP-5 全量创新执行。
+
+- **改了什么**：
+  - 手册新增 §43-§48 共 6 个章节（约 900 行）
+  - 新增 1 个 sub-agent（`reliability-auditor`）
+  - 新增 3 个 slash commands（`cto-replay` / `cto-canary` / `cto-cross-review`）
+  - 新增 1 个 cross-platform skill（`codex-bridge` 在 `.agents/skills/`）
+  - 新增 4 个 GitHub Actions workflows（`eval.yml` / `canary.yml` / `llm-judge.yml` / `codex-review.yml`）
+  - 新增 1 个 manifest 文件（`.agents/skills-manifest.json`）
+  - 新增 7 条 evals（013-019）
+  - settings.json Stop hook 加 cross-review 触发链路
+  - .mcp.json 加 codex MCP server lazy 配置
+  - **README.md 视觉重塑**：113 行 → 250+ 行（banner / 8 badges / Mermaid / 对比表 / 三层导航 / Star History / v3.5 创新表）
+  - docs/assets/architecture.mmd（架构 Mermaid 源文件）
+- **为什么**：
+  - §43 ARE：从"设计 + 测试"升级到"生产可靠性 + SLO"
+  - §44 Replay：让 LLM 非确定性可审计
+  - §45 Canary：改 CLAUDE.md/hooks 不再是直推 prod
+  - §46 Manifest：跨工具 skill 互操作合同
+  - §47 CI/CD：铁律 #12 真正机器化执行
+  - §48 Cross-Review：用户实际需求 — Claude 完成任务自动 → Codex 跨模型审
+  - README：当前漏报 6 项核心功能，跳出率高
+- **Eval 跑分前/后**：12 → 19 条（+7）
+- **影响范围**：17 个下游项目同步新 commands；GitHub Actions 让铁律 #12 在 CI 层强制；§48 让 Claude / Codex 跨模型自动协作
+
+---
+
 ## [2026-04-29] v3.4 dogfooding — 自审与首次 changelog
 
 由本仓库自身的 `harness-auditor` / `vibe-checker` / 通用一致性 sub-agent 并行审计后修复。

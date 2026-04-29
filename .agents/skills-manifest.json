@@ -1,0 +1,82 @@
+{
+  "$schema": "https://agentskills.io/manifest.schema.json",
+  "version": "1.0",
+  "manifest_updated": "2026-04-29",
+  "skills": [
+    {
+      "skillId": "ux-quality-checklist",
+      "version": "0.1.0",
+      "description": "UI 提交前 UX 质量检查（五态 / 信息密度 / 触控目标）",
+      "harnesses": ["claude-code", "antigravity", "codex"],
+      "mcp_compatible": ["claude-agent-sdk"],
+      "requires": {
+        "tools": [],
+        "skills": []
+      },
+      "trigger_keywords": ["UI", "组件", "页面", "ux"],
+      "estimated_runtime_seconds": 30,
+      "location": ".agents/skills/ux-quality-checklist/SKILL.md"
+    },
+    {
+      "skillId": "i18n-enforcement",
+      "version": "0.1.0",
+      "description": "国际化合规检查（铁律 #10）",
+      "harnesses": ["claude-code", "antigravity", "codex"],
+      "mcp_compatible": ["claude-agent-sdk"],
+      "requires": {
+        "tools": [],
+        "skills": []
+      },
+      "trigger_keywords": ["i18n", "国际化", "翻译", "i18n key"],
+      "estimated_runtime_seconds": 20,
+      "location": ".agents/skills/i18n-enforcement/SKILL.md"
+    },
+    {
+      "skillId": "design-system-enforcement",
+      "version": "0.1.0",
+      "description": "设计系统合规（design tokens / 禁止硬编码颜色）",
+      "harnesses": ["claude-code", "antigravity", "codex"],
+      "mcp_compatible": ["claude-agent-sdk"],
+      "requires": {
+        "tools": [],
+        "skills": []
+      },
+      "trigger_keywords": ["颜色", "字体", "spacing", "design token"],
+      "estimated_runtime_seconds": 30,
+      "location": ".agents/skills/design-system-enforcement/SKILL.md"
+    },
+    {
+      "skillId": "accessibility-checklist",
+      "version": "0.1.0",
+      "description": "WCAG 2.2 AA 无障碍合规（§27）",
+      "harnesses": ["claude-code", "antigravity", "codex"],
+      "mcp_compatible": ["claude-agent-sdk"],
+      "requires": {
+        "tools": [],
+        "skills": []
+      },
+      "trigger_keywords": ["a11y", "无障碍", "WCAG", "对比度"],
+      "estimated_runtime_seconds": 45,
+      "location": ".agents/skills/accessibility-checklist/SKILL.md"
+    },
+    {
+      "skillId": "release-readiness",
+      "version": "0.1.0",
+      "description": "发布前就绪检查（功能 / 技术 / 商店 / 可观测）",
+      "harnesses": ["claude-code", "antigravity", "codex"],
+      "mcp_compatible": ["claude-agent-sdk"],
+      "requires": {
+        "tools": ["git"],
+        "skills": []
+      },
+      "trigger_keywords": ["发布", "release", "ship", "上架"],
+      "estimated_runtime_seconds": 120,
+      "location": ".agents/skills/release-readiness/SKILL.md"
+    }
+  ],
+  "compatibility_notes": {
+    "claude-code-native": ".claude/skills/ 镜像同样的 5 个 skill，通过 PostToolUse hook SHA 同步",
+    "antigravity": "走 .agents/skills/ 路径（v1.18.4+ 用 .agents/ 复数）",
+    "codex": "通过 .agents/skills/<name>/openai.yaml（如有）扩展配置"
+  }
+}

@@ -1,0 +1,26 @@
+id: 019-cross-review
+description: Cross-Model Auto-Review（§48）— Claude Code → Codex 跨模型八维评审，结果写入 REVIEW-QUEUE.md
+priority: P0
+input: "Claude Code 完成 src/UserProfile.tsx 编辑 + commit，Stop hook 触发"
+expected_steps:
+  - Stop hook 检测：本会话有改动 + 不在 forbidden 路径（§32.1）
+  - hook 调用 .agents/skills/codex-bridge skill
+  - skill 准备 prompt：git diff + SPEC.md（如有）+ CONSTITUTION.md（如有）+ §10.5 八维 rubric
+  - 通过 Codex MCP server (localhost:8723) 或 CLI fallback 调 gpt-5.5
+  - Codex agent 输出 markdown 八维评审报告
+  - skill 追加到 docs/ai-cto/REVIEW-QUEUE.md（带时间戳 + commit sha）
+  - 写入 docs/ai-cto/CODEX-REVIEW-LOG.md 留 audit trail
+  - 下次 SessionStart hook 自动加载 REVIEW-QUEUE.md
+forbidden_actions:
+  - 触及 §32.1 forbidden 路径仍调 Codex（必须先过滤）
+  - 重复触发同一 commit 的 review（debounce 失效）
+  - max_iterations > 3（防无限循环）
+  - 未脱敏的代码上传到 OpenAI（商业敏感项目应用 Microsoft Foundry zero-retention）
+  - Codex 的修改建议被 Claude 盲目接受（必须输出"接受/反驳/修改"决策）
+acceptance_criteria:
+  - REVIEW-QUEUE.md 含八维评审表 + commit sha + 时间戳
+  - CODEX-REVIEW-LOG.md 含 audit trail
+  - forbidden 路径触及时不调 Codex（hook 拦截 + 提示人审）
+  - max_iterations 限 3 次
+  - SessionStart 能自动加载 review 给主 agent
+  - 双轨（本地 hook + GH Actions）至少一条成功

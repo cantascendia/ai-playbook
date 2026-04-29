@@ -53,7 +53,7 @@
 27. [无障碍](playbook/handbook.md#27-无障碍accessibility) — WCAG 2.2 AA
 28. [隐私合规](playbook/handbook.md#28-隐私合规) — GDPR / CCPA / PIPL
 
-**项目集成、安全、AI 工程范式（§29-§42）**
+**项目集成、安全、AI 工程范式（§29-§48）**
 
 29. [新项目集成教程](playbook/handbook.md#29-新项目集成教程)
 30. [安全工程基线](playbook/handbook.md#30-安全工程基线) — OWASP Top 10 / SAST/DAST/SCA
@@ -69,6 +69,12 @@
 40. [AI Pair Programming 模式](playbook/handbook.md#40-ai-pair-programming-模式)
 41. [Hooks 驱动的自动化](playbook/handbook.md#41-hooks-驱动的自动化) — 14 条铁律自动执行
 42. [Sub-agents 实战](playbook/handbook.md#42-sub-agents-实战落地手册-39-多代理设计) — harness-auditor / eval-runner / vibe-checker
+43. 🆕 [Agent Reliability Engineering](playbook/handbook.md#43-agent-reliability-engineeringare) — SRE 移植到 agent + reliability-auditor
+44. 🆕 [Deterministic Replay](playbook/handbook.md#44-deterministic-agent-replay) — Trajectory 日志 + /cto-replay
+45. 🆕 [Canary Deployment](playbook/handbook.md#45-agent-canary-deployment) — feature flag + 自动 rollback
+46. 🆕 [MCP Skill Manifest](playbook/handbook.md#46-mcp-skill-interoperability-manifest) — 跨工具互操作元数据
+47. 🆕 [Agent-Native CI/CD + Judge](playbook/handbook.md#47-agent-native-cicd--llm-as-judge) — Eval gate + LLM-as-Judge
+48. 🆕 [Cross-Platform Auto-Review](playbook/handbook.md#48-cross-platform-auto-review-bridge--claude-code--codex-自动-review) — Claude→Codex 跨模型审计
 
 ---
 
@@ -101,6 +107,9 @@
 | `/cto-audit` | Playbook 自审质检 | — |
 | `/cto-design [描述]` | UI 设计流程 | §26 |
 | `/cto-image [用途]` | 图像生成委派分流（Codex gpt-image-2 / Antigravity Nano Banana Pro） | §26.5 |
+| `/cto-replay [session-id]` 🆕 | 重放 trajectory 日志 | §44 |
+| `/cto-canary [percent]` 🆕 | Canary 部署计划生成 | §45 |
+| `/cto-cross-review` 🆕 | 跨模型 review（Claude→Codex gpt-5.5 八维评审） | §48 |
 | `/cto-skills` | Skill 生态管理 | §21 |
 | `/cto-models [变更]` | 模型列表更新 | — |
 | `/cto-release [版本]` | 发布前全面检查 | §24 |

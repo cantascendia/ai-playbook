@@ -1,0 +1,55 @@
+graph TB
+    subgraph "Claude Code (主执行)"
+        CL[CLAUDE.md<br/>系统提示 + 14 条铁律]
+        SET[.claude/settings.json<br/>6 类 hooks 自动化]
+        CMD[.claude/commands/<br/>20 个 cto-* 命令]
+        AGT[.claude/agents/<br/>4 个 sub-agents]
+        SKL[.claude/skills/<br/>5 个跨平台 skills]
+        RUL[.claude/rules/<br/>3 路径触发规则]
+    end
+
+    subgraph "项目记忆 (docs/ai-cto/)"
+        CON[CONSTITUTION.md<br/>不可妥协原则]
+        STA[STATUS.md<br/>+ HARNESS-CHANGELOG]
+        REV[REVIEW-QUEUE.md<br/>跨模型 review 结果]
+        SPC[SPEC / PLAN / TASKS<br/>三段式开发]
+    end
+
+    subgraph "Eval & CI/CD"
+        EVL[evals/golden-trajectories/<br/>19 条黄金轨迹]
+        GHA[.github/workflows/<br/>eval / canary / judge / codex-review]
+    end
+
+    subgraph "委派平台"
+        AG[Antigravity<br/>UI mockup / Stitch 2.0]
+        CDX[Codex App<br/>gpt-5.5 + image_gen<br/>跨模型 review §48]
+    end
+
+    CL --> CMD
+    CL --> AGT
+    CL --> RUL
+    CMD --> EVL
+    AGT --> EVL
+    SET -->|hooks| CMD
+    SET -->|Stop hook §48| CDX
+
+    CL -.->|加载| CON
+    CL -.->|恢复| STA
+    CON --> SPC
+    SPC --> EVL
+    EVL -->|铁律 #12| GHA
+
+    AG -.->|mockup-first| CL
+    CDX -.->|asset-in-loop| CL
+    CDX -.->|跨模型 review §48| REV
+    REV -.->|SessionStart| CL
+
+    classDef claude fill:#9d7ce3,stroke:#6a37d4,color:#fff
+    classDef memory fill:#ebe6f2,stroke:#78757e
+    classDef eval fill:#fbbf24,stroke:#d97706,color:#fff
+    classDef external fill:#60a5fa,stroke:#1e40af,color:#fff
+
+    class CL,SET,CMD,AGT,SKL,RUL claude
+    class CON,STA,REV,SPC memory
+    class EVL,GHA eval
+    class AG,CDX external

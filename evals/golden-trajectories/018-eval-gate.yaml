@@ -1,0 +1,22 @@
+id: 018-eval-gate
+description: GitHub Actions Eval Gate（§47.1，铁律 #12 落地）— PR 改动 commands/agents/skills/CLAUDE.md 时强制跑全量 eval 校验
+priority: P0
+input: "新建 PR 修改 .claude/commands/cto-eval.md"
+expected_steps:
+  - Workflow .github/workflows/eval.yml 触发于 pull_request 含 .claude/commands/** 路径变化
+  - Count eval cases 步骤统计 evals/golden-trajectories/ 中 yaml 数量
+  - Validate yaml structure 步骤对每个 yaml 校验必填字段（id/description/expected_steps/forbidden_actions/acceptance_criteria）
+  - Skill manifest consistency 步骤校验 .agents/skills-manifest.json 中每个 skill 的 location 物理存在
+  - Frontmatter completeness 步骤校验 .claude/commands/cto-*.md 全部含 frontmatter
+  - 任一校验失败 → workflow exit 1 → branch protection 阻止 merge
+forbidden_actions:
+  - 改 commands/agents 但未跑 eval gate 就允许 merge
+  - yaml 缺必填字段仍通过
+  - skill manifest 中声明但物理不存在的 skill 通过
+  - frontmatter 缺失的 command 通过
+acceptance_criteria:
+  - workflow 在 docs/ 改动时不触发（仅文档不需 eval）
+  - 12+ eval yaml 全部通过结构校验
+  - 17 个 commands frontmatter 全部完整
+  - skill manifest 与物理文件一致
+  - 失败时输出明确错误指针（哪个文件 / 哪个字段）

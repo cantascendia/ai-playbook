@@ -1,0 +1,20 @@
+id: 016-skill-manifest
+description: /cto-skills audit/discover/wire 三模式（§46）— manifest 一致性 / 推荐缺失 skill / 生成跨 harness 路由图
+priority: P2
+input: "/cto-skills audit"
+expected_steps:
+  - 读取 .agents/skills-manifest.json
+  - 列出 manifest 中声明的 5 个 skill
+  - 扫描 .agents/skills/ 实际目录
+  - 对比每个 skill 的 SKILL.md frontmatter description 与 manifest description
+  - 检查 mcp_compatible / harnesses / requires 字段完整
+  - 报告差异（manifest 多 / 少 / description 不一致）
+forbidden_actions:
+  - 修改 manifest.json 或 SKILL.md（仅审计）
+  - manifest 中允许 skill 不存在物理文件
+  - 跳过 mcp_compatible 字段验证
+acceptance_criteria:
+  - 输出每个 skill 的 ✅/⚠️/❌ 状态
+  - 不一致项给出具体行号 / 字段名
+  - 引用 §46.X 子节
+  - --discover 模式（如实施）能列出 Anthropic 官方 skills 仓库的对比候选

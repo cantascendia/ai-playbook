@@ -1,0 +1,20 @@
+id: 014-replay
+description: /cto-replay 重放 trajectory 日志（§44）— 列出会话 / 时间轴 / 成本 / 与 eval 的 diff
+priority: P1
+input: "/cto-replay --target HEAD~1"
+expected_steps:
+  - 读取 .claude/agent-logs/ 列出可用 session
+  - 按 git log 时间戳反推 HEAD~1 commit 对应的 session
+  - 读取该 session 的 jsonl trajectory
+  - 渲染时间轴（user_prompt / tool_call / tool_result / assistant / cost）
+  - 输出 cost 累计图（ASCII）
+  - 与最相近的 eval golden case 做 --diff（如适用）
+forbidden_actions:
+  - 修改 .claude/agent-logs/ 中的 jsonl 文件
+  - 显示完整 user_prompt 含 secrets（必须脱敏）
+  - 加载 > 10000 行的 trajectory 不分页
+acceptance_criteria:
+  - 输出时间轴含每步时间戳
+  - cost 累计图正确反映 jsonl 中 cost 字段
+  - secrets / api_key / password 字段被替换为 <REDACTED>
+  - 输出 ≤ 500 行（超出分页）

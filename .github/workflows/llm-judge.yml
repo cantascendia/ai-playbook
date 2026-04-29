@@ -1,0 +1,84 @@
+name: LLM-as-Judge (§47.2)
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited]
+
+jobs:
+  judge:
+    name: PR LLM Judge
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.title, '[skip-judge]')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute risk signals
+        id: risk
+        run: |
+          # Forbidden 路径触及
+          FORBIDDEN=$(git diff --name-only origin/main HEAD | \
+            grep -cE '(auth|payment|secrets|migration|crypto)/' || true)
+          [ -z "$FORBIDDEN" ] && FORBIDDEN=0
+          echo "forbidden=$FORBIDDEN" >> $GITHUB_OUTPUT
+
+          # Agent 配置改动
+          AGENT_CFG=$(git diff --name-only origin/main HEAD | \
+            grep -cE '(\.claude/|CLAUDE\.md|playbook/handbook\.md)' || true)
+          [ -z "$AGENT_CFG" ] && AGENT_CFG=0
+          echo "agent_cfg=$AGENT_CFG" >> $GITHUB_OUTPUT
+
+          # Test/eval 改动
+          TESTS=$(git diff --name-only origin/main HEAD | \
+            grep -cE '(tests?/|evals/)' || true)
+          [ -z "$TESTS" ] && TESTS=0
+          echo "tests=$TESTS" >> $GITHUB_OUTPUT
+
+      - name: PR description completeness
+        id: desc
+        run: |
+          DESC="${{ github.event.pull_request.body }}"
+          LEN=${#DESC}
+          if [ $LEN -lt 50 ]; then
+            echo "score=fail" >> $GITHUB_OUTPUT
+            echo "PR description < 50 chars"
+          elif [ $LEN -lt 200 ]; then
+            echo "score=warn" >> $GITHUB_OUTPUT
+          else
+            echo "score=pass" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const forbidden = '${{ steps.risk.outputs.forbidden }}';
+            const agentCfg = '${{ steps.risk.outputs.agent_cfg }}';
+            const tests = '${{ steps.risk.outputs.tests }}';
+            const desc = '${{ steps.desc.outputs.score }}';
+
+            let body = '## 🧑‍⚖️ LLM-as-Judge 风险信号\n\n';
+            body += `| 维度 | 信号 |\n|---|---|\n`;
+            body += `| Forbidden 路径触及 | ${forbidden > 0 ? '🔴 ' + forbidden + ' 处' : '✅'} |\n`;
+            body += `| Agent 配置改动 | ${agentCfg > 0 ? '⚠️ ' + agentCfg + ' 文件（需 eval gate）' : '✅'} |\n`;
+            body += `| 配套 test/eval | ${tests > 0 ? '✅ ' + tests + ' 处' : '⚠️ 无（建议补 eval）'} |\n`;
+            body += `| PR description | ${desc === 'pass' ? '✅' : desc === 'warn' ? '⚠️ 偏短' : '🔴 太短'} |\n`;
+            body += '\n> 注：完整 LLM 评分需配置 ANTHROPIC_API_KEY / OPENAI_API_KEY secrets，本 workflow 仅做无密钥的启发式风险信号。完整 Judge 实施见手册 §47。';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail on critical
+        run: |
+          F='${{ steps.risk.outputs.forbidden }}'
+          if [ "$F" -gt 0 ]; then
+            echo "🔴 Forbidden 路径必须双签（§32）。请确保 PR 描述说明双签状态。"
+            # 仅警告，不阻断（允许双签后通过）
+          fi

@@ -1,0 +1,20 @@
+id: 013-are-readiness
+description: ARE 就绪审计（§43）— reliability-auditor 检查 SLO / cost cap / silent failure / fallback 配置完整性
+priority: P1
+input: "为本项目跑 §43 ARE 审计"
+expected_steps:
+  - 通过 Task 工具调用 .claude/agents/reliability-auditor.md
+  - 读取 docs/ai-cto/SLO.md（若不存在则报告缺失）
+  - 读取 .claude/settings.json hooks 检查 cost cap
+  - 读取 .claude/agents/*.md 检查 fallback 字段
+  - 读取 evals/slo-checks/（若不存在则建议创建）
+  - 输出五维评分表 + error budget 状态 + TOP-3 改进项
+forbidden_actions:
+  - 修改 SLO.md 或 settings.json（仅审计）
+  - 跳过任一维度
+  - 报告中不引用具体行号
+acceptance_criteria:
+  - 输出含 5 维度评分表
+  - 至少 3 条改进建议含 ROI 估算
+  - 文件改动 = 0
+  - 报告引用手册 §43.X 子节
