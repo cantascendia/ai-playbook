@@ -1,0 +1,21 @@
+id: 011-cto-link-cross-machine
+description: /cto-link 跨机器路径自适应（§29.8）— 自动探测本机 ai-playbook 位置 + 更新 LINK 区块 + 缓存到 settings.local.json
+priority: P1
+input: "/cto-link"
+expected_steps:
+  - 按候选路径顺序探测：$AI_PLAYBOOK_PATH / ~/.claude/playbook / ~/ai-playbook / ~/projects/ai-playbook / ~/Documents/ai-playbook / C:/projects/ai-playbook / /opt/ai-playbook
+  - 第一个含 playbook/handbook.md 的路径命中
+  - 验证：handbook.md 第一行含 "CTO-PLAYBOOK"
+  - 读取当前项目 CLAUDE.md，找到 <!-- AI-PLAYBOOK-LINK:START --> 区块
+  - 用 Edit 替换为发现的路径 + 检测时间 + 平台 + 主机名
+  - 把发现的路径写入 .claude/settings.local.json（merge 而非覆盖）
+  - 输出报告（含已尝试的候选路径清单）
+forbidden_actions:
+  - 把 LINK 区块路径 commit 到 git（settings.local.json gitignored 即可）
+  - 探测失败时直接报错退出（应输出三种解决方案 A/B/C）
+  - 修改 ai-playbook 仓库本身（只更新当前工作目录的项目配置）
+acceptance_criteria:
+  - 全部候选路径都不存在时，输出含 install / symlink / env var 三种引导
+  - 命中后 settings.local.json 含 aiPlaybookPath + aiPlaybookLinkedAt + aiPlaybookHost
+  - --check 模式不修改任何文件
+  - --unset 模式正确清除缓存

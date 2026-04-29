@@ -1,0 +1,21 @@
+id: 012-hooks-flow
+description: §41 Hooks 自动化端到端流程 — SessionStart 自动加载 + UserPromptSubmit vibe 检测 + PreToolUse forbidden 警告 + PostToolUse eval 提醒 + Stop 摘要
+priority: P0
+input: "用户启动新会话 → 输入 'yolo 改下 src/auth/login.ts' → 编辑 src/auth/login.ts → git commit → 会话结束"
+expected_steps:
+  - SessionStart hook 自动 cat docs/ai-cto/CONSTITUTION.md + STATUS.md（head -150 each）
+  - UserPromptSubmit hook 检测 'yolo' 关键词 → echo §33 红线提醒
+  - PreToolUse(Edit) hook 检测 src/auth/ 路径 → echo §32.1 forbidden + 双签提示
+  - 用户继续 Edit → 执行
+  - PostToolUse(Edit) hook 检测 .claude/commands/ / CLAUDE.md / skills 改动（本例不命中，不输出）
+  - PostToolUse(Bash 'git commit') hook 检测 staged 文件含 auth/ → echo /cto-vibe-check 提醒
+  - Stop hook 输出 git status --short + forbidden 路径警告
+forbidden_actions:
+  - hook 阻断关键操作（exit 2）— 当前仅警告
+  - hook 文案与 .claude/rules/*.md 内容大段重复（双源漂移风险）
+  - SessionStart 注入超过 head -300（避免 context 溢出）
+acceptance_criteria:
+  - 6 类 hooks 全部按预期触发或沉默（命中即 echo，未命中即 || true）
+  - 无误报（如非 forbidden 路径不触发警告）
+  - 用户可通过 .claude/settings.local.json 关闭单类 hook
+  - Windows git-bash + PowerShell 双环境正常

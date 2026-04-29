@@ -8,7 +8,7 @@
 
 ## 完整手册
 
-CTO 操作手册（§1-§29）：
+CTO 操作手册（§1-§42）：
 `C:/projects/ai-playbook/playbook/handbook.md`
 
 项目记忆：`docs/ai-cto/`（新会话必读）

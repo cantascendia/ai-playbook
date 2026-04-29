@@ -2554,7 +2554,7 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 
 ### 32.5 六大 AI 工程反模式
 
-> 2026 数据：**91.5% vibe-coded 应用至少含 1 个 AI 幻觉漏洞**（Q1 2026）。MIT Tech Review 12/2025："AI coding 普及但信任尚未跟上。"
+> 风险信号（vendor 报告 / 社区观察，非同行评议数据）：vibe-coded 应用普遍含 AI 幻觉漏洞（GuardMint 2026-Q1 报告 200+ 应用样本，命中率 ~90%）；MIT Tech Review 2025-12 指出"AI coding 普及但信任尚未跟上"。**这些数字仅作量级参考，不应单独作为决策依据**。
 
 | # | 反模式 | 表现 | CTO 检测方法 |
 |---|---|---|---|
@@ -2578,7 +2578,7 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 
 ## 33. Vibe Coding 红线分级
 
-> "Vibe coding"（Karpathy, 2025-02）：用语音/自然语言对 AI 描述意图，AI 生成代码，人不读 diff，"接受所有"。Karpathy 自己定位为 **throwaway weekend projects**。
+> "Vibe coding" 为 Andrej Karpathy 在 2025-02 推特/社区中提出的术语：用语音/自然语言对 AI 描述意图，AI 生成代码，人不读 diff，"接受所有"。Karpathy 本人定位为 **throwaway weekend projects** 适用范围。术语在社区广泛传播但无正式论文。
 >
 > 2026 风险数据：**45% AI 代码命中 OWASP Top 10**（Veracode 2025 GenAI Code Security Report）；AI 提交泄露 secrets 的概率约为人类的 **2×**（GitGuardian State of Secrets Sprawl 2026），其他研究测得 2.74×（DryRun Security）；据 no.security 报告（CSA briefing 转引），AI 归因 CVE 单周披露量在 2026-03 末达到 35 个。
 

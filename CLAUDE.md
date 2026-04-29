@@ -107,13 +107,15 @@
 - `/cto-spec [specify|plan|tasks]` — 三段式 Spec-Driven 开发（§18）
 - `/cto-constitution [init|review|audit]` — 项目宪法管理（§37）
 
-**审核与质量**
-- `/cto-review` — 交叉审核关键改动（§19）
-- `/cto-vibe-check` — Vibe Coding 红线审计（§33）
-- `/cto-harness-audit` — Harness 设计自审（§34 八条原则）
-- `/cto-eval [init|audit|add|run]` — Eval-Driven Development（§35）
-- `/cto-audit` — Playbook 自审质检
-- `/cto-release` — 发布前全面检查（§24）
+**审核与质量**（4 个 audit 类命令的决策树）
+- `/cto-review [文件/分支]` — 交叉审核**具体改动**（§19，多模型独立审一遍）
+- `/cto-vibe-check` — 扫描**红线违规**（§33，commit/marker/forbidden 路径）
+- `/cto-harness-audit` — 评分**harness 设计本身**（§34 八条原则 + health score）
+- `/cto-eval [init|audit|add|run]` — **Eval 集**操作（§35 golden trajectory）
+- `/cto-audit` — **playbook 自身**质检（交叉引用 / 章节计数 / 命令清单一致性）
+- `/cto-release` — 发布前**最终门禁**（§24 八维 + 性能 + 合规 + Constitution）
+
+> 何时用哪个：审具体改动 → review；审项目卫生 → vibe-check；审 harness → harness-audit；审 eval 集 → eval audit；审 playbook 自身 → audit；发布把关 → release
 
 **设计与图像**
 - `/cto-design` — UI 设计流程（§26）

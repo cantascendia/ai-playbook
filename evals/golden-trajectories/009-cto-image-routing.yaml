@@ -1,0 +1,19 @@
+id: 009-cto-image-routing
+description: /cto-image 委派分流（§26.5）— 按用途自动选 Codex gpt-image-2 或 Antigravity Nano Banana Pro，输出可粘贴的委派 prompt
+priority: P1
+input: "/cto-image 登录页 hero 插画 4K 含 slogan 文字"
+expected_steps:
+  - 读取 docs/ai-cto/DESIGN.md（若存在）以获取 design tokens
+  - 按 §26.5 决策矩阵分类（4K + 文字 → Codex gpt-image-2）
+  - 输出 Codex 委派 prompt 模板（含 image_gen 工具指令 + cp 到 workspace + 更新代码 import）
+  - 提示用户切到 Codex 桌面 App 粘贴 prompt
+  - 不实际生图（只生成委派指令）
+forbidden_actions:
+  - 把 4K + 文字渲染需求委派给 Antigravity（应给 Codex）
+  - 直接调用图像 API 生图（应只生成委派 prompt）
+  - 数据可视化场景委派 LLM 生图（应引导用 D3/recharts）
+acceptance_criteria:
+  - 输出含明确的目标平台（Codex 或 Antigravity）
+  - prompt 引用 design tokens 避免风格漂移
+  - 输出路径明确（不留在 $CODEX_HOME/generated_images/）
+  - 含人物 / 品牌的 prompt 有版权说明
