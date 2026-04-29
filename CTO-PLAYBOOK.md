@@ -78,7 +78,7 @@
 
 **Antigravity**：Gemini 3.1 Pro (High/Low) / Gemini 3 Flash / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.6 (Thinking) / GPT-OSS-120b / Gemini 2.5 Computer Use（浏览器子代理专用） / Nano Banana Pro（图像生成）
 
-**Codex App**：**gpt-5.5（旗舰，推荐默认）**/ gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex / gpt-5.3-codex-spark（Pro 预览）
+**Codex App**：**gpt-5.5（编码旗舰）**/ gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex / gpt-5.3-codex-spark / **gpt-image-2（图像生成 + 4K + reasoning，2026-04-21）**
 
 ---
 
@@ -100,6 +100,7 @@
 | `/cto-eval [init\|audit\|add\|run]` | Eval-Driven Development | §35 |
 | `/cto-audit` | Playbook 自审质检 | — |
 | `/cto-design [描述]` | UI 设计流程 | §26 |
+| `/cto-image [用途]` | 图像生成委派分流（Codex gpt-image-2 / Antigravity Nano Banana Pro） | §26.5 |
 | `/cto-skills` | Skill 生态管理 | §21 |
 | `/cto-models [变更]` | 模型列表更新 | — |
 | `/cto-release [版本]` | 发布前全面检查 | §24 |

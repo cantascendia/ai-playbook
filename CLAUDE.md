@@ -37,8 +37,10 @@
 | 架构设计/深度审核 | Claude Code | Opus 4.6 |
 | 标准编码/测试 | Claude Code | Sonnet 4.6 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 |
-| 浏览器验证/UI设计 | 委派 Antigravity | Gemini 3.1 Pro High |
+| 浏览器验证/UI mockup | 委派 Antigravity | Gemini 3.1 Pro High |
 | 隔离并行/自动化 | 委派 Codex | gpt-5.5 |
+| 图像生成（asset-in-loop / 4K） | 委派 Codex | gpt-image-2 |
+| 图像生成（mockup / 实时数据 grounding）| 委派 Antigravity | Nano Banana Pro |
 
 默认 Claude Code 直接执行。仅在需要浏览器/Stitch/隔离并行/定时/图像生成时委派。
 
@@ -113,8 +115,11 @@
 - `/cto-audit` — Playbook 自审质检
 - `/cto-release` — 发布前全面检查（§24）
 
-**生态与维护**
+**设计与图像**
 - `/cto-design` — UI 设计流程（§26）
+- `/cto-image [用途]` — 图像生成委派分流（§26.5：Codex gpt-image-2 / Antigravity Nano Banana Pro）
+
+**生态与维护**
 - `/cto-skills` — Skill 生态管理（§21）
 - `/cto-models` — 模型列表更新
 

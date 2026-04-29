@@ -35,7 +35,7 @@
 当 Claude Code 本地执行不够时，可委派给以下平台：
 
 **Antigravity**（Google Agent-First IDE）— 浏览器视频验证、Stitch 2.0 UI 设计、Manager Surface 多代理编排、AI 图像生成（旗舰：Gemini 3.1 Pro High）
-**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation 跨会话长任务、Plugins 生态、Computer Use（旗舰：gpt-5.5）
+**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation 跨会话长任务、Plugins 生态、Computer Use、**图像生成 image_gen + gpt-image-2**（旗舰：gpt-5.5 编码 / gpt-image-2 生图）
 
 详细规范见 §5。
 
@@ -523,11 +523,12 @@ npx add-skill google-labs-code/stitch-skills --skill <skill-name> --global
 
 | 模型 | 特点 | 备注 |
 |---|---|---|
-| **gpt-5.5** | **当前旗舰，推荐默认** | 2026 新发布 |
+| **gpt-5.5** | **当前旗舰，推荐默认**（编码 / 推理） | 2026 新发布 |
 | gpt-5.4 | 次旗舰 / 通用 | 仍可用 |
 | gpt-5.4-mini | 轻量快速，省配额 | |
 | gpt-5.3-codex | 编码专精（gpt-5.4 的编码底座） | |
 | gpt-5.3-codex-spark | Pro 用户研究预览，近实时迭代 | 实验性 |
+| **gpt-image-2** | **图像生成 + 4K + 文字渲染 + reasoning** | 2026-04-21 新增 |
 
 **推理强度：** low / medium / high / xhigh
 **线程模式：** Local / Worktree / Cloud
@@ -602,14 +603,49 @@ args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 **何时仍委派 Antigravity**：复杂 UI 设计（Stitch）、专业浏览器视频录制、Manager Surface 多代理编排。
 **简单网页验证**：直接在 Codex 用 in-app browser 即可。
 
-**⑦ Automations — 跨会话长任务（2026 升级）**
+**⑦ Image Generation — gpt-image-2 内置工具（2026-04-21 新增）**
+
+Codex 桌面 App 内置 `image_gen` 工具，**agent 自主调用**（无需 slash command），通过 ChatGPT 登录态认证（不需单独 API key）。
+
+| 维度 | 说明 |
+|---|---|
+| 模型 | `gpt-image-2`（2026-04-21 发布，snapshot `gpt-image-2-2026-04-21`）|
+| 关键能力 | reasoning（plan/search/self-check）+ 4K 原生分辨率 + 多语言文字渲染 |
+| 输出位置 | 默认 `$CODEX_HOME/generated_images/`，**必须 move 到 workspace 并更新代码 import** |
+| 价格 | input $8/M tokens, output $30/M；1024² high ≈ $0.21 / 4K high ≈ $0.41 |
+| API | `/v1/images/generations` + `/v1/images/edits`（编辑费用 2-3× 基线）|
+| 已知限制 | 输出尺寸非完全 deterministic（GitHub issue #19175）|
+
+**典型 asset-in-loop 工作流**：
+```
+1. 用户："给登录页加个 hero 插画"
+2. Codex agent 调 image_gen → $CODEX_HOME/generated_images/xxx.png
+3. agent 自动 cp 到项目 public/images/hero.png
+4. agent 更新 <Hero/> 组件 import
+5. 一个 turn 内完成"生成 → 落地 → 代码引用"闭环
+```
+
+**与 Antigravity Nano Banana Pro 对比**：
+
+| 维度 | Antigravity (Nano Banana Pro) | Codex (gpt-image-2) |
+|---|---|---|
+| 触发 | Agent 自主，IDE 内嵌 | Agent 自主，Desktop App `image_gen` |
+| 工作流 | mockup-first（用户审 → 写代码） | asset-in-loop（生成 → 直接 import）|
+| 实时数据 grounding | ✅ 联网取参考 | ❌ |
+| 4K 原生 | ⚠️ 高分辨率 | ✅ 4K 原生 |
+| 文字精度 | ✅ 多语言海报级 | ✅ 菜单/价格表打印级 |
+| 适用 | UI 设计草图 / Stitch / live 信息 | 网站资产 / 游戏精灵 / 4K 营销图 |
+
+**官方 SKILL**：`openai/skills` 仓库 `skills/.curated/imagegen/SKILL.md` 强制三步规则：生成 → cp 到 workspace → 更新引用。
+
+**⑧ Automations — 跨会话长任务（2026 升级）**
 
 - 组合 Skills + 定时调度 + 专用 Worktree
 - **Thread 持久化**：可复用已有 thread，跨天 / 跨周长任务（多日 PR 跟进、Slack/Gmail/Notion 异步处理）
 - 适合：Bug 扫描、CI 报告、代码变更摘要、依赖升级跟进
 - 规则：先手动跑通 Skill，稳定后再变 Automation
 
-**⑧ /plan 模式 + /review 命令**
+**⑨ /plan 模式 + /review 命令**
 - `/plan` 或 Shift+Tab 让 Agent 先规划再执行
 - `/review` 可对比分支、检查未提交变更、审查 commit
 
@@ -1012,8 +1048,11 @@ Codex App 侧（如需委派）：
 | 多任务并行 | Claude Code | Sonnet ×N | Sub-agent |
 | 浏览器验证 UI | 委派 Antigravity | Gemini 3.1 Pro High | Planning |
 | UX 可用性审核 | 委派 Antigravity | Gemini 3.1 Pro High | Planning |
-| UI 设计与原型 | 委派 Stitch → AG | Gemini 3.1 Pro High | Planning（MCP） |
-| 需 AI 生成图像 | 委派 Antigravity | 任意 | Planning |
+| UI 设计与原型（mockup-first） | 委派 Stitch → AG | Gemini 3.1 Pro High | Planning（MCP） |
+| 项目资产生成（asset-in-loop / 4K / 多语言文字） | 委派 Codex | gpt-image-2 | image_gen 工具 |
+| 实时数据驱动图像（含最新事件 / 真实地图） | 委派 Antigravity | Nano Banana Pro | grounding |
+| 批量风格一致资产（icon 套装 / 游戏精灵）| 委派 Codex | gpt-image-2 | 同会话风格连贯 |
+| 数据可视化图表 | Claude Code | Sonnet | 直接（用代码 D3/recharts，**不用 LLM 生图**） |
 | 独立隔离并行 | 委派 Codex | gpt-5.5 | Worktree ×N |
 | 定时自动化 | 委派 Codex | — | Automation |
 | 最强外部推理 | 委派 Codex | gpt-5.5 xhigh | Worktree |
@@ -1948,6 +1987,40 @@ AI Agent 没有审美一致性。没有统一的设计系统，Agent 每次写 U
 - **Flutter**：`ThemeData` + `ColorScheme` + `TextTheme`
 - **React**：CSS 变量 / Tailwind config / styled-components theme
 - **通用**：禁止直接写 `Color(0xFF...)` 或 `fontSize: 14`，必须引用 theme 常量
+
+### 26.5 图像资产管线（Image Pipeline）
+
+UI 设计与图像生成分两个阶段，使用不同工具：
+
+**阶段 A：Mockup（设计草图，用户审）**
+- 工具：**Antigravity Stitch** + Nano Banana Pro
+- 工作流：自然语言 → mockup → 用户 review → 反馈迭代 → 最终设计稿
+- 产出：设计稿 + DESIGN.md tokens
+- 适用：新页面 / 新组件 / 大改版
+
+**阶段 B：Asset Production（资产生产，直接进代码）**
+- 工具：**Codex `image_gen`** + gpt-image-2
+- 工作流：在 Codex 会话中描述资产 → agent 调 image_gen → 落盘 + cp 到 workspace + 更新代码 import（一个 turn 闭环）
+- 产出：PNG/WebP 直接被代码引用（hero / 占位图 / icon 套装 / 游戏精灵 / 营销图）
+- 适用：已确定设计后批量产出资产
+
+**决策矩阵**：
+
+| 场景 | 工具 | 理由 |
+|---|---|---|
+| 新页面 wireframe / 用户先 review | Antigravity Stitch | mockup-first |
+| README 截图 / hero 插画（4K + 文字）| Codex gpt-image-2 | 4K + 文字渲染 |
+| Logo / 品牌主视觉 | Codex（A/B Antigravity） | 多版本对比 |
+| Icon / 游戏精灵套装 | Codex | 同会话风格连贯 |
+| 含实时数据 / 最新地图 | Antigravity Nano Banana Pro | 联网 grounding |
+| 数据可视化图表 | 都不用，代码（D3/recharts）| LLM 生图不可靠 |
+
+**资产管线规则**：
+- 生成的图必须 cp 到 workspace 且更新代码引用（不留在 `$CODEX_HOME/generated_images/`）
+- alt 文本必走 i18n（铁律 #10）
+- 批量资产保存到统一目录（如 `public/images/` / `assets/`）
+- 大图（> 500KB）必须压缩 + 转 WebP/AVIF
+- 含人物 / 真实品牌的 prompt 必须有版权说明
 
 ---
 
