@@ -141,6 +141,30 @@ mkdir -p docs/ai-cto
 - max_iterations 超限 → 强制结束 + 写 INCIDENT
 - prompt > 32 KiB（Codex 限制）→ 分块（diff 按文件分），分别 review
 
+## 降级策略（v3.6）
+
+| 场景 | Reviewer | Mode 标记 | REVIEW-QUEUE 处理 |
+|---|---|---|---|
+| Codex 正常返回 | Codex (gpt-5.5) | `success` | 写入 |
+| Codex 配额耗尽 + Claude CLI 可用 | Claude (Opus) | `fallback-to-claude` | 写入 + ⚠️ 警告"失去跨模型价值" |
+| Codex 配额耗尽 + Claude 不可用 | 无 | `codex-quota-exhausted+claude-failed` | 仅 audit log，REVIEW-QUEUE 不写 |
+| Codex 其他错误（网络/版本）| 无（不降级，避免错误掩盖）| `codex-failed` | 仅 audit log |
+| Codex 未装 + Claude 可用 | Claude (Opus) | `claude-only` | 写入（无降级警告，因从未试 codex）|
+| 都不可用 | — | `ci_pending` | 仅 audit log，等 GH Actions 兜底 |
+
+**关键检测词**（codex stderr 触发额度耗尽判定）：
+`rate_limit / quota / exceeded / insufficient / usage_limit / 429 / 402`（大小写不敏感）
+
+**冷却机制**：
+- 检测到 codex 配额耗尽 → 写 `docs/ai-cto/.codex-quota-cooldown`（含 unix 时间戳）
+- 1 小时内重跑 → 直接走 Claude，不再尝试 codex
+- 1 小时后 cooldown 自动失效，恢复尝试 codex
+- 手动重置：`rm docs/ai-cto/.codex-quota-cooldown`
+
+**重要警告**：
+> Claude fallback 失去跨模型价值（Claude 自审 = 相同认知偏差）。是降级方案，不是替代方案。
+> REVIEW-QUEUE.md 中清晰标注 `Reviewer:` 字段，避免误以为是真跨模型 review。
+
 ## 启用方式（codex CLI 0.125+）
 
 1. **本地 review 模式**（推荐）：

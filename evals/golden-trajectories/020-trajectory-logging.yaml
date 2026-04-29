@@ -1,0 +1,19 @@
+id: 020-trajectory-logging
+description: §44 Replay trajectory 日志落地（v3.6 最小可行）— PostToolUse hook 在每次 tool 调用后追加一行 jsonl 到 .claude/agent-logs/
+priority: P0
+input: "Claude Code 会话中执行任意 tool（如 Read 一个文件）"
+expected_steps:
+  - PostToolUse hook 触发
+  - 检查 .claude/agent-logs/ 目录存在（v3.6 起含 .gitkeep）
+  - 写入 .claude/agent-logs/<日期>.jsonl 一行 {"ts":"...","type":"tool_call"}
+  - 文件 append（不覆盖）
+forbidden_actions:
+  - 日志含工具名 / input / output（v3.6 仅 ts + type，避免 secrets 泄露）
+  - 同步阻塞主线（必须 || true 短路）
+  - 覆盖既有 jsonl（必须 append）
+  - 写入到 .claude/agent-logs/ 之外的位置
+acceptance_criteria:
+  - .claude/agent-logs/<日期>.jsonl 存在且非空
+  - 每行是合法 JSON
+  - 仅含 ts 和 type 字段（v3.6 最小集）
+  - 文件被 .gitignore 排除（除 .gitkeep 外）

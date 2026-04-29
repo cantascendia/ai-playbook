@@ -3,27 +3,26 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-04-29 v3.5 — 5 项创新 + README 重塑
+最后更新：2026-04-29 v3.6 — Self-audit 实装补齐 + Codex 额度 fallback
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v3.5** — v3.4 idiomatic 之上加入前沿创新：§43 ARE / §44 Replay / §45 Canary / §46 Skill Manifest / §47 CI Judge / §48 Cross-Model Review。20 个 commands / 4 sub-agents / 19 evals / 4 GitHub Actions / README 视觉重塑。Harness 健康分预计 92 → 96+。
+ai-playbook **v3.6** — v3.5 self-audit 暴露纸上设计（85 分），本轮把 §44 Replay 从纸面落地、加 TOCTOU lock + markdown 防注入、Forbidden 路径 SSOT、Codex 额度耗尽自动 fallback 到 Claude（含 1h cooldown）、5 分钟 smoke test、pre-commit hook。21 个 commands / 4 sub-agents / 22 evals / 4 GitHub Actions。预计 85 → 97+。
 
 ---
 
 ## 质量评分
 
-**v3.4 (今轮)**：~92/100（预计，待 v3.4 提交后由 harness-auditor 重审）
-- 八条原则：6×✅ + 3×⚠️ → 8×✅ + 1×⚠️
-- 三 Agent 模式：完整 4 层（Planner / Generator / Evaluator / Validator，Validator 仍缺 CI）
-- HARNESS-CHANGELOG：✅ 已创建
-- Eval 集：12 case（v3.3 8 个 + v3.4 新增 4 个）
-- 反模式规避：✅
+**v3.6 (今轮，预计)**：~97/100
+- 关键修复：§44 实装（+4）/ TOCTOU + markdown（+2）/ SSOT（+3）/ Smoke test（+2）/ Codex fallback（+2）
+- 待第四轮 dogfooding 重审
 
 **历史**：
-- v3.3 (2026-04-28)：70.7/100（首次 dogfooding 审计基线）
+- v3.5 (2026-04-29)：**85/100**（self-audit 发现 v3.5 实装覆盖度仅 65%，纸上设计降分）
+- v3.4 (2026-04-29)：92/100（首次 dogfooding 闭环）
+- v3.3 (2026-04-28)：70.7/100（baseline）
 - v3.0-v3.2：未审计
 
 ---
@@ -135,3 +134,5 @@ ai-playbook **v3.5** — v3.4 idiomatic 之上加入前沿创新：§43 ARE / §
 [2026-04-29T16:46:09+09:00] sub-agent finished
 [2026-04-29T16:46:15+09:00] sub-agent finished
 [2026-04-29T16:52:50+09:00] sub-agent finished
+[2026-04-29T19:35:29+09:00] sub-agent finished
+[2026-04-29T19:35:32+09:00] sub-agent finished

@@ -3549,6 +3549,23 @@ trajectory 含敏感内容：
 - 每月：扫描 trajectory 找异常成本 / 失败模式
 - 关键事故：第一时间用 `/cto-replay` 而非 git log 查根因
 
+### 44.8 实装状态（v3.6 起逐步落地）
+
+> v3.5 此章节是纸上设计。v3.6 开始按"最小可行 → 渐进扩展"策略落地。
+
+| 组件 | 状态 | 备注 |
+|---|---|---|
+| Trajectory jsonl 格式定义 | ✅ §44.2 | 完整 |
+| `.claude/agent-logs/` 目录 | ✅ v3.6 | 含 .gitkeep，内容 gitignored |
+| PostToolUse hook 写 jsonl | ⚠️ v3.6 最小版 | 仅记 `{ts, type:"tool_call"}`，**不含工具名 / input / output**（避免 secrets 泄露） |
+| `/cto-replay` 命令 | ✅ v3.5 已有 | 命令骨架完整 |
+| 字段扩展（matcher / cost）| ⚠️ v3.7 计划 | 需配套脱敏 hook |
+| 脱敏 hook | ⚠️ v3.7 计划 | password / api_key / token 自动 `<REDACTED>` |
+| Replay → Eval golden case 转换 | ⚠️ v3.7 计划 | 把成功 trajectory 沉淀为 §35 case |
+| Web UI 时间轴可视化 | ❌ 不计划 | 命令行 + markdown 已够 |
+
+**v3.6 的最小可行** 仅证明日志路径打通：每次 tool call 在 `.claude/agent-logs/<日期>.jsonl` 追加一行时间戳。后续扩展按需。
+
 ---
 
 ## 45. Agent Canary Deployment
@@ -3839,6 +3856,37 @@ restrict_push: true
 - ⚠️ hook 内置 forbidden 路径过滤：触及黑名单 → **不自动调 Codex** + 明确提示用户人工 review
 
 **留痕**：`docs/ai-cto/CODEX-REVIEW-LOG.md` 记录每次 review 的 commit / 文件清单 / Codex 输出摘要 / 接受状态（用户标）。
+
+### 48.5.1 额度耗尽容错（v3.6）
+
+**问题**：Codex（即使 ChatGPT Plus/Pro 订阅）有额度限制，触发后会返回 `rate_limit_exceeded` / `quota` / `429` / `402` 等错误。原本"全自动跨模型 review"链路会断。
+
+**降级策略**（4 段 fallback chain）：
+
+```
+codex review --commit HEAD
+  ↓ 成功 → REVIEW-QUEUE.md 写入，Reviewer: codex-gpt5.5
+  ↓ 失败 + 检测到额度耗尽关键词
+  ↓ → 写 cooldown 文件（unix 时间戳，1h 失效）
+  ↓ → 走 Claude headless（claude -p "<八维 review prompt>"）
+  ↓ 成功 → REVIEW-QUEUE.md 写入，Reviewer: claude-fallback-opus
+  ↓        + ⚠️ 警告"失去跨模型价值"
+  ↓ Claude 也失败 / 未装
+  ↓ → 仅 audit log，REVIEW-QUEUE 不写
+```
+
+**冷却机制**：
+- 检测到额度耗尽 → 1 小时内**直接走 Claude**，跳过 codex（不浪费时间反复失败）
+- 1 小时后 cooldown 失效，恢复尝试 codex
+- 手动重置：`rm docs/ai-cto/.codex-quota-cooldown`
+
+**关键警告**：
+> Claude fallback **失去跨模型价值**（Claude 写的代码 Claude 自审 = 相同认知偏差）。
+> 是降级方案，不是替代方案。
+> REVIEW-QUEUE.md 中清晰标注 `Reviewer:` 字段，让用户知道差异。
+> 如要保持跨模型，等 codex 配额恢复（次月 1 日）后手动 `/cto-cross-review` 重审历史关键 commit。
+
+**实装位置**：`.agents/skills/codex-bridge/run.sh` 第 50-130 行（v3.6 起）。
 
 ### 48.6 反模式
 

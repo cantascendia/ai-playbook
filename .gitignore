@@ -2,7 +2,12 @@
 .claude/settings.local.json
 .claude/launch.json
 .claude/worktrees/
-.claude/agent-logs/
+.claude/agent-logs/*
+!.claude/agent-logs/.gitkeep
+
+# §48 cooldown 文件 + 锁
+docs/ai-cto/.codex-quota-cooldown
+docs/ai-cto/.codex-bridge.lock
 
 # §48 Cross-review audit log (含 commit sha，团队策略决定是否入 git)
 # docs/ai-cto/CODEX-REVIEW-LOG.md  # 默认入 git；如含敏感取消注释

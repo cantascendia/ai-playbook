@@ -13,6 +13,41 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-04-29] v3.6 — Self-audit 实装补齐 + Codex 额度容错
+
+继 v3.5（85/100）self-audit 暴露纸上设计后，按 plan v3.6 全 10 步执行。
+
+- **改了什么**：
+  - §44 Replay 从纸面落地：`.claude/agent-logs/.gitkeep` + PostToolUse hook 写最小 jsonl（仅 ts + type，不含 secrets）
+  - `.agents/skills/codex-bridge/run.sh` v3.5 → v3.6（73 → 149 行）：
+    - TOCTOU 防护：mkdir 原子锁 + trap 清理（POSIX-only，Windows 友好）
+    - Markdown 注入防护：OUTPUT 包裹在 ` ```markdown ... ``` ` 代码块
+    - **Codex 额度耗尽自动 fallback 到 Claude**（用户需求）：
+      - 检测 `rate_limit / quota / 429 / 402 / insufficient` 等关键词
+      - 写 `docs/ai-cto/.codex-quota-cooldown`（unix 时间戳）
+      - 1 小时内重跑直接走 `claude -p` headless（--max-turns 5）
+      - REVIEW-QUEUE.md 标注 `Reviewer: claude-fallback-opus` + ⚠️ "失去跨模型价值"警告
+  - Forbidden 路径 SSOT：`scripts/forbidden-paths.txt`（12 项）+ run.sh 从此读
+  - `scripts/check-forbidden-consistency.sh`：advisory 模式校验 SSOT 与手册 §32.1 一致性
+  - README v3.5 → v3.6：command count 20 → 21（9 处替换）+ 新增"5 分钟 Smoke Test"章节
+  - `.github/workflows/codex-review.yml` 顶部加 pull_request_target 安全警告
+  - `scripts/install-pre-commit.sh`：可选脚本，让终端 `git commit` 也触发 §48
+  - handbook §44.8 实装状态表格 + §48.5.1 额度耗尽容错小节
+  - 3 个新 evals：020 trajectory-logging / 021 concurrency / 022 quota-fallback
+- **为什么**：
+  - v3.5 self-audit 发现 §44 是纸上设计、§47 LLM-as-Judge 是 placeholder、命令计数错误等差距
+  - 用户需求：codex 额度耗尽自动 fallback 到 Claude，避免无 review 状态
+  - 健康分从 92 跌到 85（实装覆盖度 65%）— v3.5 的"vibe shipping"反模式
+- **Eval 跑分前/后**：19 → 22 条（+3）
+- **影响范围**：
+  - .claude/agent-logs/ 开始有真实日志
+  - REVIEW-QUEUE.md 含 Reviewer 元字段（codex-gpt5.5 / claude-fallback-opus / ...）
+  - codex 额度限制不再阻塞 review 链路
+
+**关键认知**：v3.5 是负面教材 — 加了 6 章手册 + 5 项创新但实装跟不上，分数下跌。下次再扩展手册章节强制流程：spec → eval → impl → docs。
+
+---
+
 ## [2026-04-29] v3.5 — 5 项前沿创新 + README 视觉重塑
 
 继 v3.4 dogfooding（70.7→~92）后，按用户选择的 TOP-5 全量创新执行。

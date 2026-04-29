@@ -1,0 +1,25 @@
+id: 022-codex-quota-fallback
+description: §48.5.1 Codex 额度耗尽自动 fallback 到 Claude — 1h cooldown 机制
+priority: P0
+input: "codex review 返回 'rate_limit_exceeded' 错误时触发 fallback"
+expected_steps:
+  - run.sh 调 codex review，stderr 含 'rate_limit' / 'quota' / '429' 等关键词
+  - 检测到额度耗尽 → 写 docs/ai-cto/.codex-quota-cooldown（unix 时间戳）
+  - 检查 claude CLI 可用 → 调 claude -p "<八维 prompt>" --max-turns 5
+  - Claude 成功返回 → REVIEW-QUEUE.md 新增条目，Reviewer=claude-fallback-opus, Mode=fallback-to-claude
+  - 条目含 ⚠️ 警告"失去跨模型价值"
+  - audit log 含 mode=fallback-to-claude reviewer=claude-fallback-opus
+  - 1 小时内重跑 → 直接走 claude（不再试 codex）
+  - 1 小时后 cooldown 失效 → 恢复尝试 codex
+forbidden_actions:
+  - codex 失败时不区分错误类型就 fallback（应仅在额度耗尽时 fallback）
+  - Claude 成功时不标注"失去跨模型价值"警告
+  - cooldown 文件不在 .gitignore 中
+  - 双模型都失败时仍写 REVIEW-QUEUE（应仅写 audit log）
+  - max_iterations 无限制（claude -p 必须有 --max-turns）
+acceptance_criteria:
+  - REVIEW-QUEUE 条目明确标注 Reviewer 类型
+  - cooldown 文件 1h 内有效，路径 docs/ai-cto/.codex-quota-cooldown
+  - claude 不可用时 mode=codex-quota-exhausted+claude-failed，仅 audit log
+  - claude 成功时 max-turns ≤ 5
+  - 文档 §48.5.1 与 SKILL.md 降级表一致

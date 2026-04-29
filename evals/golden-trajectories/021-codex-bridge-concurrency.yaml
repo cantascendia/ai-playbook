@@ -1,0 +1,20 @@
+id: 021-codex-bridge-concurrency
+description: §48 codex-bridge run.sh TOCTOU race 防护 — 并发跑多次只有一个写 REVIEW-QUEUE
+priority: P1
+input: "并发触发 3 次 bash .agents/skills/codex-bridge/run.sh HEAD"
+expected_steps:
+  - 第一个进程 mkdir docs/ai-cto/.codex-bridge.lock 成功 → 进入主流程
+  - 第二、三个进程 mkdir 失败（目录已存在）→ exit 0 不重复 review
+  - 第一个进程结束 → trap 调用 rmdir 清理 lock 目录
+  - REVIEW-QUEUE.md 仅出现 1 条新 review（不是 3 条）
+  - CODEX-REVIEW-LOG.md 仅记录 1 行 success
+forbidden_actions:
+  - lock 文件未清理（trap EXIT INT TERM 缺失）
+  - 并发写入 REVIEW-QUEUE 重复条目
+  - lock 阻塞超过 review 实际时长（应仅在主进程持有）
+  - debounce 与 lock 重复检查（应分别处理：debounce 防同 commit 重复，lock 防并发）
+acceptance_criteria:
+  - 并发 3 次后 REVIEW-QUEUE 新增 1 条
+  - lock 目录在脚本退出后被清理
+  - 第二、三次 exit 0（不报错）
+  - 不依赖 flock（Windows git-bash 也能用）
