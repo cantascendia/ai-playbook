@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§40）
+# CTO-PLAYBOOK — 完整操作手册（§1-§41）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
 
@@ -3071,3 +3071,162 @@ AI Pair（2025+）：
 - 培训团队：人始终是 Navigator，不能放弃产品判断
 - 每月审视：AI Pair 的 PR 通过率、bug 率、回滚率
 - 出现 AI Pair 制造事故 → 该路径降级为人工 Driver
+
+---
+
+## 41. Hooks 驱动的自动化
+
+> 14 条铁律 + 17 个 `/cto-*` 命令认知负担过重。Claude Code 的 **Hooks 系统** 让大部分检查"动作发生时即时执行"，无需用户记得手动跑命令。
+
+### 41.1 自动 vs 手动 决策矩阵
+
+按"是否需要人决策"二分：
+
+| 类别 | 自动化策略 | 命令 |
+|---|---|---|
+| **决策门 / 双签 / 创意** | ❌ 保留手动 | cto-init / cto-link / cto-spec / cto-constitution / cto-design / cto-release / cto-models |
+| **可自动检测的违规** | ✅ Hook 即时执行 | 部分 cto-vibe-check / 部分 cto-eval / 部分 cto-review |
+| **会话流程** | ✅ Hook 全自动 | 替代 cto-resume 大部分情况 |
+| **全量审计** | ⚠️ Hook 轻量 + 手动深度 | cto-vibe-check / cto-harness-audit / cto-audit |
+
+### 41.2 五个核心 Hook
+
+**① SessionStart — 自动加载项目记忆**
+- 替代：常规 `/cto-resume`
+- 行为：会话启动时自动 cat `docs/ai-cto/CONSTITUTION.md` + `STATUS.md`（限 300 行避免溢出）
+
+**② UserPromptSubmit — Vibe 关键词预警**
+- 替代：部分 `/cto-vibe-check`
+- 行为：扫描用户 prompt 含 `yolo` / `accept all` / `vibe` / `--no-verify` / `skip tests` → 提示 §33 红线
+
+**③ PreToolUse(Edit|Write) — 前置拦截**
+- 实现 §20.3 Test-Lock：编辑 `tests/**` 时**警告**（初期不阻断，2 周观察后再升级 exit 2）
+- 实现 §32.1 Forbidden 路径警告：编辑 `auth/`、`payment/`、`secrets/`、`migration/` 时提示双签
+
+**④ PostToolUse(Edit|Write) — 后置提醒**
+- 替代：部分 `/cto-eval`
+- 行为：修改 `.claude/commands/`、`CLAUDE.md`、`playbook/handbook.md` 时提醒"铁律 #12 — 无 eval 不进 main"
+
+**⑤ Stop — 会话结束摘要**
+- 行为：列出未提交改动 + 提醒触及 forbidden 路径时该跑哪些命令
+
+### 41.3 完整 .claude/settings.json hooks 配置
+
+```json
+{
+  "permissions": {
+    "allow": ["Read", "Glob", "Grep", "Bash(git status)", "Bash(git diff*)", "Bash(git log*)", "Bash(git branch*)"]
+  },
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "test -f docs/ai-cto/CONSTITUTION.md && head -150 docs/ai-cto/CONSTITUTION.md 2>/dev/null; test -f docs/ai-cto/STATUS.md && head -150 docs/ai-cto/STATUS.md 2>/dev/null"
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "echo \"$CLAUDE_USER_PROMPT\" | grep -iqE '\\b(yolo|accept all|vibe ship|--no-verify|skip tests|just do it)\\b' && echo '⚠️ §33 红线提醒：检测到 vibe 关键词。Forbidden 路径（auth/支付/secrets/migration）禁止 vibe coding。请改用 /cto-spec specify 启动 spec-driven 流程。' || true"
+      }]
+    }],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*tests?/' && echo '🛑 §20.3 Test-Lock 提醒（铁律 #14）：编辑测试文件需符合 spec 变更或 bug 修复场景，不得为让测试通过而改测试。如确需修改请明确说明依据。' || true"
+        }]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*(/auth/|/payment/|/billing/|/secrets/|/migration|/migrations/|/crypto/|/infra/|terraform/)' && echo '⚠️ §32.1 Forbidden 路径：此改动需要双签（CTO + senior + 第二模型 §19）。AI 不得单方面合并；PR 必须打 requires-double-review 标签。' || true"
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*(\\.claude/commands/|/CLAUDE\\.md|playbook/handbook\\.md|\\.agents/skills/)' && echo '📊 §35 提醒（铁律 #12）：本次修改触及 prompt/commands/CLAUDE.md/skills。无 eval 不进 main — 合并前请运行 /cto-eval run。' || true"
+        }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'git commit' && (cd \"$(pwd)\" && git diff --cached --name-only | grep -qE '(auth|payment|secrets|migration|crypto)/' && echo '⚠️ commit 触及 §32.1 forbidden 路径。push 前建议跑 /cto-vibe-check 完整审计。' || true) || true"
+        }]
+      }
+    ],
+    "Stop": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "echo '— 会话结束摘要 —'; git status --short 2>/dev/null | head -20; echo '如有未提交改动且涉及 §32.1 forbidden 路径，建议运行 /cto-vibe-check + /cto-review 后再 push。'"
+      }]
+    }]
+  }
+}
+```
+
+### 41.4 UX 量化对比（添加新功能）
+
+| 步骤 | 全手动 | Hooks 自动化 |
+|---|---|---|
+| 加载上下文 | `/cto-resume` 手敲 | SessionStart 自动 |
+| 启动 spec | `/cto-spec specify→plan→tasks` | 同（决策门保留） |
+| 编码 | 自由发挥靠记忆 | PreToolUse 即时拦截 forbidden + test-lock |
+| Vibe 检测 | `/cto-vibe-check` 手敲 | UserPromptSubmit + commit 自动 |
+| Eval 提醒 | 手动记得跑 | PostToolUse 自动提示 |
+| 发布前 | `/cto-release` | 同（决策门保留） |
+| **常规命令数** | **9** | **4** |
+
+**节省率**：56%。更关键：违规检测从"事后审计"前移到"动作发生时"，**错误成本降一个数量级**。
+
+### 41.5 Opt-out 设计
+
+不喜欢被打断的用户可在 `.claude/settings.local.json` 关闭：
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [],
+    "UserPromptSubmit": []
+  }
+}
+```
+
+local settings 优先级最高，且默认 gitignored — 个人偏好不影响团队。
+
+环境变量级开关：
+```bash
+export CTO_HOOKS=off  # 全部关闭
+export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
+```
+
+### 41.6 风险评级（克制度 1-5）
+
+| Hook | 克制度 | 缓解措施 |
+|---|---|---|
+| SessionStart 注入 | **2** | head -150 截断 + 仅元信息 |
+| UserPromptSubmit vibe 词 | **3** | `\b` 词边界，避免英文常用词误报 |
+| Test-Lock（仅警告） | **3** | 初期 echo 警告，2 周观察后再升 exit 2 |
+| Forbidden 路径警告 | **4** | 路径锚定，正则误伤可调 |
+| PostToolUse eval 提醒 | **2** | 每会话最多 1 次（marker file） |
+| commit 扫描 | **3** | 仅看文件名，不读内容 |
+| Stop 摘要 | **1** | 几乎无害 |
+
+**最危险的是 Test-Lock 硬阻断**（exit 2）：建议先用 echo 警告，TDD 红→绿阶段误拦风险低后再升级。
+
+### 41.7 CTO 职责
+
+- 第零轮：在 `.claude/settings.json` 启用全部 hooks
+- 第一轮：观察 hooks 是否误报 / 用户是否暴怒，调整 matcher 正则
+- 出现 hook 误拦关键操作 → 立即在 .claude/settings.local.json 关闭
+- 月度：审视 hooks 触发日志，识别该升级 / 该删除的 hook

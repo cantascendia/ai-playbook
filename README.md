@@ -55,7 +55,7 @@ cp templates/CLAUDE.md [your-project]/CLAUDE.md
 |---|---|
 | `CTO-PLAYBOOK.md` | 操作手册入口（快速回忆 + 目录 + 模型速查 + 命令清单 + 版本历史） |
 | `CLAUDE.md` | CTO 系统提示词（Claude Code 每次会话自动加载，含 14 条铁律） |
-| `playbook/handbook.md` | 完整操作手册 §1-§40 |
+| `playbook/handbook.md` | 完整操作手册 §1-§41（含 Vibe / Harness / Eval-Driven / Constitution / Agent Loop / Multi-Agent / AI Pair / **Hooks 自动化**）|
 | `templates/CLAUDE.md` | 目标项目精简模板（复制到项目根使用） |
 | `templates/AGENTS.md` | Codex App 项目规则模板 |
 | `templates/GEMINI.md` | Antigravity Workspace 规则模板 |
@@ -70,7 +70,7 @@ ai-playbook/
 ├── CTO-PLAYBOOK.md              # 入口 + 目录 + 快速回忆
 ├── CLAUDE.md                     # CTO 系统提示词（14 条铁律）
 ├── playbook/
-│   └── handbook.md              # 完整手册 §1-§40
+│   └── handbook.md              # 完整手册 §1-§41
 ├── templates/
 │   ├── CLAUDE.md                # 目标项目模板
 │   ├── AGENTS.md                # Codex 模板
@@ -110,4 +110,4 @@ ai-playbook/
 ## 文档
 
 完整入口：[CTO-PLAYBOOK.md](CTO-PLAYBOOK.md)
-完整手册：[playbook/handbook.md](playbook/handbook.md)（§1-§40）
+完整手册：[playbook/handbook.md](playbook/handbook.md)（§1-§41）

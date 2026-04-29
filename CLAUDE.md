@@ -44,7 +44,7 @@
 
 ## 完整手册
 
-详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§40 完整版）。
+详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§41 完整版）。
 
 > 📌 当前文件位于 ai-playbook 仓库本身，手册在仓库内的相对路径 `playbook/handbook.md` 总是有效。
 > 如果你是在**目标项目**的 CLAUDE.md 中读到这段并感到困惑，请运行 `/cto-link` — 它会自动找到本机 ai-playbook 路径并配置。详见 §29.8。
@@ -69,6 +69,21 @@
 - **Antigravity**: GEMINI.md + .agents/rules/*.md + .agents/skills/
 - **Codex**: AGENTS.md + .agents/skills/ + config.toml
 - **共用**: .agents/skills/（三平台共读）
+
+## 自动化 vs 手动命令
+
+> 大部分检查由 `.claude/settings.json` 中的 hooks **自动触发**（§41）。下面 17 个命令是**决策入口或深度审计**，仅在需要时手动调用。
+
+**Hooks 自动接管的场景**（无需手动）：
+- 会话启动 → 自动加载 `docs/ai-cto/CONSTITUTION.md` + `STATUS.md`
+- 用户输入含 vibe 关键词 → 自动提示 §33 红线
+- 编辑 `tests/**` → 自动提示 §20.3 Test-Lock
+- 编辑 forbidden 路径（auth/支付/secrets/migration）→ 自动提示双签
+- 编辑 CLAUDE.md / commands / skills → 自动提示需跑 eval
+- git commit 触及高风险路径 → 自动提醒 vibe-check
+- 会话结束 → 自动输出未提交改动摘要
+
+不喜欢被打断？在 `.claude/settings.local.json` 中关闭 hook 数组即可（不入 git）。
 
 ## 斜杠命令
 
