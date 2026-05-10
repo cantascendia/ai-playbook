@@ -6,7 +6,19 @@ description: >
   双签、PR 标签 requires-double-review。配套 .claude/hooks/forbidden-guard.sh 硬阻止
   (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
 user-invocable: false
-paths: "**/auth/**, **/payment/**, **/billing/**, **/secrets/**, **/keys/**, **/migration/**, **/migrations/**, **/crypto/**, **/infra/**, **/terraform/**, **/ansible/**, .github/workflows/**"
+paths:
+  - "**/auth/**"
+  - "**/payment/**"
+  - "**/billing/**"
+  - "**/secrets/**"
+  - "**/keys/**"
+  - "**/migration/**"
+  - "**/migrations/**"
+  - "**/crypto/**"
+  - "**/infra/**"
+  - "**/terraform/**"
+  - "**/ansible/**"
+  - ".github/workflows/**"
 ---
 
 # Forbidden 路径策略 (§32.1 / 铁律 #13)

@@ -6,7 +6,19 @@ description: >
   AI 只能改实现不能改断言；改测试需符合合法场景之一并显式标注 commit message。
   配套 .claude/hooks/test-lock-guard.sh 注入 PreToolUse 提醒。
 user-invocable: false
-paths: "**/tests/**, **/test/**, **/__tests__/**, **/*.test.ts, **/*.test.tsx, **/*.test.js, **/*.test.jsx, **/*.spec.ts, **/*.spec.js, **/*_test.py, **/test_*.py, **/*_test.go"
+paths:
+  - "**/tests/**"
+  - "**/test/**"
+  - "**/__tests__/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.test.js"
+  - "**/*.test.jsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.js"
+  - "**/*_test.py"
+  - "**/test_*.py"
+  - "**/*_test.go"
 ---
 
 # Test-Lock 规则 (§20.3 / 铁律 #14)

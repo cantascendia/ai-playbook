@@ -6,7 +6,14 @@ description: >
   .claude/output-styles/ 等 prompt/agent 配置类文件时自动加载。
   强制：无 eval 不进 main。配套 eval-gate.sh 注入 PostToolUse 提醒。
 user-invocable: false
-paths: "**/.claude/commands/**, **/.claude/agents/**, **/.claude/skills/**, **/.agents/skills/**, **/CLAUDE.md, **/playbook/handbook.md, **/.claude/output-styles/**"
+paths:
+  - "**/.claude/commands/**"
+  - "**/.claude/agents/**"
+  - "**/.claude/skills/**"
+  - "**/.agents/skills/**"
+  - "**/CLAUDE.md"
+  - "**/playbook/handbook.md"
+  - "**/.claude/output-styles/**"
 ---
 
 # Eval Gate 策略 (§35 / 铁律 #12)
