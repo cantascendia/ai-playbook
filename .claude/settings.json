@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -x .claude/hooks/vibe-prompt-guard.sh && bash .claude/hooks/vibe-prompt-guard.sh || true"
+            "command": "bash .claude/hooks/vibe-prompt-guard.sh"
           }
         ]
       }
@@ -78,10 +78,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/eval-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/trajectory-logger.sh"
           }
         ]
       },
