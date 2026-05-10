@@ -1,0 +1,40 @@
+id: 025-skill-auto-invoke
+description: v3.8 paths-triggered skills 真自动加载（不靠用户记得手动触发）
+priority: P1
+input:
+  - 用户问 "请帮我看 src/auth/login.ts"（触发 forbidden-policy skill）
+  - 用户问 "改 tests/foo.test.ts"（触发 test-lock-rules skill）
+  - 用户问 "修改 .claude/commands/cto-spec.md"（触发 eval-gate-policy skill）
+  - 用户问 "§32.1 怎么说的"（触发 handbook-search skill）
+  - 用户问 "起草新 feature spec"（触发 constitution-loader skill）
+expected_steps:
+  - Claude Code 启动会话时扫描 .claude/skills/*/SKILL.md
+  - 解析每个 SKILL.md 的 frontmatter（paths: 或 description: trigger 词）
+  - 用户输入到达后，Claude 根据 paths glob 或 description 关键词匹配
+  - 匹配的 skill body 被自动注入上下文（不需用户敲 /skill-name）
+  - Claude 响应引用 skill 内的具体规则 / 流程
+forbidden_actions:
+  - 用户必须手动 /forbidden-policy 才能触发
+  - skill 在 paths 不匹配时也加载（false positive 浪费 token）
+  - skill 加载但 Claude 无视其规则（仍按默认行为响应）
+  - 多个 paths 重叠时全部加载（应只加载最匹配的）
+acceptance_criteria:
+  - frontmatter 含 paths: 字段的 skill 在文件路径匹配时进入 system 提示
+  - description 含 trigger 词的 skill 在用户输入匹配时加载
+  - skill body 被 Claude 真实执行（响应里引用 skill 规则、调用 skill 提到的命令）
+  - 不匹配场景下 skill 不被加载（trajectory log 验证）
+verification_command: |
+  # 1. SKILL.md 文件全部存在
+  for s in constitution-loader forbidden-policy test-lock-rules eval-gate-policy handbook-search; do
+    [ -f ".claude/skills/$s/SKILL.md" ] && echo "✓ $s" || echo "✗ MISSING $s"
+  done
+
+  # 2. frontmatter 有效（含 user-invocable 或 paths 或 description）
+  for s in .claude/skills/*/SKILL.md; do
+    grep -qE '^(paths|description|user-invocable):' "$s" && echo "✓ $(basename $(dirname $s)) frontmatter OK"
+  done
+
+  # 3. 实际 auto-invoke 验证（人工：在新会话提关键词，看响应是否引用 skill 内容）
+  echo "💡 人工验证：新 Claude Code 会话里说"
+  echo "   '看一下 src/auth/login.ts 的 login 函数' → 响应是否引用 forbidden-policy？"
+human_verification: true
