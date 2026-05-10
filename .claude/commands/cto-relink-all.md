@@ -17,6 +17,7 @@ disable-model-invocation: false
 - `<目录路径>` = 扫描指定父目录下的所有项目（如 `C:/projects` 或 `~/work`）
 - `--dry-run` = 仅输出 diff 预览，不实际修改
 - `--projects-list <file.txt>` = 从 txt 文件读取项目路径清单（每行一个）
+- `--upgrade=v3.8` = 批量升级到 v3.8 真 enforcement（详见末尾"v3.8 升级模式"）
 
 ## 执行步骤
 
@@ -138,3 +139,124 @@ find "$PROJECTS_DIR" -maxdepth 2 -name "CLAUDE.md" -not -path "*/ai-playbook/*"
 - 备份文件 `.bak` 不会被 commit（CLAUDE.md.bak 已在 .gitignore 中匹配 `*.bak`）
 - 如目标项目处于干净状态（无未提交改动），CLAUDE.md 改动会触发 git diff 让用户审视
 - 失败的项目会列出具体原因（权限、文件锁定、解析错误等），不影响其他项目
+
+---
+
+## v3.8 升级模式（`--upgrade=v3.8`）
+
+升级目标项目从 v3.7 silent hooks → v3.8 真 enforcement。
+
+### 检测旧版
+
+```bash
+# 1. v3.7 silent hooks 标志
+grep -q '\$CLAUDE_TOOL_INPUT' "$PROJECT/.claude/settings.json" && IS_V37=1
+
+# 2. 已有 .claude/hooks/ 但 settings.json 还旧 → 部分升级状态
+[ -d "$PROJECT/.claude/hooks" ] && [ "$IS_V37" = "1" ] && PARTIAL=1
+
+# 3. 已 v3.8 → 跳过
+grep -q '.claude/hooks/forbidden-guard.sh' "$PROJECT/.claude/settings.json" && IS_V38=1
+```
+
+### 升级步骤（每项目）
+
+#### 步骤 A：备份所有可能影响的文件
+
+```bash
+cd "$PROJECT"
+cp .claude/settings.json .claude/settings.json.v3.7.bak  # 必须
+[ -f CLAUDE.md ] && cp CLAUDE.md CLAUDE.md.bak  # 防破
+```
+
+#### 步骤 B：部署 hooks 脚本
+
+```bash
+PLAYBOOK_DIR="<ai-playbook 仓库路径>"
+mkdir -p "$PROJECT/.claude/hooks/lib"
+cp "$PLAYBOOK_DIR/.claude/hooks/lib/common.sh" "$PROJECT/.claude/hooks/lib/"
+for h in forbidden-guard bypass-guard branch-guard test-lock-guard \
+         vibe-prompt-guard eval-gate trajectory-logger; do
+  cp "$PLAYBOOK_DIR/.claude/hooks/${h}.sh" "$PROJECT/.claude/hooks/"
+done
+chmod +x "$PROJECT/.claude/hooks/"*.sh "$PROJECT/.claude/hooks/lib/"*.sh
+```
+
+#### 步骤 C：部署 v3.8 paths-triggered skills
+
+```bash
+mkdir -p "$PROJECT/.claude/skills"
+for skill in forbidden-policy test-lock-rules eval-gate-policy \
+             constitution-loader handbook-search; do
+  cp -r "$PLAYBOOK_DIR/.claude/skills/$skill" "$PROJECT/.claude/skills/"
+done
+```
+
+#### 步骤 D：部署 cto-doctor 自检命令
+
+```bash
+cp "$PLAYBOOK_DIR/.claude/commands/cto-doctor.md" "$PROJECT/.claude/commands/"
+```
+
+#### 步骤 E：升级 settings.json
+
+替换为 v3.8 版（调外置脚本 + stdin JSON）。
+
+> **`--dry-run` 模式**：仅输出 diff，不替换。
+
+#### 步骤 F：scripts/ SSOT
+
+```bash
+mkdir -p "$PROJECT/scripts"
+[ ! -f "$PROJECT/scripts/forbidden-paths.txt" ] && cp "$PLAYBOOK_DIR/scripts/forbidden-paths.txt" "$PROJECT/scripts/"
+# 不覆盖已有的（项目自定义可能已加路径）
+[ ! -f "$PROJECT/scripts/safe-grep.sh" ] && cp "$PLAYBOOK_DIR/scripts/safe-grep.sh" "$PROJECT/scripts/" && chmod +x "$PROJECT/scripts/safe-grep.sh"
+```
+
+#### 步骤 G：自检 `cto-doctor`
+
+每个项目升级完跑：
+
+```bash
+# 模拟在目标项目里跑（实际由 Claude Code 在该项目会话中跑）
+cd "$PROJECT"
+# /cto-doctor 命令的核心检测：
+HAS_JQ=$(command -v jq >/dev/null 2>&1 && echo 1 || echo 0)
+echo "jq=$HAS_JQ"
+
+# 端到端 enforcement 验证
+echo '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/x.ts"},"cwd":"'$(pwd)'"}' \
+  | bash .claude/hooks/forbidden-guard.sh
+[ $? = 2 ] && echo "✓ forbidden-guard works" || echo "✗ FAIL"
+
+echo '{"tool_name":"Bash","tool_input":{"command":"git commit --no-verify"}}' \
+  | bash .claude/hooks/bypass-guard.sh
+[ $? = 2 ] && echo "✓ bypass-guard works" || echo "✗ FAIL"
+```
+
+### 输出报告
+
+每项目一行：
+```
+✓ aegis-panel:    v3.7 → v3.8 升级成功 (cto-doctor 100%)
+✓ amphoreus:      v3.7 → v3.8 升级成功 (cto-doctor 92% — jq 缺失，sed fallback)
+⚠ money:          已是 v3.8（跳过）
+✗ FGO-py:         升级失败 — settings.json 含项目自定义 hooks，需手动 merge
+```
+
+### 回滚
+
+```bash
+cp .claude/settings.json.v3.7.bak .claude/settings.json
+rm -rf .claude/hooks/
+# skills 保留无害（不会被 settings.json 调用就不生效）
+```
+
+### --dry-run 输出
+
+每项目仅输出：
+- 当前版本（v3.7 / v3.8 / 部分升级 / unknown）
+- 会替换的文件清单
+- 模拟 cto-doctor 报告（不实际跑）
+
+不修改任何文件。

@@ -41,16 +41,68 @@ disable-model-invocation: false
 #### 3b. .claude/commands/（斜杠命令 — 全部复制）
 - 创建目标项目 `.claude/commands/` 目录
 - 复制所有 `.claude/commands/*.md`（除了 `cto-init.md` 和 `cto-relink-all.md` 本身）
-- 包括：cto-start, cto-resume, cto-refresh, cto-link, cto-review, cto-spec, cto-constitution, cto-vibe-check, cto-harness-audit, cto-eval, cto-design, cto-skills, cto-audit, cto-models, cto-release
+- 包括（v3.8 起 21 个）：cto-start, cto-resume, cto-refresh, cto-link, cto-review, cto-spec,
+  cto-constitution, cto-vibe-check, cto-harness-audit, cto-eval, cto-design, cto-skills,
+  cto-audit, cto-models, cto-release, cto-image, cto-replay, cto-canary, cto-cross-review,
+  **cto-doctor**（v3.8 关键自检命令）
 
-#### 3c. .claude/settings.json（Claude Code 配置）
-- 如果目标项目没有 `.claude/settings.json`，复制过去
-- 如果已有，提示用户是否合并
+#### 3c. .claude/settings.json（v3.8 Claude Code 配置）
+- 如果目标项目没有 `.claude/settings.json`，复制 v3.8 版过去
+- 如果已有 v3.7 版（含 `$CLAUDE_TOOL_INPUT`）：
+  1. 检测：`grep -q CLAUDE_TOOL_INPUT .claude/settings.json` → 是 → 提示"v3.7 silent hooks，需升级"
+  2. 备份：`cp .claude/settings.json .claude/settings.json.v3.7.bak`
+  3. 替换为 v3.8 版（调外置脚本 + stdin JSON）
+- 如果已有 v3.8 版（含 `.claude/hooks/`）→ 跳过
 
-#### 3d. .agents/skills/（跨平台 Skill — 全部复制）
+#### 3d. .claude/hooks/（v3.8 enforcement 脚本 — 必须）
+- 创建目标项目 `.claude/hooks/lib/`
+- 复制 `lib/common.sh`（stdin JSON 公用库）
+- 复制 7 个 guard scripts:
+  - `forbidden-guard.sh` — exit 2 拦 §32.1 路径
+  - `bypass-guard.sh` — 防 #40117 6+ 种绕过
+  - `branch-guard.sh` — 铁律 #8 main/master 保护
+  - `test-lock-guard.sh` — §20.3 软提醒
+  - `vibe-prompt-guard.sh` — UserPromptSubmit 红线
+  - `eval-gate.sh` — 铁律 #12 PostToolUse
+  - `trajectory-logger.sh` — 真 jsonl 写入（修 §44）
+- `chmod +x` 全部 hooks
+- 复制 `scripts/safe-grep.sh`（grep exit code 区分）
+
+#### 3e. .agents/skills/（跨平台 Skill — 全部复制）
 - 创建目标项目 `.agents/skills/` 目录
 - 复制所有 skill 子目录（含 SKILL.md）
-- 包括：ux-quality-checklist, i18n-enforcement, design-system-enforcement, accessibility-checklist, release-readiness
+- 包括：ux-quality-checklist, i18n-enforcement, design-system-enforcement,
+  accessibility-checklist, release-readiness, codex-bridge
+
+#### 3f. .claude/skills/（v3.8 paths-triggered enforcement skills — 必须）
+- 创建目标项目 `.claude/skills/`
+- 复制 5 个 v3.8 skills（每个一个目录含 SKILL.md）：
+  - `forbidden-policy/` — paths: auth/** payment/** 等
+  - `test-lock-rules/` — paths: tests/** *.test.* 等
+  - `eval-gate-policy/` — paths: .claude/commands/** CLAUDE.md 等
+  - `constitution-loader/` — description: spec/architecture/feature trigger
+  - `handbook-search/` — description: §NN.M / 手册 trigger
+
+#### 3g. scripts/（SSOT + 工具）
+- 创建目标项目 `scripts/`
+- 复制 `forbidden-paths.txt`（SSOT，**项目可自定义补充路径**）
+- 复制 `business-paths.txt`（codex-bridge 业务路径触发，**每项目应 customize**）
+- 复制 `safe-grep.sh`
+
+#### 3h. playbook/INDEX.md（handbook 索引）
+- 复制到目标项目 `playbook/INDEX.md`（如果用户希望本地索引）
+- 或留空，让 handbook-search skill 走 ai-playbook 主仓的 INDEX
+
+#### 3i. 自检：跑 `/cto-doctor`
+- 装完后立即跑 `cto-doctor`
+- 验证：
+  1. jq / gh / codex / claude 依赖
+  2. 7 个 hooks 文件存在
+  3. **端到端 enforcement 测试**（exit 2 真生效）
+  4. trajectory log v3.8 schema
+  5. settings.json 已升级（不含 `$CLAUDE_TOOL_INPUT`）
+  6. 5 个 paths-triggered skills 文件存在
+- 输出 health score；< 80% 时报告失败项
 
 ### 4. 检测项目技术栈
 
