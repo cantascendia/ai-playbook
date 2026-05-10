@@ -56,6 +56,37 @@ export CTO_MAIN_EDIT_ALLOWED=1  # 解锁 main branch 直 Edit
 
 详见 `playbook/handbook.md` §41.8。
 
+## v3.9 自我进化飞轮（Constitution-Anchored）
+
+本项目可选启用 v3.9 飞轮 — Cursor Bugbot + Sakana DGM + AlphaEvolve 启发：
+
+**核心机制**：
+- `.claude/hooks/immutable-guard.sh` — 守 Constitution / 14 铁律 / forbidden SSOT 不被 AI 改
+- `.claude/agents/pattern-detector.md` — 扫历史数据找反复失败 pattern
+- `/cto-evolve detect|propose|apply|status` — 飞轮入口
+- `.claude/skills/learned-rules-loader/` — Bugbot-style 自动加载教训
+- `.claude/rules/learned/` — 学到的具体教训归档目录
+- `.github/workflows/self-audit-weekly.yml` — 每周一 cron + GitHub Issue（不开 PR）
+- `docs/ai-cto/EVOLUTION-LOG.md` — 进化历史
+- `docs/ai-cto/SKILL-CANDIDATES.md` — Voyager 风格候选 skill（不自动入库）
+
+**红线（不可改）**：
+- ❌ CLAUDE.md 14 铁律段
+- ❌ docs/ai-cto/CONSTITUTION.md
+- ❌ scripts/forbidden-paths.txt 删条目（仅可加）
+- ❌ playbook/handbook.md §32-§35
+- ❌ .claude/hooks/*.sh 的 block_with_reason 调用
+
+**紧急 opt-out**：
+```bash
+export CTO_CONSTITUTION_AMEND=1   # 改 Constitution / 14 铁律 / handbook §32-§35
+export CTO_FORBIDDEN_REMOVE=1     # 删 forbidden-paths.txt 条目
+```
+
+**Cost cap**：月度 codex token < $20（默认）— 超 cap 退化为只 detect 不 codex。
+
+详见 `playbook/handbook.md` §50。
+
 ## 铁律
 
 1. 所有决策服务于产品愿景

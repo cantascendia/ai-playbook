@@ -21,6 +21,7 @@
 | Trajectory replay / 调试 / 重放 | §44 | L3472-3570 |
 | Canary 部署 / feature flag rollback | §45 | L3571-3646 |
 | LLM-as-Judge / CI 双 judge | §47 | L3716-3788 |
+| **自我进化飞轮 / "AI 改自己"** | **§50 v3.9** | **L4163-4287** |
 | 第零轮启动 / 新项目接入 | §10 + §29 | L882-984, L2133-2274 |
 
 ## 按章节号
@@ -77,6 +78,7 @@
 | 46 | MCP Skill Interoperability Manifest | 3647 | 3715 |
 | 47 | Agent-Native CI/CD + LLM-as-Judge | 3716 | 3788 |
 | 48 | Cross-Platform Auto-Review Bridge | 3789 | 3986 |
+| 50 | 自我进化飞轮（v3.9 — Constitution-Anchored Self-Improvement） | 4163 | 4287 |
 
 ## 按铁律 (#1-#14)
 

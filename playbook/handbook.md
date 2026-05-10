@@ -4159,3 +4159,129 @@ BUSINESS=$(git diff --name-only ...| grep -E "$BIZ_PATTERN")
 - §35 EDD → review 反馈可固化为新 golden trajectory
 
 ---
+
+## 50. 自我进化飞轮（Self-Evolution Flywheel — v3.9）
+
+> ai-playbook 自身能否进化？业界共识：**有边界的可以**。本节文档化 v3.9 实施。
+> 关键原则：**Constitution 不可碰**，仅在软配置层进化。
+
+### 50.1 业界 SOTA 调研结论
+
+#### 共识 1: 所有大厂都不敢闭合 RSI（Recursive Self-Improvement）
+
+- Anthropic Constitutional AI: constitution 不可妥协 + revision 不能改 constitution（[arxiv](https://arxiv.org/abs/2212.08073)）
+- DeepMind Hassabis WEF 2026: 公开问 "loop 能否没人闭合"
+- OpenAI GPT-5.5 Codex: 协助创造自身但仍需人指挥
+- IEEE Spectrum: Kaplan/Clark 预测 RSI 在 2026-2028 才成熟
+
+#### 共识 2: 商业 agent 都把学到的写显式审计文件，绝不改 system prompt
+
+- **Cursor Bugbot**: 110k repos / 44k learned rules（[blog](https://cursor.com/blog/bugbot-learning)）
+- **Cline**: `.clinerules` 显式 markdown
+- **Aider**: git commit 历史 + tree-sitter repo map
+- **Devin 2.0**: long-term memory + planning loop + 沙箱
+
+#### 共识 3: Self-modify system prompt = architectural vulnerability
+
+- 约束在 prompt 里 = data，agent 会权衡放弃
+- **OWASP Agentic Top 10 (2025-12)** 列 Rogue Agent
+- **AIVSS v0.8** 把 self-modification 列为 risk amplifier
+
+### 50.2 业界 SOTA 飞轮架构
+
+| 项目 | 关键创新 | 我们借鉴的段 |
+|---|---|---|
+| **AlphaEvolve** (DeepMind 2025-05) | evaluator-driven evolution; Strassen 56 年纪录被破 | eval-grounded loop（evals/golden-trajectories 当 fitness） |
+| **Sakana DGM** (2025-05) | SWE-bench 自我改进 20%→50%; lineage archive 含失败 | REVIEW-QUEUE 全部保留 + tag |
+| **Cursor Bugbot** | 每次 review 错 → 学 rule 入库（44k） | .claude/rules/learned/* |
+| **Voyager** (Minecraft) | 技能库 + 自动课程；唯一 diamond tier | SKILL-CANDIDATES.md（不自动入库） |
+| **Reflexion + MAR** (2025-12) | 单 critic 会幻觉 → 多 critic 双闸 | pattern-detector + codex 双审 |
+
+### 50.3 失败教训
+
+- **AutoGPT / BabyAGI** archive 2024-09: infinite loop / API bill 暴走 / 切模型即崩
+- **Reflexion 单 critic**: 会幻觉新任务规范把 agent 引偏 → 必须 evaluator-grounded
+- **Sakana DGM 单跑两周/$22k**: cost cap 必须
+
+### 50.4 ai-playbook v3.9 三层架构
+
+```
+┌──── 红线层（Immutable — Constitution 锚 ）────────────┐
+│ 任何阶段都不改：                                      │
+│ - CLAUDE.md 14 铁律段                                  │
+│ - docs/ai-cto/CONSTITUTION.md                         │
+│ - scripts/forbidden-paths.txt（只允许加，不允许删）    │
+│ - .claude/hooks/*.sh 的 block_with_reason 调用          │
+│ - playbook/handbook.md §32/§33/§35                    │
+│ 守门：immutable-guard.sh hook（PreToolUse exit 2）     │
+└──────────────────────────────────────────────────┘
+       ↓
+┌──── 软配置层（Mutable — AI 可改 + 人审 ）──────────────┐
+│ - .claude/skills/<name>/SKILL.md description / paths   │
+│ - .claude/hooks/*.sh 的阈值 / pattern 列表              │
+│ - .claude/rules/learned/* （Bugbot 式归档）              │
+│ - handbook.md 新增章节（不改既有）                      │
+│ - evals/golden-trajectories/* 新增（不删既有）           │
+└──────────────────────────────────────────────────┘
+       ↓
+┌──── 飞轮层（Self-evolution loop）───────────────────────┐
+│ 1. 观察：trajectory + REVIEW-QUEUE + eval results        │
+│ 2. 分析：pattern-detector sub-agent 找反复失败           │
+│ 3. 评估：4 auditor 并行 + codex 跨模型审                │
+│ 4. 提议：写 EVOLUTION-LOG / SKILL-CANDIDATES（不直接改） │
+│ 5. 用户决策：手动 /cto-evolve apply 或 GH Issue 批准     │
+│ 6. 执行：autopilot 开 PR + codex 自审 + 人 merge         │
+└──────────────────────────────────────────────────┘
+```
+
+### 50.5 创新（超越当前 SOTA）
+
+1. **三层 enforcement 反 self-mod**: hook + skill + outputStyle 三层守 — 比 Cursor / Cline 单层 markdown 强
+2. **Eval 即 fitness**: 复用 v3.8 evals 当进化方向 — 比 AlphaEvolve 通用化
+3. **跨模型双 critic**: codex + harness-auditor — 比单 critic Reflexion 鲁棒
+4. **PR-as-evolution-checkpoint**: 每次进化必开 PR + codex 审 + 人 merge — 比 DGM 沙箱更适合生产
+5. **Failure budget 升级机制**: 连续 N 周相同建议未采纳 → 自动 P0 升级人审 — 防振荡
+
+### 50.6 关键组件清单
+
+| 组件 | 路径 | 职责 |
+|---|---|---|
+| immutable-guard.sh | `.claude/hooks/` | 红线层 PreToolUse exit 2 |
+| pattern-detector | `.claude/agents/` | 分析层 sub-agent |
+| /cto-evolve | `.claude/commands/` | 飞轮入口（detect/propose/apply/status） |
+| learned-rules-loader | `.claude/skills/` | Bugbot-style 自动加载 |
+| .claude/rules/learned/ | 目录 | Cursor 启发的 learned rules archive |
+| EVOLUTION-LOG.md | `docs/ai-cto/` | 进化历史 |
+| SKILL-CANDIDATES.md | `docs/ai-cto/` | Voyager 候选库（不自动入库） |
+| self-audit-weekly.yml | `.github/workflows/` | 每周一 cron |
+
+### 50.7 Cost Cap & Failure Budget
+
+- **月度 codex token cap**: $20（默认）
+- **退化模式**: 超 cap → 仅跑 pattern-detector，不跑 codex
+- **失败 budget**: 同 pattern 连续 3 周未采纳 → 自动 P0 + GitHub Issue + 邮件
+- **冷却**: 同 pattern 30 天内不重复提议
+
+### 50.8 为什么不闭合 RSI loop
+
+业界共识 + 我们的判断：
+- ❌ 自动 merge PR — 即使 codex 审通过，也要人 merge
+- ❌ AI 自动改 CLAUDE.md / handbook 既有章节 — 仅可加新
+- ❌ Vector DB memory — AutoGPT 教训
+- ❌ Recursive self-call — cost 失控
+- ❌ 闭合 RSI loop — Anthropic / DeepMind 都不敢做
+
+### 50.9 与其他章节的关系
+
+- §35 EDD → evals 是 fitness 函数（AlphaEvolve）
+- §37 Constitution → immutable-guard 守 Constitution
+- §41 Hooks → immutable-guard 是 v3.9 新增
+- §44 Replay → trajectory 是 pattern-detector 数据源
+- §48 跨模型 review → 是飞轮的"评估器"（Reflexion + MAR 多 critic）
+
+### 50.10 CTO 职责
+
+- 每周 review SELF-AUDIT GitHub Issue（cron 自动开）
+- 月度 review SKILL-CANDIDATES → accept / reject 候选
+- 季度 review EVOLUTION-LOG 失败 budget — 处理 P0 升级
+- 出现 immutable-guard 拦截高于阈值 → 调查是否合法操作被误拦
