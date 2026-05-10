@@ -91,7 +91,8 @@ fi
 if echo "$REL" | grep -qE "scripts/forbidden-paths\.txt$"; then
   # Write 工具：读现存文件 vs new content 比对
   if [ "$HOOK_TOOL_NAME" = "Write" ]; then
-    CURRENT_FILE="${HOOK_CWD}/scripts/forbidden-paths.txt"
+    # 修自 codex 第 6 轮 dogfood P1：用 normalized $CWD（fallback "."），不用 raw $HOOK_CWD
+    CURRENT_FILE="${CWD}/scripts/forbidden-paths.txt"
     if [ -f "$CURRENT_FILE" ]; then
       OLD_PATHS=$(grep -vE '^\s*(#|$)' "$CURRENT_FILE" || true)
       NEW_RAW=$(printf '%b' "${HOOK_CONTENT//\\n/$'\n'}")
