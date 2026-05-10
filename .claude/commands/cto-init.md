@@ -41,7 +41,8 @@ disable-model-invocation: false
 #### 3b. .claude/commands/（斜杠命令 — 全部复制）
 - 创建目标项目 `.claude/commands/` 目录
 - 复制所有 `.claude/commands/*.md`（除了 `cto-init.md` 和 `cto-relink-all.md` 本身）
-- 包括（v3.8 起 21 个）：cto-start, cto-resume, cto-refresh, cto-link, cto-review, cto-spec,
+- 仓库共 22 个 cto-* commands；本步复制 **20 个**（不含 `cto-init` 和 `cto-relink-all` 自身）：
+  cto-start, cto-resume, cto-refresh, cto-link, cto-review, cto-spec,
   cto-constitution, cto-vibe-check, cto-harness-audit, cto-eval, cto-design, cto-skills,
   cto-audit, cto-models, cto-release, cto-image, cto-replay, cto-canary, cto-cross-review,
   **cto-doctor**（v3.8 关键自检命令）
