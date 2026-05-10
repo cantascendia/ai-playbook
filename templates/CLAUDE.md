@@ -27,6 +27,35 @@ CTO 操作手册见 ai-playbook 仓库的 `playbook/handbook.md`。
 
 `docs/ai-cto/` 目录下的文件是 CTO 的项目状态记忆，新会话时优先读取恢复上下文。
 
+## v3.8 真 enforcement（关键 — 装好后跑 `/cto-doctor` 验证）
+
+本项目装了 ai-playbook v3.8 的三层 enforcement：
+
+**第 1 层 — Hard hooks（exit 2 + stderr 真阻止）**：
+- `forbidden-guard.sh` — 编辑 `auth/payment/secrets/migration/crypto/infra/.github/workflows` 时直接阻止
+- `bypass-guard.sh` — 拦 6+ 种 pre-commit 绕过（`--no-verify` / `core.hooksPath` / `HUSKY=0` / stash 绕过）
+- `branch-guard.sh` — 在 main/master 上 Edit 时阻止
+- 脚本位置：`.claude/hooks/*.sh`
+
+**第 2 层 — Auto-invoke skills（paths/keywords trigger）**：
+- 编辑 forbidden 路径文件 → `forbidden-policy` skill 自动加载
+- 编辑测试文件 → `test-lock-rules` skill 自动加载
+- 改 prompt 类文件 → `eval-gate-policy` skill 自动加载
+- 提到 spec/architecture → `constitution-loader` skill 自动加载
+- 提到 §NN.M → `handbook-search` skill 自动加载
+
+**第 3 层 — additionalContext 注入**：
+- vibe 关键词 / test-lock / eval-gate 通过 hook 注入约束到 Claude 上下文
+
+紧急 opt-out（仅生产事故）：
+```bash
+export CTO_DOUBLE_SIGNED=1   # 解锁 forbidden 路径（已 spec-driven + 双签）
+export CTO_BYPASS_ALLOWED=1  # 解锁 pre-commit bypass
+export CTO_MAIN_EDIT_ALLOWED=1  # 解锁 main branch 直 Edit
+```
+
+详见 `playbook/handbook.md` §41.8。
+
 ## 铁律
 
 1. 所有决策服务于产品愿景

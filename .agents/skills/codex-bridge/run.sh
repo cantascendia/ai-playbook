@@ -217,12 +217,22 @@ fi
         fi
       fi
 
-      # 7c. 同步 review 到 PR comment（按 sha 去重）
+      # 7c. 同步 review 到 PR comment（按 sha 去重，v3.8 加调试日志）
       if [ -n "$PR_NUMBER" ]; then
         MARKER="<!-- codex-bridge:${SHORT_SHA} -->"
+        echo "$TS | sha=${SHORT_SHA} | step=pr-comment-check | pr=#${PR_NUMBER} | marker=$MARKER" \
+          >> docs/ai-cto/CODEX-REVIEW-LOG.md
+
         # 查重：用 gh api 看 comments，找 marker
-        EXISTING=$(gh api "repos/{owner}/{repo}/issues/${PR_NUMBER}/comments" --jq ".[].body" 2>/dev/null | grep -c "$MARKER" || echo 0)
-        if [ "${EXISTING:-0}" = "0" ]; then
+        # 注意：grep -c 返回非零时 || echo 0 兜底
+        EXISTING=$(gh api "repos/{owner}/{repo}/issues/${PR_NUMBER}/comments" --jq ".[].body" 2>/dev/null | grep -c "$MARKER" 2>/dev/null)
+        EXISTING="${EXISTING:-0}"
+        echo "$TS | sha=${SHORT_SHA} | step=existing-check | found=$EXISTING" \
+          >> docs/ai-cto/CODEX-REVIEW-LOG.md
+
+        if [ "$EXISTING" = "0" ]; then
+          # 写到临时文件再 post（避免 stdin pipe 在 disown 后台环境下失效）
+          COMMENT_FILE="/tmp/codex-comment-${SHORT_SHA}.md"
           {
             echo "$MARKER"
             echo "## 🤖 Codex Cross-Model Review (\`$SHORT_SHA\`)"
@@ -240,10 +250,24 @@ fi
             echo ""
             echo "---"
             echo "_由 \`.agents/skills/codex-bridge/run.sh\` 本地跑（订阅 auth），非 CI。autopilot 自动同步。_"
-          } | gh pr comment "$PR_NUMBER" --body-file - 2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
+          } > "$COMMENT_FILE"
 
-          echo "$TS | sha=${SHORT_SHA} | mode=pr-comment-posted | pr=#${PR_NUMBER}" \
+          # 用文件路径调 gh pr comment（更稳定）
+          POST_OUT=$(gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE" 2>&1)
+          POST_STATUS=$?
+
+          echo "$TS | sha=${SHORT_SHA} | step=pr-comment-post | status=$POST_STATUS | out=$(echo "$POST_OUT" | tr '\n' ' ' | head -c 200)" \
             >> docs/ai-cto/CODEX-REVIEW-LOG.md
+
+          if [ $POST_STATUS -eq 0 ]; then
+            echo "$TS | sha=${SHORT_SHA} | mode=pr-comment-posted | pr=#${PR_NUMBER}" \
+              >> docs/ai-cto/CODEX-REVIEW-LOG.md
+            rm -f "$COMMENT_FILE"
+          else
+            # 失败保留临时文件供人工排查
+            echo "$TS | sha=${SHORT_SHA} | mode=pr-comment-failed | file=$COMMENT_FILE" \
+              >> docs/ai-cto/CODEX-REVIEW-LOG.md
+          fi
         fi
       fi
     fi
