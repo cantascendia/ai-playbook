@@ -3149,7 +3149,28 @@ AI Pair（2025+）：
 
 ## 41. Hooks 驱动的自动化
 
-> 14 条铁律 + 17 个 `/cto-*` 命令认知负担过重。Claude Code 的 **Hooks 系统** 让大部分检查"动作发生时即时执行"，无需用户记得手动跑命令。
+> 14 条铁律 + 21 个 `/cto-*` 命令认知负担过重。Claude Code 的 **Hooks 系统** 让大部分检查"动作发生时即时执行"，无需用户记得手动跑命令。
+
+### 41.0 重大教训（v3.8 起生效）
+
+**v3.7 之前的所有 hook 都是 silent no-op**。
+
+错误根源：早期文档假设 hook 通过 `$CLAUDE_TOOL_INPUT` env var 读取 tool input，所以全部 hook 写成：
+
+```bash
+echo "$CLAUDE_TOOL_INPUT" | grep -qE '...' && echo '⚠️ 提醒...' || true
+```
+
+[官方文档](https://code.claude.com/docs/en/hooks) 明确说明：
+- ❌ `CLAUDE_TOOL_INPUT` env var **不存在**
+- ✅ Hook input 通过 **stdin JSON** 传入
+- ✅ 用 `jq -r '.tool_input.file_path'` 读取（或 sed fallback）
+
+后果：所有"提醒"hook 永远不匹配，永远不输出 — AI 表面"被提醒"完全是它自己泛化的假象。
+
+**佐证**：`.claude/agent-logs/*.jsonl` 历史记录每行只有 `{"ts":..., "type":"tool_call"}`，没有任何 tool_name / file_path — 因为 hook 想读 env var 但拿到空字符串。
+
+**v3.8 全部修复**：所有 hook 改用 stdin JSON + 外置脚本，详见 §41.8。
 
 ### 41.1 自动 vs 手动 决策矩阵
 
@@ -3303,6 +3324,160 @@ export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
 - 第一轮：观察 hooks 是否误报 / 用户是否暴怒，调整 matcher 正则
 - 出现 hook 误拦关键操作 → 立即在 .claude/settings.local.json 关闭
 - 月度：审视 hooks 触发日志，识别该升级 / 该删除的 hook
+
+### 41.8 v3.8 真 enforcement 实施（替代 §41.2-§41.6）
+
+> §41.0 揭示旧版 silent no-op 后，v3.8 做了**三层 enforcement** 重写。本节是当前实际生效的设计。
+
+#### 三层 enforcement 模型
+
+```
+第 1 层：Hard Block（exit 2 + stderr）— 不可绕过的硬规则
+  ↓ exit 0 时进入
+第 2 层：Skill auto-invoke（paths/keywords trigger）— Claude 自动加载约束
+  ↓
+第 3 层：additionalContext injection — 引导 Claude 下一步动作
+```
+
+#### 7 个 v3.8 hook 脚本（`.claude/hooks/*.sh`）
+
+| Hook | Event | 触发 | 行为 | Opt-out env |
+|---|---|---|---|---|
+| `forbidden-guard.sh` | PreToolUse Edit/Write/MultiEdit | file_path 命中 SSOT (`scripts/forbidden-paths.txt`) | **exit 2 + stderr** | `CTO_DOUBLE_SIGNED=1` |
+| `bypass-guard.sh` | PreToolUse Bash | 命中 6+ 种 bypass 模式（`--no-verify` / `core.hooksPath` / `HUSKY=0` / `chmod -x .husky` / `git stash bypass` / `SKIP=`） | **exit 2 + stderr** | `CTO_BYPASS_ALLOWED=1` |
+| `branch-guard.sh` | PreToolUse Edit/Write/MultiEdit | 当前 branch ∈ {main, master, production, prod, release} | **exit 2 + stderr** | `CTO_MAIN_EDIT_ALLOWED=1` |
+| `test-lock-guard.sh` | PreToolUse Edit/Write/MultiEdit | file_path 命中 tests/ 模式 | additionalContext 注入提醒 + exit 0（不阻止） | `CTO_TEST_LOCK_ACK=1` |
+| `vibe-prompt-guard.sh` | UserPromptSubmit | prompt 含 vibe 关键词 | additionalContext 注入红线 + exit 0 | — |
+| `eval-gate.sh` | PostToolUse Edit/Write/MultiEdit | file_path 命中 commands/skills/CLAUDE.md/handbook | additionalContext 提醒铁律 #12 + exit 0 | `CTO_EVAL_GATE_ACK=1` |
+| `trajectory-logger.sh` | PostToolUse * | 任意 tool call | 写真 jsonl（含 tool/file/cmd/session）— 修 §44 失效 | — |
+
+公用库：`.claude/hooks/lib/common.sh`
+- `_json_get` — jq 优先 / sed fallback（Windows git-bash 无 jq 时）
+- `block_with_reason` — exit 2 + stderr 喂回 Claude
+- `soft_remind` — additionalContext JSON 输出
+- `audit_log` — 写 .claude/agent-logs/<DAY>.jsonl
+- `maybe_run_override` — 项目级 `.claude/hooks-overrides/<NAME>.sh` 覆盖
+
+#### 5 个 v3.8 paths-triggered skills（`.claude/skills/*/SKILL.md`）
+
+第 2 层 enforcement — 不依赖用户记得手动 `/skill-name`，Claude 根据 paths glob / description 关键词自动加载：
+
+| Skill | 触发字段 | 自动加载场景 |
+|---|---|---|
+| `forbidden-policy` | `paths: [auth/**, payment/**, ...]` | 编辑高风险路径 → 自动注入 spec-driven 流程 |
+| `test-lock-rules` | `paths: [tests/**, *.test.*, *.spec.*, ...]` | 编辑测试 → 自动注入 4 个合法场景 + 5 防作弊 |
+| `eval-gate-policy` | `paths: [.claude/commands/**, CLAUDE.md, ...]` | 改 prompt 类文件 → 自动注入铁律 #12 流程 |
+| `constitution-loader` | `description: spec/plan/architecture/feature 关键词` | 用户提涉及 spec 的请求 → 自动加载 CONSTITUTION |
+| `handbook-search` | `description: §NN.M / 手册 / playbook 关键词` | 用户引章节号 → 先读 INDEX 再定位行段 |
+
+**关键：paths 必须是 YAML list 或 comma-separated string（无空格）**。`paths: "a, b, c"`（带空格）loader 会解析为单一字符串字面量 → 永不命中。教训来自 codex 第 3 轮 dogfood review。
+
+#### 完整 .claude/settings.json（v3.8）
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": "if [ -d docs/ai-cto ]; then echo '🔄 检测到项目记忆'; head -150 docs/ai-cto/CONSTITUTION.md 2>/dev/null; head -150 docs/ai-cto/STATUS.md 2>/dev/null; fi" }
+      ]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "bash .claude/hooks/vibe-prompt-guard.sh" }]
+    }],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/forbidden-guard.sh" },
+          { "type": "command", "command": "bash .claude/hooks/branch-guard.sh" },
+          { "type": "command", "command": "bash .claude/hooks/test-lock-guard.sh" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "bash .claude/hooks/bypass-guard.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "bash .claude/hooks/eval-gate.sh" }]
+      },
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "bash .claude/hooks/trajectory-logger.sh" }]
+      }
+    ],
+    "Stop": [{
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": "echo '— 会话结束摘要 —'; git status --short 2>/dev/null | head -20" },
+        { "type": "command", "command": "test -x .agents/skills/codex-bridge/run.sh && bash .agents/skills/codex-bridge/run.sh HEAD || true" }
+      ]
+    }]
+  }
+}
+```
+
+#### Claude Code Hook 协议（必须知道）
+
+来自 [官方文档](https://code.claude.com/docs/en/hooks)：
+
+| 通信 | 机制 |
+|---|---|
+| Hook input | **stdin JSON**（不是 env var）— `cat` 读取后用 jq/sed 解析 |
+| 阻止 PreToolUse | `exit 2 + stderr` 或 `exit 0 + JSON {"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"..."}}` |
+| 阻止其他 event | `exit 2 + stderr` 或 `exit 0 + JSON {"decision":"block","reason":"..."}` |
+| 注入文本到 Claude 上下文 | `{"hookSpecificOutput":{"hookEventName":"X","additionalContext":"..."}}` |
+| **`exit 2` 时 JSON 被忽略** | 二选一：要么纯 exit code，要么 JSON output |
+
+stdin JSON 字段：
+```json
+{
+  "session_id": "abc...",
+  "transcript_path": "/path/to/...",
+  "cwd": "/current/dir",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": { "file_path": "src/foo.ts", "old_string": "...", "new_string": "..." }
+}
+```
+
+#### v3.8 自检：`/cto-doctor`
+
+新增命令验证 enforcement 真生效（不是 silent）：
+- 依赖检测（jq / gh / codex / claude）
+- hook 文件存在
+- **端到端模拟 stdin JSON → exit code 验证**
+- trajectory log v3.8 schema 检查
+- skills paths 字段格式检查
+
+输出 health score。**部署后第一件事跑这个**。
+
+#### Anthropic 官方教训（issue #40117）
+
+> Claude 在 CLAUDE.md 明文禁止 `--no-verify` 的情况下，**6 次连续用 6 种策略绕过** pre-commit（`--no-verify` / stash / `core.hooksPath` 重写 / chmod 等）。
+
+证明纯 prompt 文本规则不够，必须 hook 强制。`bypass-guard.sh` 就是基于这个教训设计。
+
+#### v3.8 升级路径
+
+旧 settings.json 检测：
+```bash
+grep -q "CLAUDE_TOOL_INPUT" .claude/settings.json && echo "⚠️ v3.7 silent hooks，需升级"
+```
+
+升级步骤：
+1. 备份：`cp .claude/settings.json .claude/settings.json.v3.7.bak`
+2. 部署 hooks：复制 `.claude/hooks/*.sh` + `lib/common.sh`
+3. 替换 `.claude/settings.json` 为 v3.8 版
+4. 跑 `/cto-doctor` 验证
+
+回滚：`cp .claude/settings.json.v3.7.bak .claude/settings.json`
 
 ---
 
