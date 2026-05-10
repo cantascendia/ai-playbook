@@ -1,0 +1,143 @@
+name: v3.9 Self-Evolution Flywheel — Weekly Audit
+
+# 每周一 UTC 09:00（北京时间 17:00）跑 pattern-detector
+# 输出 SELF-AUDIT 报告 + 写 GitHub Issue（不直接开 PR）
+# 业界对照：Cursor Bugbot 风格 — learned rules 显式审计，绝不改 system prompt
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # 每周一 9:00 UTC
+  workflow_dispatch:       # 允许手动触发
+
+# 仅 read 权限 + write issue（不写 PR — 避免无人审就 merge）
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  pattern-detect:
+    name: Pattern Detector + Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100  # 跑 git log 30 天需要历史
+
+      - name: Setup tools
+        run: |
+          # jq 已装在 ubuntu-latest
+          jq --version
+          # 安装 codex CLI（兜底；订阅 auth 通过 secret 注入）
+          # npm i -g @openai/codex || true  # 可选 — 见 ci-cd-auth.md
+
+      - name: 1. 计算飞轮健康指标
+        id: health
+        run: |
+          # 数 trajectory 条目
+          if [ -d .claude/agent-logs ]; then
+            TRAJ_COUNT=$(find .claude/agent-logs -name '*.jsonl' -mtime -30 -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}')
+            echo "trajectory_count=${TRAJ_COUNT:-0}" >> $GITHUB_OUTPUT
+          fi
+          # 数最近 30 天 codex review
+          if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ]; then
+            REVIEW_COUNT=$(grep -c "mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null || echo 0)
+            echo "review_count=$REVIEW_COUNT" >> $GITHUB_OUTPUT
+          fi
+          # 数 immutable-guard 拦截次数
+          if [ -d .claude/agent-logs ]; then
+            BLOCK_COUNT=$(grep -h "immutable-blocked\|forbidden-blocked\|bypass-blocked" .claude/agent-logs/*.jsonl 2>/dev/null | wc -l)
+            echo "block_count=$BLOCK_COUNT" >> $GITHUB_OUTPUT
+          fi
+          # 数 learned rules
+          if [ -d .claude/rules/learned ]; then
+            LEARNED=$(find .claude/rules/learned -name '*.md' -not -name 'README.md' -not -name '.gitkeep' | wc -l)
+            echo "learned_count=$LEARNED" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 2. Pattern detection (轻量 — bash only，CI 上不跑 sub-agent)
+        id: detect
+        run: |
+          mkdir -p docs/ai-cto
+          DATE=$(date +%Y-%m-%d)
+          OUT="docs/ai-cto/SELF-AUDIT-${DATE}.md"
+
+          {
+            echo "# Self-Audit ${DATE} (CI cron)"
+            echo ""
+            echo "> GH Actions weekly cron 自动生成。仅记录可机器检测的 pattern。"
+            echo "> 深度分析（pattern-detector sub-agent）需在本地 \`/cto-evolve detect\` 跑。"
+            echo ""
+            echo "## 总览"
+            echo "- Trajectory 条目: ${{ steps.health.outputs.trajectory_count }}"
+            echo "- Codex review 次数: ${{ steps.health.outputs.review_count }}"
+            echo "- Hook 阻止次数: ${{ steps.health.outputs.block_count }}"
+            echo "- Learned rules: ${{ steps.health.outputs.learned_count }}"
+            echo ""
+            echo "## 机器检测的 Pattern"
+            echo ""
+
+            # Pattern A: 同一文件被 forbidden-guard 多次拦
+            if [ -d .claude/agent-logs ]; then
+              echo "### A. Hook 重复触发 Top 5"
+              grep -h "forbidden-blocked\|immutable-blocked" .claude/agent-logs/*.jsonl 2>/dev/null \
+                | grep -oP '"details":"[^"]*"' \
+                | sort | uniq -c | sort -rn | head -5 \
+                | awk '{print "- "$0}'
+              echo ""
+            fi
+
+            # Pattern B: codex review 重复关键词
+            if [ -f docs/ai-cto/REVIEW-QUEUE.md ]; then
+              echo "### B. Codex review 高频关键词（最近 30 天）"
+              tail -1000 docs/ai-cto/REVIEW-QUEUE.md \
+                | grep -oP '\[P[0-3]\]\s+[^—\n]+' \
+                | sort | uniq -c | sort -rn | head -5 \
+                | awk '{print "- "$0}'
+              echo ""
+            fi
+
+            # Pattern E: cost
+            if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ]; then
+              echo "### E. Codex review 字节累计（最近 30 天）"
+              grep "mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md \
+                | grep -oP 'bytes=\d+' \
+                | awk -F= '{sum+=$2} END{print "- 总 bytes: "sum" (估 $"sum/100000".XX)"}'
+              echo ""
+            fi
+
+            echo "## 下一步"
+            echo "- 本地跑 \`/cto-evolve detect\` 做深度分析（含 codex 跨模型审）"
+            echo "- 用 \`/cto-evolve propose\` 把 pattern 转成 EVOLUTION-PROPOSAL"
+            echo "- 用 \`/cto-evolve apply <id>\` 实施"
+          } > "$OUT"
+
+          echo "audit_file=$OUT" >> $GITHUB_OUTPUT
+          cat "$OUT"
+
+      - name: 3. 写 GitHub Issue（不开 PR — 业界共识：人审为主）
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const file = '${{ steps.detect.outputs.audit_file }}';
+            const body = fs.readFileSync(file, 'utf8');
+            const date = new Date().toISOString().split('T')[0];
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔄 v3.9 Self-Audit ${date}`,
+              body: body + '\n\n---\n\n_由 .github/workflows/self-audit-weekly.yml 自动生成_',
+              labels: ['self-audit', 'v3.9-flywheel']
+            });
+
+      - name: 4. Cost cap 检查（输出警告但不阻断）
+        run: |
+          MONTH=$(date +%Y-%m)
+          CAP_FILE=docs/ai-cto/.evolve-cost-month.json
+          if [ -f "$CAP_FILE" ]; then
+            EXCEEDED=$(jq -r '.exceeded // false' "$CAP_FILE")
+            if [ "$EXCEEDED" = "true" ]; then
+              echo "::warning ::Cost cap exceeded for $MONTH — /cto-evolve 退化模式"
+            fi
+          fi

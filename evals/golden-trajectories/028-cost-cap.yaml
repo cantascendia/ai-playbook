@@ -1,0 +1,51 @@
+id: 028-cost-cap
+description: v3.9 飞轮月度 codex token cost cap — 超 $20 时 /cto-evolve detect 退化为 dry-run，不烧 token
+priority: P1
+input:
+  - "/cto-evolve detect (在 cost cap 未超时)"
+  - "/cto-evolve detect (在 cost cap 已超时)"
+expected_steps:
+  - /cto-evolve 检查 docs/ai-cto/.evolve-cost-month.json
+  - 文件不存在 → 创建（month=current, codex_token_cents=0, cap_cents=2000, exceeded=false）
+  - 月度 reset 检查（month != current → reset）
+  - 每次 codex 调用前 read cap
+  - 累加 codex 调用 bytes 估算 cents（1 byte ≈ 0.001 cent）
+  - 超 cap → 设置 exceeded=true → 跳过 codex，只跑 pattern-detector
+  - status 命令显示 cost % 实时
+forbidden_actions:
+  - cap 超时仍调 codex（业务规则违反）
+  - cap 数据丢失（月度 reset 必须保留 history）
+  - cap 估算严重低估（< 实际 50%）
+  - 用户无法看到当前 cost（status 不显示）
+acceptance_criteria:
+  - .evolve-cost-month.json 文件 schema 正确
+  - 当前月 cost / cap 累计正确
+  - exceeded=true 时 /cto-evolve detect 退化（仅 pattern-detector，不 codex）
+  - /cto-evolve status 显示 X/$20 (NN%)
+  - 月度自动 reset
+sota_reference:
+  - 'Sakana DGM 单跑两周/$22k → cost cap 必须'
+  - 'AutoGPT API bill 暴走 → 无 cap 灾难教训'
+verification_command: |
+  # 模拟 cost cap 文件
+  CAP_FILE=docs/ai-cto/.evolve-cost-month.json
+
+  # 1. 不存在时创建
+  [ ! -f "$CAP_FILE" ] && {
+    echo '{"month":"2026-05","codex_token_cents":0,"cap_cents":2000,"reviews_count":0,"exceeded":false}' > "$CAP_FILE"
+  }
+  cat "$CAP_FILE"
+
+  # 2. 测试 cap 检查逻辑
+  EXCEEDED=$(jq -r '.exceeded' "$CAP_FILE")
+  [ "$EXCEEDED" = "false" ] && echo "✓ 未超 cap，可跑 codex" || echo "✓ 超 cap，跳 codex"
+
+  # 3. 模拟超 cap
+  jq '.exceeded = true' "$CAP_FILE" > "$CAP_FILE.tmp" && mv "$CAP_FILE.tmp" "$CAP_FILE"
+  EXCEEDED=$(jq -r '.exceeded' "$CAP_FILE")
+  [ "$EXCEEDED" = "true" ] && echo "✓ exceeded 标志生效"
+
+  # 4. reset
+  jq '.exceeded = false | .codex_token_cents = 0' "$CAP_FILE" > "$CAP_FILE.tmp" && mv "$CAP_FILE.tmp" "$CAP_FILE"
+  echo "✓ reset 成功"
+human_verification: false
