@@ -56,3 +56,35 @@ Month | Patterns Detected | Patterns Applied | Cost (codex token cents) | Notes
 - `docs/ai-cto/REVIEW-QUEUE.md` — codex 跨模型 review lineage（Sakana DGM 启发）
 - `docs/ai-cto/CODEX-REVIEW-LOG.md` — audit log
 - `.claude/rules/learned/*.md` — Bugbot-style learned rules
+
+---
+
+## 2026-05-11 — 飞轮首次实战跑（4 sub-agent 并行）
+
+**触发**：用户 "运用 cto-book，自我飞轮，委派多 sub agent 并行进行项目"
+
+**实施**：用 Task 工具并行调用 4 个 sub-agent
+- pattern-detector — 输出 SELF-AUDIT-2026-05-10.md（6 个 pattern）
+- harness-auditor — Health 94/100（§34 八条原则）
+- vibe-checker — 🟡 YELLOW Spec-Driven（v3.9 immutable-guard 6 轮迭代 = vibe 风险中等）
+- reliability-auditor — ARE 72/100（SLO/QUARTERLY-DRILLS/CONSTITUTION 缺失）
+
+**综合发现**：
+- 🔴 P0-1 trajectory schema：pattern-detector **false positive**（读了旧文件误判，2026-05-11 jsonl 实际 147/147 v3.8 schema 工作）→ 验证"必须 codex 二次审"设计
+- 🔴 P0-2 immutable-guard Windows 反斜杠路径剥离静默失效 → **真 bug**（红线在 Windows 上根本没守住）
+- 🟠 P1 文档治理：SLO.md / QUARTERLY-DRILLS.md / CONSTITUTION.md / HARNESS-CHANGELOG v3.7-v3.9 全缺
+- 🟠 P1 cost-cap 文件未 bootstrap
+
+**采纳 / 拒绝**：
+- ✅ P0-2 Windows 路径剥离修复 → v3.9.1 PR（commit TBD）
+- ✅ P1 SLO.md / QUARTERLY-DRILLS.md / CONSTITUTION.md 全补齐
+- ✅ P1 HARNESS-CHANGELOG 补 v3.7/v3.8/v3.9/v3.9.1 四条
+- ✅ P1 cost-cap 文件 bootstrap
+- ❌ pattern-detector P0-1 false positive → 加 learned rule 防再犯（建议）
+
+**飞轮自审飞轮的实证价值**：
+- 6 轮 codex review 都没发现 Windows 路径 bug（因为走 GitHub MCP）
+- 多 sub-agent 并行 + Reflexion+MAR 多 critic 设计真起作用
+- 单 critic (pattern-detector) 报 P0-1 是 false positive，但 P0-2 是真 bug
+- 验证设计哲学：不能让单 critic 独立决定 — 必须人审 / 多 agent 交叉
+

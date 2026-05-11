@@ -13,7 +13,21 @@ maybe_run_override "immutable-guard"
 [ -z "$HOOK_FILE_PATH" ] && exit 0
 
 CWD="${HOOK_CWD:-.}"
-REL="${HOOK_FILE_PATH#$CWD/}"
+# v3.9.1 fix（pattern-detector 飞轮发现）：Windows 反斜杠路径 + Edit 工具传绝对路径
+# 旧逻辑 ${HOOK_FILE_PATH#$CWD/} 在反斜杠路径下不剥离 → REL 仍是绝对路径 → 所有红线 NO
+# 修：normalize 路径（反斜杠 → 正斜杠 + 取相对路径 + basename 兜底）
+NORMALIZED_FILE="${HOOK_FILE_PATH//\\/\/}"
+NORMALIZED_CWD="${CWD//\\/\/}"
+# 先按 normalized 路径剥离前缀
+REL="${NORMALIZED_FILE#${NORMALIZED_CWD}/}"
+# 如果还是绝对路径（剥离失败），用 basename 当 REL（红线判断仅看文件名）
+case "$REL" in
+  /*|[A-Za-z]:/*)
+    REL=$(basename "$NORMALIZED_FILE")
+    ;;
+esac
+# 同时保留 basename 供红线 grep 用（防文件名中含特殊字符）
+BASENAME=$(basename "$NORMALIZED_FILE")
 
 # 公用：检查 Write/MultiEdit 是否绕过 — 立即拦
 # 修自 codex 第 5 轮 dogfood P1：Write 整文件覆写跳过 old_string 比对
@@ -46,7 +60,8 @@ check_write_or_multiedit_immutable() {
 # 红线 1：CLAUDE.md 14 铁律段
 # Edit: 检测 old_string 含"## 铁律"标题 或 "铁律 #N" 引用
 # Write/MultiEdit: 直接拦（无法精确判断哪段被改）
-if [ "$REL" = "CLAUDE.md" ] || echo "$REL" | grep -qE "/CLAUDE\.md$"; then
+# v3.9.1: 用 basename 兜底 — 解决 Windows 反斜杠路径剥离失败问题
+if [ "$BASENAME" = "CLAUDE.md" ]; then
   # P1 修复：Write/MultiEdit 整文件覆写攻击向量
   check_write_or_multiedit_immutable "CLAUDE.md (含铁律段)"
 
@@ -73,7 +88,8 @@ if [ "$REL" = "CLAUDE.md" ] || echo "$REL" | grep -qE "/CLAUDE\.md$"; then
 fi
 
 # 红线 2：CONSTITUTION.md（任何工具任何改动都拦）
-if echo "$REL" | grep -qE "docs/ai-cto/CONSTITUTION\.md$"; then
+# v3.9.1: normalize 后用 grep 找 substring（兼容 Windows 反斜杠）
+if echo "$NORMALIZED_FILE" | grep -qE "docs/ai-cto/CONSTITUTION\.md$"; then
   # CONSTITUTION 完全不可由 AI 改 — 不分 Edit/Write/MultiEdit
   if [ "${CTO_CONSTITUTION_AMEND:-0}" = "1" ]; then
     audit_log "constitution-amend-allowed" "file=$REL tool=$HOOK_TOOL_NAME amend_env=1"
@@ -88,11 +104,13 @@ fi
 
 # 红线 3：forbidden-paths.txt — 只允许加，不允许删（防 AI 放开高危路径）
 # 修自 codex 第 5 轮 P1: Write/MultiEdit 跳过 old_string 比对
-if echo "$REL" | grep -qE "scripts/forbidden-paths\.txt$"; then
+# v3.9.1: normalize 后 grep（兼容 Windows）
+if echo "$NORMALIZED_FILE" | grep -qE "scripts/forbidden-paths\.txt$"; then
   # Write 工具：读现存文件 vs new content 比对
   if [ "$HOOK_TOOL_NAME" = "Write" ]; then
     # 修自 codex 第 6 轮 dogfood P1：用 normalized $CWD（fallback "."），不用 raw $HOOK_CWD
-    CURRENT_FILE="${CWD}/scripts/forbidden-paths.txt"
+    # v3.9.1: 用 normalized CWD 找文件（兼容 Windows 反斜杠）
+    CURRENT_FILE="${NORMALIZED_CWD}/scripts/forbidden-paths.txt"
     if [ -f "$CURRENT_FILE" ]; then
       OLD_PATHS=$(grep -vE '^\s*(#|$)' "$CURRENT_FILE" || true)
       NEW_RAW=$(printf '%b' "${HOOK_CONTENT//\\n/$'\n'}")
@@ -173,7 +191,8 @@ fi
 
 # 红线 4：handbook.md §32-§35（基础理论 — 反模式 / 红线 / Harness 自审 / EDD）
 # 修自 codex 第 5 轮 P2: §34 漏在 regex 之外
-if echo "$REL" | grep -qE "playbook/handbook\.md$"; then
+# v3.9.1: normalize 后 grep（兼容 Windows）
+if echo "$NORMALIZED_FILE" | grep -qE "playbook/handbook\.md$"; then
   # Write/MultiEdit 整文件覆写攻击：直接拦
   check_write_or_multiedit_immutable "handbook §32-§35"
 

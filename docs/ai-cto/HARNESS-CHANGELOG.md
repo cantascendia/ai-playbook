@@ -13,6 +13,95 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-05-11] v3.9.1 — Windows 反斜杠路径剥离 bug 修复（飞轮首次产出）
+
+**飞轮发现**：v3.9 首次跑 pattern-detector 多 sub-agent 并行（pattern-detector + harness-auditor + vibe-checker + reliability-auditor），实测发现：
+
+`${HOOK_FILE_PATH#$CWD/}` 在 Windows 反斜杠 cwd 下静默失效 — REL 仍是绝对路径，`[ "$REL" = "CLAUDE.md" ]` / `grep "/CLAUDE.md$"` **全部 NO**。**immutable-guard 在 Windows 上根本没守住红线**。
+
+6 轮 codex review 都没发现因为 codex 走 GitHub MCP（不实际 exec bash）。
+
+**修复**：
+- `NORMALIZED_FILE="${HOOK_FILE_PATH//\\/\/}"` — 反斜杠转正斜杠
+- `BASENAME=$(basename ...)` — 文件名兜底匹配
+- 红线 1 用 `[ "$BASENAME" = "CLAUDE.md" ]`
+- 红线 2/3/4 用 `echo "$NORMALIZED_FILE" | grep ...`
+
+**验证**：11/11 通过（Windows 5 用例 + POSIX 4 用例 + Write 2 用例 + opt-out 1）
+
+**意义**：飞轮 v3.9 第一次跑就抓到 v3.9 自己的盲区 — 证明"飞轮自审飞轮"设计有效。Reflexion + MAR 多 critic 验证（pattern-detector 报 P0-1 trajectory 是 false positive，但 P0-2 路径剥离是真 bug）。
+
+---
+
+## [2026-05-10] v3.9 — 自我进化飞轮（Constitution-Anchored）
+
+**为什么**：用户问"项目能否自我进化飞轮"。Phase 1 多源调研（AlphaEvolve / Sakana DGM / Cursor Bugbot / Voyager / Reflexion+MAR / Anthropic CAI / OWASP Agentic Top 10）后，实施三层飞轮。
+
+**主要改动**：
+- `immutable-guard.sh` — PreToolUse 守 CLAUDE.md 14 铁律 / CONSTITUTION / forbidden SSOT / handbook §32-§35
+- `pattern-detector.md` sub-agent — 找反复失败 pattern
+- `cto-evolve.md` 命令 — detect/propose/apply/status 四段式
+- `learned-rules-loader` skill + `.claude/rules/learned/` Bugbot 归档
+- GH Actions weekly cron + cost cap 设计
+- 3 evals (026/027/028)
+
+**§48 跨模型 review 价值实证（4 轮 dogfood）**：
+- 第 5 轮 (6c385ea)：3 个 P1/P2 bug（Write/MultiEdit 绕过 + handbook §34 漏）
+- 第 6 轮 (b0cb86f)：1 个 P1（cwd fallback 错误）
+- 全部 6 轮发现 11 个真 bug
+
+**health score**：v3.7 70.7 → v3.8 88 → v3.9 94（harness-auditor 评分）
+
+PR：#6（merged 357ca50）
+
+---
+
+## [2026-05-09] v3.8 — Real AI-native enforcement（v3.7 silent no-op 修复）
+
+**致命发现**：v3.7 之前所有 PreToolUse / PostToolUse hooks 用 `echo "$CLAUDE_TOOL_INPUT"` — 但官方文档明确说该 env var **不存在**。Hook input 通过 stdin JSON 传入。**所有"提醒"hook 永远 silent no-op**。AI 表面"被提醒"是它自己泛化产物 — hooks 根本没说话。
+
+**修复**：
+- 7 个 PreToolUse hooks 全部用 stdin JSON + jq/sed fallback
+- forbidden-guard.sh / bypass-guard.sh / branch-guard.sh / test-lock-guard.sh → exit 2 真硬拦截
+- 5 个 paths-triggered skills (forbidden-policy / test-lock-rules / eval-gate-policy / constitution-loader / handbook-search)
+- /cto-doctor 自检命令
+- outputStyle 加 "behavior-must" 强约束（防 AI "问而不做"）
+
+**§48 价值实证（3 轮 dogfood）**：
+- 第 2 轮 (d82d9cc)：2 P2（test -x gating + 双写 trajectory）
+- 第 3 轮 (0b7c6f9)：1 P1（paths YAML list 格式 → 5 skills 完全失效）
+- 第 4 轮 (4bb844a)：1 P3（命令计数文档不一致）
+
+PR：#5（merged 2787794）
+
+---
+
+## [2026-05-08] v3.7 — PR autopilot（codex 订阅 review 自动同步到 PR comment）
+
+**用户诉求**："我希望开发 ai-native 的，尽量让 AI 自动，不要总让人提醒... 不要让 AI 总是停下来问"
+
+**改动**：
+- `.agents/skills/codex-bridge/run.sh` 加 PR autopilot 段（~50 行）
+- 会话结束 Stop hook → codex review（订阅 auth）→ 写 REVIEW-QUEUE → 自动 push + gh pr create + gh pr comment（按 sha 去重）
+- 反 silent-failure 加固（backport from money）：stale lock auto-clear / 4 处 silent skip 写 audit log
+- 新增 scripts/safe-grep.sh（grep 退出码区分 1 no-match vs 2+ error）
+
+**§48 价值实证（首轮）**：v3.5 cross-review 找 3 bug（含 1 P1 shell injection）
+
+PR：#4（merged b0309bd）
+
+---
+
+## [2026-05-07] v3.6.3 — SubagentStop hook 写 jsonl 而非污染 STATUS.md
+
+**问题**：旧 SubagentStop hook 每次 sub-agent 完成就向 docs/ai-cto/STATUS.md 末尾 echo 一行时间戳，导致每次会话都污染主状态文件（已积累 7 行）。
+
+**修复**：改写到 `.claude/agent-logs/${DAY}.jsonl`（gitignored，符合 §44 trajectory log 设计）+ 清理 STATUS.md 末尾 7 行历史污染。
+
+PR：#3（merged 1ebb468）
+
+---
+
 ## [2026-04-29] v3.6.2 — SessionStart hook 自动判断新项目 vs 继续项目
 
 **用户反馈**：开新会话时如何让 ai-playbook 继续上次的项目记忆？
