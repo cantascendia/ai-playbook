@@ -486,3 +486,159 @@ Review comment:
 ```
 
 ---
+
+## 2026-05-10T13:54:50+09:00 — Review for 6c385ea
+**Reviewer**: codex-gpt5.5 | **Mode**: success
+
+```markdown
+OpenAI Codex v0.125.0 (research preview)
+--------
+workdir: C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, C:\Users\yuril\.codex\memories]
+reasoning effort: low
+reasoning summaries: none
+session id: 019e103c-fbe9-7072-97f4-adb7b6c9cc23
+--------
+user
+commit 6c385ea: ai-playbook §48 cross-model review
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git show --stat --oneline 6c385eabea5740fedee08707762891975ad0b348; git show --format= --name-only 6c385eabea5740fedee08707762891975ad0b348' in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T04:54:58.720861Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T04:54:58.722451Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git show --stat --oneline 6c385eabea5740fedee08707762891975ad0b348; git show --format= --name-only 6c385eabea5740fedee08707762891975ad0b348' in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T04:55:02.028141Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T04:55:02.029925Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command Get-Location in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T04:55:05.936666Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T04:55:05.937681Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+mcp: codex_apps/github_search_commits started
+mcp: codex_apps/github_search_commits (completed)
+mcp: codex/list_mcp_resources started
+mcp: codex/list_mcp_resources (completed)
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command pwd in C:\Users\yuril\.codex\memories
+2026-05-10T04:55:16.085687Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T04:55:16.086721Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+mcp: codex_apps/github_search_commits started
+mcp: codex_apps/github_search_commits (completed)
+mcp: codex_apps/github_search_prs started
+mcp: codex_apps/github_search_prs (completed)
+mcp: codex_apps/github_fetch_commit started
+mcp: codex_apps/github_fetch_commit (completed)
+mcp: codex_apps/github_fetch started
+mcp: codex_apps/github_fetch (completed)
+mcp: codex_apps/github_fetch started
+mcp: codex_apps/github_fetch (completed)
+codex
+The main immutable guard can be bypassed for protected changes made through Write or MultiEdit, and it misses one documented protected handbook section. These issues undermine the core enforcement introduced by the patch.
+
+Full review comments:
+
+- [P1] Block whole-file rewrites of immutable sections — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:21-21
+  When Claude uses `Write` (or `MultiEdit`) instead of a single `Edit`, `HOOK_OLD_STRING` is empty/not top-level, so this condition never inspects the replacement and changes to the CLAUDE.md iron-law section pass through. The hook is registered for `Write|MultiEdit`, so a full rewrite of `CLAUDE.md` can modify the protected section without `CTO_CONSTITUTION_AMEND`, defeating the new guard.
+
+- [P1] Detect forbidden-path removals on Write/MultiEdit — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:62-62
+  For `Write` inputs there is no `old_string`, and for `MultiEdit` the old/new strings live inside the edits array, so this branch is skipped even if `scripts/forbidden-paths.txt` is rewritten without existing entries. Since the stated invariant is “only allow additions”, the hook needs to compare the current file contents (or all MultiEdit edits) rather than only a top-level `old_string`.
+
+- [P2] Include handbook §34 in the immutable range — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:93-93
+  The new docs and messages repeatedly define the protected handbook range as §32–§35, but this regex only blocks edits to §32, §33, and §35. An edit whose `old_string` starts at `## 34.` will currently pass without `CTO_CONSTITUTION_AMEND`, leaving a gap in the advertised immutable core.
+2026-05-10T04:55:59.856743Z ERROR codex_core::session: failed to record rollout items: thread 019e103c-fc7c-7291-8545-d2a539a25a95 not found
+2026-05-10T04:55:59.957801Z ERROR codex_core::session: failed to record rollout items: thread 019e103c-fbe9-7072-97f4-adb7b6c9cc23 not found
+The main immutable guard can be bypassed for protected changes made through Write or MultiEdit, and it misses one documented protected handbook section. These issues undermine the core enforcement introduced by the patch.
+
+Full review comments:
+
+- [P1] Block whole-file rewrites of immutable sections — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:21-21
+  When Claude uses `Write` (or `MultiEdit`) instead of a single `Edit`, `HOOK_OLD_STRING` is empty/not top-level, so this condition never inspects the replacement and changes to the CLAUDE.md iron-law section pass through. The hook is registered for `Write|MultiEdit`, so a full rewrite of `CLAUDE.md` can modify the protected section without `CTO_CONSTITUTION_AMEND`, defeating the new guard.
+
+- [P1] Detect forbidden-path removals on Write/MultiEdit — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:62-62
+  For `Write` inputs there is no `old_string`, and for `MultiEdit` the old/new strings live inside the edits array, so this branch is skipped even if `scripts/forbidden-paths.txt` is rewritten without existing entries. Since the stated invariant is “only allow additions”, the hook needs to compare the current file contents (or all MultiEdit edits) rather than only a top-level `old_string`.
+
+- [P2] Include handbook §34 in the immutable range — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:93-93
+  The new docs and messages repeatedly define the protected handbook range as §32–§35, but this regex only blocks edits to §32, §33, and §35. An edit whose `old_string` starts at `## 34.` will currently pass without `CTO_CONSTITUTION_AMEND`, leaving a gap in the advertised immutable core.
+```
+
+---
+
+## 2026-05-10T14:02:19+09:00 — Review for b0cb86f
+**Reviewer**: codex-gpt5.5 | **Mode**: success
+
+```markdown
+OpenAI Codex v0.125.0 (research preview)
+--------
+workdir: C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, C:\Users\yuril\.codex\memories]
+reasoning effort: low
+reasoning summaries: none
+session id: 019e1043-d152-7bf3-96f3-98ee1a4eef80
+--------
+user
+commit b0cb86f: ai-playbook §48 cross-model review
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git show --stat --oneline b0cb86ffff8325ea77abaa82250553d98f000e63; git show --format= --name-only b0cb86ffff8325ea77abaa82250553d98f000e63' in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T05:02:26.382913Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T05:02:26.384675Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git show --stat --oneline b0cb86ffff8325ea77abaa82250553d98f000e63; git show --format= --name-only b0cb86ffff8325ea77abaa82250553d98f000e63' in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T05:02:31.236889Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T05:02:31.238462Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command pwd in C:\projects\ai-playbook\.claude\worktrees\sweet-kare
+2026-05-10T05:02:33.874047Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1326
+2026-05-10T05:02:33.874939Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+ exited -1 in 0ms:
+execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1326" })
+mcp: codex/list_mcp_resources started
+mcp: codex/list_mcp_resources (completed)
+mcp: codex_apps/github_fetch_commit started
+mcp: codex_apps/github_fetch_commit (failed)
+mcp: codex_apps/github_search_commits started
+mcp: codex_apps/github_search_commits (completed)
+mcp: codex_apps/github_search_commits started
+mcp: codex_apps/github_search_commits (completed)
+mcp: codex_apps/github_search_installed_repositories_v2 started
+mcp: codex_apps/github_search_installed_repositories_v2 (completed)
+mcp: codex_apps/github_fetch_commit started
+mcp: codex_apps/github_fetch_commit (completed)
+mcp: codex_apps/github_fetch_file started
+mcp: codex_apps/github_fetch_file (completed)
+mcp: codex_apps/github_fetch_file started
+mcp: codex_apps/github_fetch_file (completed)
+codex
+The new Write enforcement for forbidden-paths.txt can silently bypass itself when cwd is absent or empty because it checks the wrong absolute path and then exits successfully.
+
+Review comment:
+
+- [P1] Use the normalized cwd when checking Write contents — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:102-102
+  When the hook input does not provide `cwd` or it is empty, this builds `/scripts/forbidden-paths.txt`; the file check then fails and the Write branch immediately exits 0, allowing a full-file Write that removes protected entries. The rest of the script already normalizes this as `CWD="${HOOK_CWD:-.}"`, so this path should use that normalized value rather than raw `HOOK_CWD`.
+2026-05-10T05:03:56.288133Z ERROR codex_core::session: failed to record rollout items: thread 019e1043-d2c5-72f3-9978-d51679515cab not found
+2026-05-10T05:03:56.392043Z ERROR codex_core::session: failed to record rollout items: thread 019e1043-d152-7bf3-96f3-98ee1a4eef80 not found
+The new Write enforcement for forbidden-paths.txt can silently bypass itself when cwd is absent or empty because it checks the wrong absolute path and then exits successfully.
+
+Review comment:
+
+- [P1] Use the normalized cwd when checking Write contents — C:\projects\ai-playbook\.claude\worktrees\sweet-kare\.claude\hooks\immutable-guard.sh:102-102
+  When the hook input does not provide `cwd` or it is empty, this builds `/scripts/forbidden-paths.txt`; the file check then fails and the Write branch immediately exits 0, allowing a full-file Write that removes protected entries. The rest of the script already normalizes this as `CWD="${HOOK_CWD:-.}"`, so this path should use that normalized value rather than raw `HOOK_CWD`.
+```
+
+---

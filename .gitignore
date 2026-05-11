@@ -36,3 +36,7 @@ build/
 *~
 
 # Project-specific (no actual code in this docs repo)
+
+# v3.9 飞轮 cost cap（按月 reset）— 不入 git
+docs/ai-cto/.evolve-cost-month.json
+docs/ai-cto/.codex-quota-cooldown
