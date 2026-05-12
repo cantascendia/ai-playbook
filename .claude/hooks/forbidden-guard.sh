@@ -13,14 +13,18 @@ maybe_run_override "forbidden-guard"
 # 仅对 file 类工具生效
 [ -z "$HOOK_FILE_PATH" ] && exit 0
 
+# v3.9.2 fix（飞轮二次实战发现）：Windows 反斜杠路径剥离静默失效（同 immutable-guard 之前的 bug）
+# normalize 反斜杠 → 正斜杠，让 grep 模式（用 /）能正确匹配
+NORMALIZED_FILE="${HOOK_FILE_PATH//\\/\/}"
+NORMALIZED_CWD="${HOOK_CWD//\\/\/}"
+
 # 转项目相对路径（去掉 cwd 前缀以便 grep）
-REL_PATH="$HOOK_FILE_PATH"
-if [ -n "$HOOK_CWD" ]; then
-  REL_PATH="${HOOK_FILE_PATH#$HOOK_CWD/}"
-fi
+REL_PATH="${NORMALIZED_FILE#${NORMALIZED_CWD}/}"
+# 如果剥离失败（不在 cwd 内）→ 用 normalized 绝对路径让 grep 模式匹配
+[ "$REL_PATH" = "$NORMALIZED_FILE" ] && REL_PATH="$NORMALIZED_FILE"
 
 # SSOT: scripts/forbidden-paths.txt（v3.6.1 已落地）
-SSOT="${HOOK_CWD}/scripts/forbidden-paths.txt"
+SSOT="${NORMALIZED_CWD}/scripts/forbidden-paths.txt"
 if [ ! -f "$SSOT" ]; then
   # SSOT 缺失：fallback 到 hardcoded（同手册 §32.1）
   PATTERN='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
