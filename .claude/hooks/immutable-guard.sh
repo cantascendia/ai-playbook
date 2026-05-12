@@ -13,6 +13,26 @@ maybe_run_override "immutable-guard"
 [ -z "$HOOK_FILE_PATH" ] && exit 0
 
 CWD="${HOOK_CWD:-.}"
+
+# v3.9.3 fix（飞轮第 3 轮实战发现，wrist-fc 部署时被自己拦）：
+# 子项目（不是 ai-playbook 自身仓库）应该不守 CLAUDE.md / handbook §32-§35
+# 因为子项目的 CLAUDE.md 是项目级配置，不是 ai-playbook 14 铁律本身
+# 自动检测：ai-playbook 自身仓库特征 = 含 playbook/handbook.md（其他项目 reference it 但不含）
+IS_AI_PLAYBOOK_SELF=0
+if [ -f "${CWD}/playbook/handbook.md" ] && [ -d "${CWD}/playbook" ]; then
+  # 进一步确认：handbook.md 含 §50（v3.9 章节）
+  if head -200 "${CWD}/playbook/handbook.md" 2>/dev/null | grep -q "## 50\." || \
+     grep -q "^## 50\." "${CWD}/playbook/handbook.md" 2>/dev/null; then
+    IS_AI_PLAYBOOK_SELF=1
+  elif [ -f "${CWD}/CTO-PLAYBOOK.md" ]; then
+    # ai-playbook 自身仓库的另一个特征
+    IS_AI_PLAYBOOK_SELF=1
+  fi
+fi
+# 用户可强制覆盖（环境变量优先）
+[ "${CTO_IS_SUBPROJECT:-0}" = "1" ] && IS_AI_PLAYBOOK_SELF=0
+[ "${CTO_IS_AI_PLAYBOOK_SELF:-0}" = "1" ] && IS_AI_PLAYBOOK_SELF=1
+
 # v3.9.1 fix（pattern-detector 飞轮发现）：Windows 反斜杠路径 + Edit 工具传绝对路径
 # 旧逻辑 ${HOOK_FILE_PATH#$CWD/} 在反斜杠路径下不剥离 → REL 仍是绝对路径 → 所有红线 NO
 # 修：normalize 路径（反斜杠 → 正斜杠 + 取相对路径 + basename 兜底）
@@ -58,10 +78,10 @@ check_write_or_multiedit_immutable() {
 }
 
 # 红线 1：CLAUDE.md 14 铁律段
+# 只在 ai-playbook 自身仓库守（v3.9.3 修复 — 子项目的 CLAUDE.md 不是 immutable）
 # Edit: 检测 old_string 含"## 铁律"标题 或 "铁律 #N" 引用
 # Write/MultiEdit: 直接拦（无法精确判断哪段被改）
-# v3.9.1: 用 basename 兜底 — 解决 Windows 反斜杠路径剥离失败问题
-if [ "$BASENAME" = "CLAUDE.md" ]; then
+if [ "$IS_AI_PLAYBOOK_SELF" = "1" ] && [ "$BASENAME" = "CLAUDE.md" ]; then
   # P1 修复：Write/MultiEdit 整文件覆写攻击向量
   check_write_or_multiedit_immutable "CLAUDE.md (含铁律段)"
 
@@ -192,7 +212,8 @@ fi
 # 红线 4：handbook.md §32-§35（基础理论 — 反模式 / 红线 / Harness 自审 / EDD）
 # 修自 codex 第 5 轮 P2: §34 漏在 regex 之外
 # v3.9.1: normalize 后 grep（兼容 Windows）
-if echo "$NORMALIZED_FILE" | grep -qE "playbook/handbook\.md$"; then
+# v3.9.3: 仅 ai-playbook 自身守（子项目无 playbook/handbook.md）
+if [ "$IS_AI_PLAYBOOK_SELF" = "1" ] && echo "$NORMALIZED_FILE" | grep -qE "playbook/handbook\.md$"; then
   # Write/MultiEdit 整文件覆写攻击：直接拦
   check_write_or_multiedit_immutable "handbook §32-§35"
 
