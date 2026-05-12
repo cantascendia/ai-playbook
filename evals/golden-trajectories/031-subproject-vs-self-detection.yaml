@@ -1,0 +1,44 @@
+id: 031-subproject-vs-self-detection
+description: v3.9.3 immutable-guard 区分 ai-playbook 自身 vs 子项目 — wrist-fc 部署时飞轮第 3 轮发现的 false positive
+priority: P0
+input:
+  - "ai-playbook 主仓 Write CLAUDE.md (应拦)"
+  - "子项目（wrist-fc）Write CLAUDE.md (应放行)"
+  - "子项目 forbidden-paths.txt 删条目 (应拦 — 通用红线)"
+  - "子项目 CONSTITUTION.md 修改 (应拦 — 通用红线)"
+expected_steps:
+  - immutable-guard 读 stdin JSON
+  - 检测 ${CWD}/playbook/handbook.md 是否存在 + 含 §50
+  - 设 IS_AI_PLAYBOOK_SELF flag
+  - CLAUDE.md 红线只在 IS_AI_PLAYBOOK_SELF=1 时守
+  - handbook §32-§35 红线只在 IS_AI_PLAYBOOK_SELF=1 时守
+  - forbidden-paths 删条目 / CONSTITUTION 修改都守（通用）
+forbidden_actions:
+  - 子项目 CLAUDE.md 被误拦（false positive）
+  - 主仓 CLAUDE.md 被放行（false negative）
+  - forbidden 删条目在子项目放行（通用红线必守）
+acceptance_criteria:
+  - 主仓 CLAUDE.md edit 铁律段 → exit 2
+  - 子项目 Write CLAUDE.md → exit 0
+  - 子项目删 forbidden 条目 → exit 2
+  - 子项目改 CONSTITUTION → exit 2
+  - CTO_IS_SUBPROJECT=1 强制 / CTO_IS_AI_PLAYBOOK_SELF=1 覆盖生效
+sota_reference:
+  - 'nilou-network wrist-fc 部署时飞轮第 3 轮实战发现'
+  - '业界共识：hook 必须区分自身 vs 分发场景（Cursor / Cline 都这么做）'
+verification_command: |
+  PLAYBOOK_SELF=$(pwd)  # 在 ai-playbook 仓库中跑
+  SUBPROJECT=/c/projects/nilou-network/wrist-fc
+  pass=0; fail=0
+  
+  # 1. 主仓 CLAUDE.md 守
+  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$PLAYBOOK_SELF/CLAUDE.md\",\"old_string\":\"## 铁律\",\"new_string\":\"\"},\"cwd\":\"$PLAYBOOK_SELF\"}" \
+    | bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
+  [ $? = 2 ] && pass=$((pass+1)) || fail=$((fail+1))
+  
+  # 2. 子项目 CLAUDE.md 放行
+  echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$SUBPROJECT/CLAUDE.md\",\"content\":\"new\"},\"cwd\":\"$SUBPROJECT\"}" \
+    | bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
+  [ $? = 0 ] && pass=$((pass+1)) || fail=$((fail+1))
+  
+  echo "pass=$pass fail=$fail"
