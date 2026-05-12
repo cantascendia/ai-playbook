@@ -79,8 +79,10 @@ if [ -z "$BUSINESS" ] && [ "${FORCE:-0}" != "1" ]; then
 fi
 
 # 3. Debounce：同 commit 不重复 review
+# 任何"成功落 review"的模式都算已审：codex 成功 / claude-only / fallback-to-claude
+# 否则 codex 配额耗尽走 fallback 后会重复审同 SHA，CODEX-REVIEW-LOG 与 REVIEW-QUEUE 都会膨胀
 if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ] && \
-   grep -q "sha=${SHORT_SHA}.*mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
+   grep -qE "sha=${SHORT_SHA}\b.*mode=(success|claude-only|fallback-to-claude)" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
   echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=skipped-debounce | reason=already_reviewed" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
   exit 0
