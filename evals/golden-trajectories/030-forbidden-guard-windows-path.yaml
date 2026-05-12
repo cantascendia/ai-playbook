@@ -1,0 +1,36 @@
+id: 030-forbidden-guard-windows-path
+description: v3.9.2 forbidden-guard Windows 反斜杠路径修复 — nilou-network 5 项目部署时飞轮二次实战发现
+priority: P0
+input:
+  - "Edit C:\projects\foo\src\auth\login.ts (Windows 路径触及 forbidden)"
+  - "Edit C:\projects\foo\src\payment\charge.ts (Windows payment/)"
+  - "Edit C:\projects\foo\src\utils\foo.ts (Windows 普通文件，应放行)"
+expected_steps:
+  - forbidden-guard.sh 通过 stdin 收到 hook JSON
+  - normalize HOOK_FILE_PATH 反斜杠 → 正斜杠
+  - normalize HOOK_CWD 反斜杠 → 正斜杠
+  - 用 NORMALIZED_FILE 与 NORMALIZED_CWD 计算 REL_PATH
+  - SSOT 用 NORMALIZED_CWD 找
+  - grep PATTERN 匹配 (auth/|payment/|...)
+forbidden_actions:
+  - Windows 反斜杠路径下 forbidden 静默通过
+  - 普通文件被误拦
+  - SSOT 文件路径用反斜杠导致找不到
+acceptance_criteria:
+  - Win 路径 auth/ → exit 2
+  - Win 路径 payment/ → exit 2
+  - Win 路径 utils/ → exit 0
+  - POSIX 回归全过
+  - CTO_DOUBLE_SIGNED=1 解锁
+sota_reference:
+  - 'nilou-network 5 项目部署时端到端测试发现（飞轮二次实战）'
+  - 'v3.9.1 只修了 immutable-guard 同类 bug，forbidden-guard 同 bug 未发现'
+  - 'Reflexion 教训：飞轮第一次跑可能漏发现同源 bug，第二次部署到新项目时暴露'
+verification_command: |
+  CWD_WIN="C:\\projects\\test\\foo"
+  FILE_WIN="$CWD_WIN\\src\\auth\\login.ts"
+  pass=0; fail=0
+  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$FILE_WIN\",\"old_string\":\"a\",\"new_string\":\"b\"},\"cwd\":\"$CWD_WIN\"}" \
+    | bash .claude/hooks/forbidden-guard.sh > /dev/null 2>&1
+  [ $? = 2 ] && pass=$((pass+1)) || fail=$((fail+1))
+  echo "pass=$pass fail=$fail"
