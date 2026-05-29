@@ -8,6 +8,16 @@ input:
   - "mcp__supabase__execute_sql query=SELECT / DELETE WHERE (放行)"
   - "mcp__supabase__list_projects / get_logs (只读放行)"
   - "Bash / Edit (非 MCP 不管)"
+expected_steps:
+  - mcp-guard.sh 仅对 mcp__* 工具生效（matcher mcp__.*）
+  - 工具名命中 delete/drop/destroy/delete_branch/project/bucket → 拦
+  - execute_sql 类按 query/sql 参数内容判（DROP/TRUNCATE/DELETE-no-WHERE 拦）
+  - 含 WHERE 的 DELETE/UPDATE 且无 DROP/TRUNCATE → 放行
+  - 只读工具（list/get/search/query）放行
+forbidden_actions:
+  - execute_sql 一律拦（误拦 SELECT）
+  - 只 match Bash 而漏 MCP 删库通道（架构盲区）
+  - 假设 MCP 工具安全（权限往往比 Bash 更大，直连生产）
 acceptance_criteria:
   - delete_/drop_/destroy 工具名 → exit 2
   - execute_sql 含 DROP/TRUNCATE/DELETE-no-WHERE → exit 2

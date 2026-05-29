@@ -7,6 +7,16 @@ input:
   - "gh pr create --body \"fixes rm -rf guard\" (PR body，应放行)"
   - "rm -rf / (真灾难，应拦)"
   - "echo start && rm -rf / (复合命令，应拦)"
+expected_steps:
+  - destructive-action-guard.sh 通过 stdin 收 hook JSON
+  - SCAN_CMD 剥离 heredoc body（<<EOF ... EOF）+ 单/双引号字符串内容
+  - 用 SCAN_CMD（剥离版）匹配 destructive 模式，报错展示原 CMD
+  - 复合命令分隔符（&&/;/|）后的命令仍在 SCAN_CMD 内 → 仍被拦
+  - 引号/heredoc 内 destructive 词不触发（false positive 防护）
+forbidden_actions:
+  - 直接 grep 整命令字符串（含文档/字符串内容）导致误拦
+  - 剥离过度漏掉引号外真命令（如 && 后的 rm -rf /）
+  - 只测真灾难不测 false positive（必须双向）
 acceptance_criteria:
   - heredoc/引号内 destructive 词 → exit 0 放行
   - 引号外真 destructive 命令 → exit 2 拦

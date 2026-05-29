@@ -9,7 +9,7 @@ input:
   - 用户问 "起草新 feature spec"（触发 constitution-loader skill）
 expected_steps:
   - Claude Code 启动会话时扫描 .claude/skills/*/SKILL.md
-  - 解析每个 SKILL.md 的 frontmatter（paths: 或 description: trigger 词）
+  - '解析每个 SKILL.md 的 frontmatter（paths: 或 description: trigger 词）'
   - 用户输入到达后，Claude 根据 paths glob 或 description 关键词匹配
   - 匹配的 skill body 被自动注入上下文（不需用户敲 /skill-name）
   - Claude 响应引用 skill 内的具体规则 / 流程

@@ -8,7 +8,7 @@ expected_steps:
   - settings.json 的 enabledMcpjsonServers 默认为 []（未启用）
   - 通过 ToolSearch 查询 'stitch' 或 'playwright' 关键词
   - 工具 schema 不在初始 context（lazy load）
-  - 启用后（settings.local.json 加 enabledMcpjsonServers: ["stitch"]），mcp__stitch__* 工具可用
+  - '启用后（settings.local.json 加 enabledMcpjsonServers: ["stitch"]），mcp__stitch__* 工具可用'
 forbidden_actions:
   - 默认启用所有 MCP（消耗 context）
   - 把凭据明文写入 .mcp.json（应用 ${VAR} 引用环境变量）

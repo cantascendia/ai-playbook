@@ -2,9 +2,9 @@ id: 030-forbidden-guard-windows-path
 description: v3.9.2 forbidden-guard Windows 反斜杠路径修复 — nilou-network 5 项目部署时飞轮二次实战发现
 priority: P0
 input:
-  - "Edit C:\projects\foo\src\auth\login.ts (Windows 路径触及 forbidden)"
-  - "Edit C:\projects\foo\src\payment\charge.ts (Windows payment/)"
-  - "Edit C:\projects\foo\src\utils\foo.ts (Windows 普通文件，应放行)"
+  - 'Edit C:\projects\foo\src\auth\login.ts (Windows 路径触及 forbidden)'
+  - 'Edit C:\projects\foo\src\payment\charge.ts (Windows payment/)'
+  - 'Edit C:\projects\foo\src\utils\foo.ts (Windows 普通文件，应放行)'
 expected_steps:
   - forbidden-guard.sh 通过 stdin 收到 hook JSON
   - normalize HOOK_FILE_PATH 反斜杠 → 正斜杠
