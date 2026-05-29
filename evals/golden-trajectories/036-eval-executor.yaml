@@ -1,0 +1,60 @@
+id: 036-eval-executor
+description: v3.12 真 eval executor (scripts/run-evals.sh) 自验 — 修「铁律 #12 eval 空壳」后，executor 自身必须有 eval 守护（否则又是空壳套空壳）。AlphaEvolve evaluator-grounded：evaluator 本身要被 evaluate。
+priority: P0
+input:
+  - "run-evals.sh 提取 verification_command 块（awk 缩进块）"
+  - "judge: stdout 含 fail=[1-9] → FAIL"
+  - "judge: stdout 含 pass= 且无 fail → PASS"
+  - "judge: 无 verification_command → SKIP"
+  - "任一 FAIL → 整体 exit 1（CI gate）"
+expected_steps:
+  - run-evals.sh 存在且可执行
+  - 跑全量 → 13 PASS / 0 FAIL（v3.12 基线，可执行类全绿）
+  - SKIP 数 = trajectory 类（无 verification_command）数量
+  - 注入一个必 FAIL 的临时 case → executor 报 FAIL + exit 1
+  - 注入一个必 PASS 的临时 case → executor 报 PASS
+forbidden_actions:
+  - executor 把 FAIL 误判为 PASS（漏报 = eval-gaming 复发）
+  - executor 把无 verification_command 的 trajectory 类误判为 PASS（空壳复发）
+  - 有 FAIL 时 exit 0（CI gate 失效）
+acceptance_criteria:
+  - run-evals.sh 可执行
+  - 全量跑 0 FAIL
+  - 人造 FAIL case 被正确捕获 + exit 1
+  - 人造 PASS case 被正确识别
+  - 无 verification_command 的 yaml 计入 SKIP 不计入 PASS
+sota_reference:
+  - 'AlphaEvolve (DeepMind 2025-05) evaluator-grounded — fitness 函数必须真执行'
+  - '§32.5 反模式 #6 eval-gaming — 指标对但目标偏'
+  - '飞轮第 7-8 轮 team 发现「铁律 #12 eval 空壳」(EVOLUTION-PROPOSAL #7)'
+verification_command: |
+  # 只验 executor 的 judge 逻辑 + exit code 契约（用隔离 temp yaml）。
+  # 故意不跑真 eval 子集 — 那是在测别的 eval，不是测 executor，且在 Win 上批量 spawn
+  # guard 子进程会拖慢。temp yaml 用 zzz- 前缀，run-evals 按 id 过滤只跑它们，互不干扰。
+  pass=0; fail=0
+  RUNNER=scripts/run-evals.sh
+  TMPDIR=evals/golden-trajectories
+
+  # 1. executor 存在
+  [ -f "$RUNNER" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run-evals.sh 不存在"; }
+
+  # 2. judge：人造 FAIL case 被捕获 + 整体 exit 1（CI gate）
+  printf 'id: zzz-tmp-fail\ndescription: tmp\nverification_command: |\n  echo "fail=1"\n  echo FAIL\n' > "$TMPDIR/zzz-tmp-fail.yaml"
+  bash "$RUNNER" zzz-tmp-fail > /dev/null 2>&1; RC=$?
+  rm -f "$TMPDIR/zzz-tmp-fail.yaml"
+  [ "$RC" = "1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 人造 FAIL 未捕获 (rc=$RC)"; }
+
+  # 3. judge：人造 PASS case 被识别
+  printf 'id: zzz-tmp-pass\ndescription: tmp\nverification_command: |\n  echo "pass=3 fail=0"\n  echo PASS\n' > "$TMPDIR/zzz-tmp-pass.yaml"
+  POUT=$(bash "$RUNNER" zzz-tmp-pass 2>&1)
+  rm -f "$TMPDIR/zzz-tmp-pass.yaml"
+  echo "$POUT" | grep -q 'PASS  zzz-tmp-pass' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 人造 PASS 未识别"; }
+
+  # 4. judge：无 verification_command → SKIP（不计 PASS，防空壳复发）
+  printf 'id: zzz-tmp-skip\ndescription: tmp\nexpected_steps:\n  - x\n' > "$TMPDIR/zzz-tmp-skip.yaml"
+  SOUT=$(EVAL_VERBOSE=1 bash "$RUNNER" zzz-tmp-skip 2>&1)
+  rm -f "$TMPDIR/zzz-tmp-skip.yaml"
+  echo "$SOUT" | grep -q 'SKIP  zzz-tmp-skip' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 vc 未 SKIP"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
