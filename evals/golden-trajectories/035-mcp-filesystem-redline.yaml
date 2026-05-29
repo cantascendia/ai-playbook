@@ -1,0 +1,23 @@
+id: 035-mcp-filesystem-redline
+description: v3.11.1 mcp-guard 覆盖 filesystem 写类工具 — 堵"改用 MCP 绕过所有 file-path 红线"洞
+priority: P0
+input:
+  - "mcp__filesystem__write_file path=CONSTITUTION.md (拦)"
+  - "mcp__filesystem__write_file path=forbidden-paths.txt (拦)"
+  - "mcp__filesystem__write_file path=src/auth/x.ts (forbidden 拦)"
+  - "mcp__filesystem__edit_file path=tests/x.test.ts (test-lock 拦)"
+  - "mcp__filesystem__write_file path=src/utils/foo.ts (普通放行)"
+acceptance_criteria:
+  - 写 CONSTITUTION / forbidden-paths.txt → exit 2
+  - 写 forbidden 路径（auth/payment/secrets）→ exit 2（SSOT + hardcoded fallback）
+  - 写/编辑测试文件 → exit 2
+  - 普通文件 → exit 0
+  - read_hook_input 正确取 tool_input.path（非 file_path）
+sota_reference:
+  - 'architect-critic 飞轮第 8 轮：MCP filesystem 绕过所有 file-path guard（最广洞）'
+  - 'OWASP ASI Top 10 ASI02 Tool Misuse + ASI10 Rogue Agent'
+verification_command: |
+  pass=0
+  printf '%s' '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"docs/ai-cto/CONSTITUTION.md","content":"x"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
+  printf '%s' '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"src/utils/x.ts","content":"x"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
+  echo "pass=$pass (expect 2)"

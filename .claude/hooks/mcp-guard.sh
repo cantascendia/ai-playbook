@@ -54,6 +54,37 @@ if [ -n "$SQL_TEXT" ] && echo "$SQL_TEXT" | grep -qiE -- "$DESTRUCTIVE_SQL"; the
   fi
 fi
 
+# 3. v3.11.1（飞轮第 8 轮）：MCP filesystem 写类工具绕过 file-path 红线体系
+# mcp__filesystem__write_file/edit_file/move_file/create_file 可改 CLAUDE.md /
+# CONSTITUTION / forbidden-paths.txt / 锁定测试，完全不触发 immutable/forbidden/test-lock guard
+# （那些只 match Edit|Write|MultiEdit 内置工具）。这里对 MCP 写类重跑红线判断。
+if echo "$HOOK_TOOL_NAME" | grep -qiE '__(write_file|edit_file|move_file|create_file|create_directory)$' \
+   && [ -n "$HOOK_FILE_PATH" ]; then
+  normalize_paths
+  # 红线 A: immutable（CLAUDE.md 铁律段在 ai-playbook 自身 / CONSTITUTION / forbidden SSOT）
+  if echo "$HOOK_REL $HOOK_NORM_FILE" | grep -qE "docs/ai-cto/CONSTITUTION\.md|scripts/forbidden-paths\.txt"; then
+    BLOCKED=1; REASON="MCP filesystem 写 immutable 文件: $HOOK_REL（绕过 immutable-guard）"
+  fi
+  # 红线 B: forbidden 路径（复用 SSOT；缺失时 hardcoded fallback 同 forbidden-guard）
+  if [ "$BLOCKED" = "0" ]; then
+    SSOT="${HOOK_NORM_CWD}/scripts/forbidden-paths.txt"
+    if [ -f "$SSOT" ]; then
+      FP=$(grep -vE '^\s*(#|$)' "$SSOT" | tr '\n' '|' | sed 's/|$//')
+    else
+      FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+    fi
+    if [ -n "$FP" ] && echo "$HOOK_REL" | grep -qE -- "($FP)"; then
+      [ "${CTO_DOUBLE_SIGNED:-0}" != "1" ] && { BLOCKED=1; REASON="MCP filesystem 写 forbidden 路径: $HOOK_REL（绕过 forbidden-guard）"; }
+    fi
+  fi
+  # 红线 C: 测试文件
+  if [ "$BLOCKED" = "0" ] && [ "${CTO_TEST_LOCK_ACK:-0}" != "1" ]; then
+    if echo "$HOOK_REL" | grep -qE -- '/tests?/|/__tests__/|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|_test\.py$|test_[^/]+\.py$|_test\.go$'; then
+      BLOCKED=1; REASON="MCP filesystem 写测试文件: $HOOK_REL（绕过 test-lock-guard，§20.3）"
+    fi
+  fi
+fi
+
 if [ "$BLOCKED" = "1" ]; then
   if [ "${CTO_MCP_DESTRUCTIVE_CONFIRMED:-0}" = "1" ]; then
     audit_log "mcp-destructive-allowed" "tool=$HOOK_TOOL_NAME env=1"
