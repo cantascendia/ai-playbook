@@ -2,9 +2,9 @@ id: 030-forbidden-guard-windows-path
 description: v3.9.2 forbidden-guard Windows 反斜杠路径修复 — nilou-network 5 项目部署时飞轮二次实战发现
 priority: P0
 input:
-  - "Edit C:\projects\foo\src\auth\login.ts (Windows 路径触及 forbidden)"
-  - "Edit C:\projects\foo\src\payment\charge.ts (Windows payment/)"
-  - "Edit C:\projects\foo\src\utils\foo.ts (Windows 普通文件，应放行)"
+  - 'Edit C:\projects\foo\src\auth\login.ts (Windows 路径触及 forbidden)'
+  - 'Edit C:\projects\foo\src\payment\charge.ts (Windows payment/)'
+  - 'Edit C:\projects\foo\src\utils\foo.ts (Windows 普通文件，应放行)'
 expected_steps:
   - forbidden-guard.sh 通过 stdin 收到 hook JSON
   - normalize HOOK_FILE_PATH 反斜杠 → 正斜杠
@@ -27,10 +27,30 @@ sota_reference:
   - 'v3.9.1 只修了 immutable-guard 同类 bug，forbidden-guard 同 bug 未发现'
   - 'Reflexion 教训：飞轮第一次跑可能漏发现同源 bug，第二次部署到新项目时暴露'
 verification_command: |
-  CWD_WIN="C:\\projects\\test\\foo"
-  FILE_WIN="$CWD_WIN\\src\\auth\\login.ts"
+  # ⚠️ v3.12 CI 实测教训：JSON 里 Windows 路径必须用合法转义 \\（Claude Code 真实发送格式）。
+  # 单反斜杠 C:\projects 含非法 JSON escape → Linux 严格 jq 解析失败 → forbidden 漏守。
+  # printf + 单引号保 \\ 字面量。forbidden-guard 需 jq（无 jq 时 require_jq 直接 exit 0）。
   pass=0; fail=0
-  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$FILE_WIN\",\"old_string\":\"a\",\"new_string\":\"b\"},\"cwd\":\"$CWD_WIN\"}" \
+
+  # 1. Win 路径 auth/ → 拦
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\src\\auth\\login.ts","old_string":"a","new_string":"b"},"cwd":"C:\\projects\\test\\foo"}' \
     | bash .claude/hooks/forbidden-guard.sh > /dev/null 2>&1
-  [ $? = 2 ] && pass=$((pass+1)) || fail=$((fail+1))
-  echo "pass=$pass fail=$fail"
+  [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win auth/"; }
+
+  # 2. Win 路径 payment/ → 拦
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\src\\payment\\charge.ts","old_string":"a","new_string":"b"},"cwd":"C:\\projects\\test\\foo"}' \
+    | bash .claude/hooks/forbidden-guard.sh > /dev/null 2>&1
+  [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win payment/"; }
+
+  # 3. Win 路径普通文件 utils/ → 放行
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\src\\utils\\foo.ts","old_string":"a","new_string":"b"},"cwd":"C:\\projects\\test\\foo"}' \
+    | bash .claude/hooks/forbidden-guard.sh > /dev/null 2>&1
+  [ $? = 0 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win utils 普通文件应放行"; }
+
+  # 4. POSIX 回归 auth/ → 拦
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/login.ts","old_string":"a","new_string":"b"},"cwd":"."}' \
+    | bash .claude/hooks/forbidden-guard.sh > /dev/null 2>&1
+  [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: POSIX auth/"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

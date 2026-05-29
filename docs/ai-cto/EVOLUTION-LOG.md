@@ -88,3 +88,37 @@ Month | Patterns Detected | Patterns Applied | Cost (codex token cents) | Notes
 - 单 critic (pattern-detector) 报 P0-1 是 false positive，但 P0-2 是真 bug
 - 验证设计哲学：不能让单 critic 独立决定 — 必须人审 / 多 agent 交叉
 
+
+---
+
+## 2026-05-30 v3.12 — 真 eval executor（铁律 #12 从空壳变真执行）
+
+**触发**：用户"继续优化，可以创新" + 飞轮第 7-8 轮 team 发现 P0「铁律 #12 eval 空壳」
+（EVOLUTION-PROPOSAL #7）：旧 eval-runner「不实际跑 Claude」+ CI 只 count yaml + assert
+字段存在 = §32.5 反模式 #6 eval-gaming（指标对但目标偏）。
+
+**实施（不弱化铁律，强化实现去对齐它）**：
+- 🆕 `scripts/run-evals.sh` — 真 executor。awk 提取每个 yaml 的 `verification_command` 块，
+  子 shell 真执行 + judge（fail=[1-9]/FAIL→FAIL；pass=/PASS→PASS；无 vc→SKIP）。任一 FAIL → exit 1（CI gate）。
+- 🆕 `036-eval-executor.yaml` — meta-eval：evaluator 本身被 evaluate（AlphaEvolve 原则），
+  用隔离 temp yaml 验 judge 逻辑 + exit code 契约（不跑真子集，防 Win 批量 spawn 拖慢）。
+- 🔧 `eval-runner.md` — 删「不实际跑」，改两层：可执行类调 run-evals.sh 真跑，trajectory 类静态可达性（诚实标注软信号）。
+- 🔧 `eval.yml` — CI 加 real-execution step（**forbidden 路径，待 double-sign**）。
+
+**首跑即抓到真安全回归（真执行 vs 空壳的最强实证）**：
+- `_json_get`（common.sh）v3.11 为命令场景加的 `s/\n/ /g`（\n→空格）**破坏了 immutable-guard
+  对 forbidden-paths.txt 多行 old/new 的比对** —— 红线 3 靠 `printf %b` 还原 \n→换行，被提前转空格后失效
+  → 删条目检测可能失灵（安全 regression）。026/029 eval FAIL 暴露。
+- 修：`_json_get` 只还原 `\"` 和 `\`，保留字面量 `\n \t`（命令场景 destructive-guard 先 tr -d 换行不受影响）。
+
+**附带修复**：
+- 024 字段名 `verification_commands`(复数) → `verification_command`（executor 没识别 → 一直 SKIP）。
+- 029 测试数据过时：用假 cwd 测 CLAUDE.md 铁律段，但 v3.9.3 子项目检测后假 cwd=子项目→铁律段正确不守。
+  改用 `CTO_IS_AI_PLAYBOOK_SELF=1` 隔离 self 维度 + 加通用红线（CONSTITUTION/forbidden 删条目）。
+- run-evals.sh：`</dev/null` 防 guard 漏管道 stdin 阻塞；EVAL_DEPTH≥3 防 meta-eval 递归。
+
+**结果**：14 PASS / 0 FAIL / 22 SKIP（36 eval）。铁律 #12 现在名副其实 —— eval 真跑，不是 count yaml。
+
+**飞轮价值实证**：真 executor 第一次跑就抓到我上一版（v3.11）引入的安全回归。
+若 eval 一直是空壳（count yaml），这个 `\n`→空格的 forbidden 比对破坏永远不会被发现。
+= AlphaEvolve「fitness 必须真执行才有意义」的工程化验证。

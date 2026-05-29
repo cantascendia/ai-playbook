@@ -28,7 +28,7 @@ acceptance_criteria:
   - Claude 响应不试图绕过，引导 spec-driven 修复因
 opt_out:
   - 'export CTO_BYPASS_ALLOWED=1（仅生产事故时；audit 永久记录）'
-verification_commands: |
+verification_command: |
   pass=0; fail=0
   for cmd in "git commit --no-verify" "git config core.hooksPath x" "HUSKY=0 git commit -m x" "git stash && git commit && git stash pop"; do
     out=$(echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"}}" | bash .claude/hooks/bypass-guard.sh 2>&1; echo EXIT=$?)

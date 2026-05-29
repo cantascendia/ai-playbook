@@ -3,13 +3,19 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-04-29 v3.6.2 — SessionStart hook 自动判断新/续项目
+最后更新：2026-05-30 v3.12 — 真 eval executor（铁律 #12 从空壳变真执行）
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v3.6.1** — aegis-panel 实战暴露 v3.6 的 generic 业务路径假设 bug（11+ commit 全被 silent skip）。反向集成 PR #118 修复：业务路径提取为 `scripts/business-paths.txt` SSOT。Codex 修复后跑通 + 抓到 1 个真实 P2 bug（"空 audit 显示 100"）— §48 跨模型 review 设计价值实证。21 commands / 4 sub-agents / 22 evals / 17 项目 v3.6.1 同步。
+ai-playbook **v3.12** — `scripts/run-evals.sh` 真执行每个 golden-trajectory 的 `verification_command`
+（14 可执行类真跑 / 22 trajectory 类 SKIP，共 36 eval）。铁律 #12「无 eval 不进 main」从"CI 只 count yaml"
+（§32.5 反模式 #6 eval-gaming 空壳）升级为**真执行 fitness 函数**（AlphaEvolve 原则）。首跑即抓到 v3.11
+`_json_get` 把 `\n` 转空格破坏 forbidden-paths 多行比对的**安全回归** — 真执行 vs 空壳的最强实证。
+组件计数以 `docs/ai-cto/COUNTS.md` 为 SSOT（23 commands / 5 sub-agents / 9 hooks / 36 evals）。
+
+> ⚠️ 本文件 v3.6→v3.12 多轮未滚动更新（pre-existing 债）；逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。
 
 ---
 

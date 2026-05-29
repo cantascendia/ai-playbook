@@ -13,7 +13,8 @@
 | hooks (.sh) | **9** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh |
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **33** | `evals/golden-trajectories/*.yaml`（001-033）|
+| evals | **36** | `evals/golden-trajectories/*.yaml`（001-036；023-036 含 `verification_command` 真执行，001-022 trajectory 类）|
+| eval 可执行类 | **14** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
 | learned-rules | **4** | `.claude/rules/learned/*.md`（active；archived 见 archived/）|
 | handbook 章节 | **§1-§50**（§49 缺号，待补/重编）| `playbook/handbook.md`（4287 行）|
@@ -23,7 +24,8 @@
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v3.11 (当前) | TBD | TBD | 飞轮第 7-8 轮 team 迭代 |
+| v3.12 (当前) | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从"空壳"变真执行；首跑即抓到 v3.11 _json_get 把 `\n` 转空格破坏 forbidden-paths 多行比对的安全回归 |
+| v3.11 | TBD | TBD | 飞轮第 7-8 轮 team 迭代 |
 | v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
 | v3.9.3 | 94 | 72→86 | subproject 检测 |
 

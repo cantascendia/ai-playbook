@@ -11,11 +11,13 @@ on:
       - 'CLAUDE.md'
       - 'playbook/handbook.md'
       - 'evals/**'
+      - 'scripts/run-evals.sh'
+      - '.claude/hooks/**'
   workflow_dispatch:
 
 jobs:
   eval-gate:
-    name: Run /cto-eval
+    name: Run evals (v3.12 真执行)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,26 +29,48 @@ jobs:
           echo "count=$N" >> $GITHUB_OUTPUT
           echo "Found $N golden trajectories"
 
+      # v3.12 核心 gate（飞轮第 7-8 轮 team 修「铁律 #12 eval 空壳」）：
+      # 旧 CI 只 count yaml + assert 字段存在 = §32.5 反模式 #6 eval-gaming。
+      # 现在真跑每个 verification_command（hook 红线 / guard 行为），FAIL → exit 1 阻 merge。
+      # AlphaEvolve evaluator-grounded：eval 必须真执行才是 fitness 函数。
+      - name: Run executable evals (real execution)
+        run: |
+          chmod +x scripts/run-evals.sh
+          bash scripts/run-evals.sh
+
       - name: Validate yaml structure
         run: |
-          for f in evals/golden-trajectories/*.yaml; do
-            python -c "import yaml; data=yaml.safe_load(open('$f')); \
-              assert 'id' in data, '$f missing id'; \
-              assert 'description' in data, '$f missing description'; \
-              assert 'expected_steps' in data, '$f missing expected_steps'; \
-              assert 'forbidden_actions' in data, '$f missing forbidden_actions'; \
-              assert 'acceptance_criteria' in data, '$f missing acceptance_criteria'"
-          done
+          python3 - <<'PY'
+          import yaml, glob, sys
+          bad = 0
+          for f in sorted(glob.glob('evals/golden-trajectories/*.yaml')):
+              try:
+                  d = yaml.safe_load(open(f, encoding='utf-8'))
+                  for k in ('id','description','expected_steps','forbidden_actions','acceptance_criteria'):
+                      assert k in d, f"{f} missing {k}"
+              except Exception as e:
+                  print(f"STRUCTURE FAIL: {e}")
+                  bad += 1
+          if bad:
+              sys.exit(1)
+          print("✅ all yaml structure + required fields OK")
+          PY
 
       - name: Skill manifest consistency
         run: |
-          if [ -f .agents/skills-manifest.json ]; then
-            python -c "import json; \
-              m = json.load(open('.agents/skills-manifest.json')); \
-              for s in m['skills']: \
-                  import os; \
-                  assert os.path.exists(s['location']), f\"{s['skillId']} missing physical file\""
-          fi
+          python3 - <<'PY'
+          import json, os, sys
+          mf = '.agents/skills-manifest.json'
+          if os.path.exists(mf):
+              m = json.load(open(mf, encoding='utf-8'))
+              missing = [s['skillId'] for s in m.get('skills', []) if not os.path.exists(s['location'])]
+              if missing:
+                  print("MISSING physical file:", missing)
+                  sys.exit(1)
+              print("✅ skill manifest OK")
+          else:
+              print("no manifest — skipped")
+          PY
 
       - name: Frontmatter completeness
         run: |
@@ -58,4 +82,4 @@ jobs:
 
       - name: Summary
         run: |
-          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories validated)"
+          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories: real-exec + structure)"

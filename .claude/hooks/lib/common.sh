@@ -26,10 +26,15 @@ _json_get() {
     # 旧 regex [^"]* 遇到命令含 \" (如 psql -c "DROP DATABASE") 提前截断 →
     # destructive/forbidden guard 在无 jq(Windows) 环境漏过引号内容。安全 bug。
     # 新 regex (\\.|[^"\\])* 正确吞掉 \" \\ 等转义序列，再还原。
+    # v3.12 fix（真 eval executor 抓到 v3.11 regression）：
+    # 只还原 \" 和 \\，**保留字面量 \n \t**。之前 s/\\n/ /g 把 \n 转空格，破坏了
+    # immutable-guard 对 forbidden-paths.txt 多行 old/new 的比对（红线 3 自己 printf %b
+    # 还原 \n→换行；若这里先转空格，还原失效 → 删条目检测失灵，安全 regression）。
+    # 命令场景不受影响：destructive-guard 先 tr -d 换行 + heredoc 剥离，字面量 \n 不影响 grep。
     echo "$json" | tr -d '\n' | \
       sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"((\\\\.|[^\"\\\\])*)\".*/\\1/p" | \
       head -1 | \
-      sed -E 's/\\"/"/g; s/\\\\/\\/g; s/\\n/ /g; s/\\t/ /g'
+      sed -E 's/\\"/"/g; s/\\\\/\\/g'
   fi
 }
 
