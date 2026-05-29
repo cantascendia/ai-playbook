@@ -22,10 +22,14 @@ _json_get() {
     # sed fallback：处理 "key": "value" 模式
     # 支持 1 层嵌套：tool_input.file_path → 找 "file_path"
     local key="${path##*.}"  # 取最后一段
-    # 简化 regex：匹配 "key":"value" 不处理转义引号（足够 99% 场景）
+    # v3.11 fix（飞轮第 8 轮 architect-critic 链）：处理 JSON 转义引号 \"
+    # 旧 regex [^"]* 遇到命令含 \" (如 psql -c "DROP DATABASE") 提前截断 →
+    # destructive/forbidden guard 在无 jq(Windows) 环境漏过引号内容。安全 bug。
+    # 新 regex (\\.|[^"\\])* 正确吞掉 \" \\ 等转义序列，再还原。
     echo "$json" | tr -d '\n' | \
-      sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\\1/p" | \
-      head -1
+      sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"((\\\\.|[^\"\\\\])*)\".*/\\1/p" | \
+      head -1 | \
+      sed -E 's/\\"/"/g; s/\\\\/\\/g; s/\\n/ /g; s/\\t/ /g'
   fi
 }
 

@@ -17,14 +17,17 @@ maybe_run_override "destructive-action-guard"
 [ "$HOOK_TOOL_NAME" != "Bash" ] && exit 0
 [ -z "$HOOK_BASH_CMD" ] && exit 0
 
-# v3.10.2 fix（飞轮第 6 轮自食其果）：剥离非执行内容再匹配，避免 false positive
-# - heredoc body（cat > file <<'EOF' ... EOF 之间的文本不是命令）
-# - 单/双引号字符串内容（echo "DROP TABLE" 不是执行 DROP）
-# 用 SCAN_CMD（剥离版）做匹配，原 HOOK_BASH_CMD 仅用于报错展示
-SCAN_CMD=$(printf '%s' "$HOOK_BASH_CMD" \
-  | sed -E "s/<<-?'?[A-Za-z_]+'?.*//" \
-  | sed -E "s/'[^']*'//g" \
-  | sed -E 's/"[^"]*"//g')
+# v3.11 fix（飞轮第 8 轮 — architect-critic 发现 v3.10.2 引入安全回归）：
+# v3.10.2 整段剥离引号内容 → psql -c "DROP DATABASE" / rm -rf "$HOME" 逃逸（false NEGATIVE，安全回归）
+# 修：只剥 heredoc body（写文档主场景）；引号内容**保留检测**（命令参数会执行）。
+# 纯输出场景（echo/printf 开头 + 无 shell 操作符）才整体放行 — 兼顾 false positive 与安全。
+SCAN_CMD=$(printf '%s' "$HOOK_BASH_CMD" | sed -E "s/<<-?'?[A-Za-z_]+'?.*//")
+
+# 纯 echo/printf 输出（无 && || ; | $() 操作符）→ 内容是给人看的文本，非执行 → 放行
+if echo "$SCAN_CMD" | grep -qE '^[[:space:]]*(echo|printf)[[:space:]]' \
+   && ! echo "$SCAN_CMD" | grep -qE '&&|\|\||;|\$\(|\|[[:space:]]'; then
+  exit 0
+fi
 
 # Destructive 模式列表（保守 — 宁误拦也不漏）
 # 分 3 类：
@@ -32,14 +35,14 @@ SCAN_CMD=$(printf '%s' "$HOOK_BASH_CMD" \
 #   B. 数据库级灾难：DROP TABLE / DROP DATABASE / TRUNCATE / DELETE FROM (无 WHERE)
 #   C. 云服务/平台级：terraform destroy / vercel rm / railway destroy / supabase project delete / aws s3 rb / gh repo delete
 
-# A. 文件系统（注意：$HOME 用 [$]HOME 避免 shell 解析）
-FS_PATTERNS='rm\s+-rf\s+/($|\s)|rm\s+-rf\s+~($|\s)|rm\s+-rf\s+[$]HOME|rm\s+-rf\s+\.\s|rm\s+-rf\s+\*($|\s)|find\s+/?\s.*-delete|>\s*/dev/sda|mkfs|dd\s+if=.*of=/dev/'
+# A. 文件系统（v3.11: 路径前加 ["']? 容忍引号包裹，因 v3.11 不再剥引号）
+FS_PATTERNS='rm\s+-rf\s+["'"'"']?/($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?~($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?[$]HOME|rm\s+-rf\s+["'"'"']?\.\s|rm\s+-rf\s+["'"'"']?\*($|\s)|find\s+/?\s.*-delete|>\s*/dev/sda|mkfs|dd\s+if=.*of=/dev/'
 
 # B. 数据库
 DB_PATTERNS='\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b|\bTRUNCATE\s+(TABLE\s+)?[a-z_]|DELETE\s+FROM\s+[a-z_]+\s*;|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL'
 
-# C. 云服务 destructive（vercel rm 用 .* 通配 app 名，aws/gcloud/azure 同理）
-CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
+# C. 云服务 destructive（v3.11: 关键资源前加 ["']? 容忍引号）
+CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
 
 # 复合 destructive（不可逆 + 大规模）
 COMBINED_DESTRUCTIVE="${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}"
