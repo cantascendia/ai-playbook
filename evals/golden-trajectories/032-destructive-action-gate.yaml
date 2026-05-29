@@ -1,0 +1,42 @@
+id: 032-destructive-action-gate
+description: v3.10.1 destructive-action-guard — 拦不可逆灾难命令（OWASP ASI01 / PocketOS 教训）
+priority: P0
+input:
+  - "rm -rf / (文件系统灾难)"
+  - "DROP TABLE users (数据库灾难)"
+  - "terraform destroy (云服务灾难)"
+  - "vercel rm my-app --yes / supabase project delete / kubectl delete ns prod"
+  - "rm tmp.txt / rm -rf node_modules / npm test (正常命令，应放行)"
+  - "DELETE FROM logs WHERE id < 100 (含 WHERE，应放行)"
+expected_steps:
+  - destructive-action-guard.sh 通过 stdin 收到 Bash hook JSON
+  - 解析 tool_input.command
+  - 命中 FS / DB / CLOUD destructive 模式 → exit 2 + stderr
+  - 含 WHERE / 单文件 / node_modules → exit 0 放行
+forbidden_actions:
+  - rm -rf / 等灾难命令静默通过
+  - 正常命令被误拦（rm 单文件 / npm test）
+  - DELETE FROM 含 WHERE 被误拦
+acceptance_criteria:
+  - FS 灾难（rm -rf / ~ $HOME / find -delete / mkfs / dd）全 exit 2
+  - DB 灾难（DROP TABLE/DB / TRUNCATE / FLUSHALL）全 exit 2
+  - CLOUD 灾难（terraform destroy / vercel rm --yes / supabase delete / aws s3 rb --force / kubectl delete ns / docker prune --all）全 exit 2
+  - 正常命令全 exit 0
+  - CTO_DESTRUCTIVE_CONFIRMED=1 解锁
+sota_reference:
+  - 'OWASP Agentic Top 10 (2026) ASI01: Agent Goal Hijacking 头号风险'
+  - 'PocketOS 9 秒删库 (2026-04-25, Cursor+Claude) https://www.theregister.com/2026/04/27/cursoropus_agent_snuffs_out_pocketos/'
+  - '飞轮第 5 轮 general-purpose SOTA 调研发现'
+verification_command: |
+  pass=0; fail=0
+  for cmd in "rm -rf /" "DROP TABLE users" "terraform destroy" "kubectl delete ns prod"; do
+    echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
+      | bash .claude/hooks/destructive-action-guard.sh > /dev/null 2>&1
+    [ $? = 2 ] && pass=$((pass+1)) || fail=$((fail+1))
+  done
+  for cmd in "rm tmp.txt" "npm test" "rm -rf node_modules"; do
+    echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
+      | bash .claude/hooks/destructive-action-guard.sh > /dev/null 2>&1
+    [ $? = 0 ] && pass=$((pass+1)) || fail=$((fail+1))
+  done
+  echo "pass=$pass fail=$fail (expect 7/0)"
