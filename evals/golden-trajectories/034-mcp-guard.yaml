@@ -1,0 +1,25 @@
+id: 034-mcp-guard
+description: v3.11 mcp-guard — MCP 工具 destructive 防护（架构盲区：之前只 match Bash，MCP 删库通道绕过）
+priority: P0
+input:
+  - "mcp__supabase__delete_branch / delete_project (拦)"
+  - "mcp__cf__r2_bucket_delete / kv_namespace_delete (拦)"
+  - "mcp__supabase__execute_sql query=DROP TABLE / DELETE no WHERE (拦)"
+  - "mcp__supabase__execute_sql query=SELECT / DELETE WHERE (放行)"
+  - "mcp__supabase__list_projects / get_logs (只读放行)"
+  - "Bash / Edit (非 MCP 不管)"
+acceptance_criteria:
+  - delete_/drop_/destroy 工具名 → exit 2
+  - execute_sql 含 DROP/TRUNCATE/DELETE-no-WHERE → exit 2
+  - execute_sql SELECT / DELETE-with-WHERE → exit 0
+  - 只读 MCP (list/get) → exit 0
+  - 非 mcp__ 工具 → exit 0（不干预）
+  - CTO_MCP_DESTRUCTIVE_CONFIRMED=1 opt-out
+sota_reference:
+  - 'architect-critic 飞轮第 8 轮：destructive-guard 只 match Bash，MCP 删库通道绕过'
+  - 'OWASP Agentic Top 10 (2026) ASI04 供应链 + Least-Agency 原则'
+verification_command: |
+  pass=0
+  printf '%s' '{"tool_name":"mcp__x__delete_project","tool_input":{},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
+  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
+  echo "pass=$pass (expect 2)"

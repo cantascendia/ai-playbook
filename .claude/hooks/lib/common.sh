@@ -22,10 +22,14 @@ _json_get() {
     # sed fallback：处理 "key": "value" 模式
     # 支持 1 层嵌套：tool_input.file_path → 找 "file_path"
     local key="${path##*.}"  # 取最后一段
-    # 简化 regex：匹配 "key":"value" 不处理转义引号（足够 99% 场景）
+    # v3.11 fix（飞轮第 8 轮 architect-critic 链）：处理 JSON 转义引号 \"
+    # 旧 regex [^"]* 遇到命令含 \" (如 psql -c "DROP DATABASE") 提前截断 →
+    # destructive/forbidden guard 在无 jq(Windows) 环境漏过引号内容。安全 bug。
+    # 新 regex (\\.|[^"\\])* 正确吞掉 \" \\ 等转义序列，再还原。
     echo "$json" | tr -d '\n' | \
-      sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\\1/p" | \
-      head -1
+      sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"((\\\\.|[^\"\\\\])*)\".*/\\1/p" | \
+      head -1 | \
+      sed -E 's/\\"/"/g; s/\\\\/\\/g; s/\\n/ /g; s/\\t/ /g'
   fi
 }
 
@@ -45,6 +49,28 @@ read_hook_input() {
   export HOOK_JSON HOOK_TOOL_NAME HOOK_FILE_PATH HOOK_BASH_CMD \
          HOOK_OLD_STRING HOOK_NEW_STRING HOOK_CONTENT HOOK_PROMPT \
          HOOK_CWD HOOK_SESSION_ID HOOK_EVENT HAS_JQ
+}
+
+# v3.11（飞轮第 7 轮 team 迭代）：统一路径 normalize helper
+# 解决 Windows 反斜杠路径剥离静默失效（learned rule 2026-05-12 警告的同源 bug）
+# v3.9.1/.2 修了 forbidden/immutable，但 test-lock/eval-gate 漏 sweep — 本 helper 统一
+#
+# 用法：read_hook_input 后调 normalize_paths，得到：
+#   HOOK_NORM_FILE — 反斜杠转正斜杠的绝对路径
+#   HOOK_NORM_CWD  — 同上 cwd
+#   HOOK_REL       — 相对路径（剥离 cwd 前缀；剥离失败用 basename）
+#   HOOK_BASENAME  — 文件名
+normalize_paths() {
+  HOOK_NORM_FILE="${HOOK_FILE_PATH//\\//}"
+  local cwd="${HOOK_CWD:-.}"
+  HOOK_NORM_CWD="${cwd//\\//}"
+  HOOK_REL="${HOOK_NORM_FILE#${HOOK_NORM_CWD}/}"
+  # 剥离失败（不在 cwd 内 / 绝对路径残留）→ basename 兜底
+  case "$HOOK_REL" in
+    /*|[A-Za-z]:/*) HOOK_REL=$(basename "$HOOK_NORM_FILE") ;;
+  esac
+  HOOK_BASENAME=$(basename "$HOOK_NORM_FILE")
+  export HOOK_NORM_FILE HOOK_NORM_CWD HOOK_REL HOOK_BASENAME
 }
 
 # 硬阻止：exit 2 + stderr（Claude 会读 stderr 当作错误反馈）
