@@ -40,24 +40,37 @@ jobs:
 
       - name: Validate yaml structure
         run: |
-          for f in evals/golden-trajectories/*.yaml; do
-            python -c "import yaml; data=yaml.safe_load(open('$f')); \
-              assert 'id' in data, '$f missing id'; \
-              assert 'description' in data, '$f missing description'; \
-              assert 'expected_steps' in data, '$f missing expected_steps'; \
-              assert 'forbidden_actions' in data, '$f missing forbidden_actions'; \
-              assert 'acceptance_criteria' in data, '$f missing acceptance_criteria'"
-          done
+          python3 - <<'PY'
+          import yaml, glob, sys
+          bad = 0
+          for f in sorted(glob.glob('evals/golden-trajectories/*.yaml')):
+              try:
+                  d = yaml.safe_load(open(f, encoding='utf-8'))
+                  for k in ('id','description','expected_steps','forbidden_actions','acceptance_criteria'):
+                      assert k in d, f"{f} missing {k}"
+              except Exception as e:
+                  print(f"STRUCTURE FAIL: {e}")
+                  bad += 1
+          if bad:
+              sys.exit(1)
+          print("✅ all yaml structure + required fields OK")
+          PY
 
       - name: Skill manifest consistency
         run: |
-          if [ -f .agents/skills-manifest.json ]; then
-            python -c "import json; \
-              m = json.load(open('.agents/skills-manifest.json')); \
-              for s in m['skills']: \
-                  import os; \
-                  assert os.path.exists(s['location']), f\"{s['skillId']} missing physical file\""
-          fi
+          python3 - <<'PY'
+          import json, os, sys
+          mf = '.agents/skills-manifest.json'
+          if os.path.exists(mf):
+              m = json.load(open(mf, encoding='utf-8'))
+              missing = [s['skillId'] for s in m.get('skills', []) if not os.path.exists(s['location'])]
+              if missing:
+                  print("MISSING physical file:", missing)
+                  sys.exit(1)
+              print("✅ skill manifest OK")
+          else:
+              print("no manifest — skipped")
+          PY
 
       - name: Frontmatter completeness
         run: |
