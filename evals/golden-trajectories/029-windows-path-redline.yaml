@@ -28,37 +28,39 @@ sota_reference:
   - '6 轮 codex review 走 GitHub MCP 都没本地 exec bash 故未发现'
   - 'Reflexion + MAR: 单 critic 会幻觉，但多 sub-agent 真发现真 bug'
 verification_command: |
-  # v3.12 修：029 测的是 Windows 反斜杠路径 normalize（原 P0 bug），不是 self-detection。
-  # CLAUDE.md/handbook 铁律段仅 ai-playbook 自身守（v3.9.3 子项目检测）→ 用
-  # CTO_IS_AI_PLAYBOOK_SELF=1 隔离 self 维度，专测路径 normalize。CONSTITUTION/forbidden
-  # 删条目是通用红线（子项目也守），不需 self override。
-  CWD_WIN="C:\\projects\\test\\foo"
+  # v3.12 修：029 测 Windows 反斜杠路径 normalize（原 P0 bug），不是 self-detection。
+  # CLAUDE.md/handbook 铁律段仅 ai-playbook 自身守（v3.9.3）→ CTO_IS_AI_PLAYBOOK_SELF=1 隔离
+  # self 维度。CONSTITUTION/forbidden 删条目是通用红线（子项目也守），不需 override。
+  #
+  # ⚠️ v3.12 CI 实测教训：JSON 里 Windows 路径必须用合法转义 \\（这正是 Claude Code 真实发送的）。
+  # 单反斜杠 C:\projects 含非法 JSON escape (\p \C) → Linux 严格 jq 直接解析失败 → 红线漏守。
+  # 用 printf + 单引号保 \\ 字面量，jq(严/宽) + sed fallback 三种环境都对。
   pass=0; fail=0
 
   # 1. Win 路径改铁律段（self 仓库）→ 拦
-  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$CWD_WIN\\\\CLAUDE.md\",\"old_string\":\"## 铁律\",\"new_string\":\"\"},\"cwd\":\"$CWD_WIN\"}" \
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\CLAUDE.md","old_string":"## 铁律","new_string":""},"cwd":"C:\\projects\\test\\foo"}' \
     | CTO_IS_AI_PLAYBOOK_SELF=1 bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
   [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win CLAUDE.md 铁律段"; }
 
   # 2. Win 路径 Write 整文件（self 仓库）→ 拦
-  echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$CWD_WIN\\\\CLAUDE.md\",\"content\":\"new\"},\"cwd\":\"$CWD_WIN\"}" \
+  printf '%s' '{"tool_name":"Write","tool_input":{"file_path":"C:\\projects\\test\\foo\\CLAUDE.md","content":"new"},"cwd":"C:\\projects\\test\\foo"}' \
     | CTO_IS_AI_PLAYBOOK_SELF=1 bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
   [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win CLAUDE.md Write"; }
 
   # 3. Win 路径 CONSTITUTION.md（通用红线，子项目也守）→ 拦
-  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$CWD_WIN\\\\docs\\\\ai-cto\\\\CONSTITUTION.md\",\"old_string\":\"x\",\"new_string\":\"y\"},\"cwd\":\"$CWD_WIN\"}" \
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\docs\\ai-cto\\CONSTITUTION.md","old_string":"x","new_string":"y"},"cwd":"C:\\projects\\test\\foo"}' \
     | bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
   [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win CONSTITUTION"; }
 
-  # 4. Win 路径 forbidden-paths.txt 删条目（通用红线）→ 拦
-  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$CWD_WIN\\\\scripts\\\\forbidden-paths.txt\",\"old_string\":\"auth/\\npayment/\",\"new_string\":\"payment/\"},\"cwd\":\"$CWD_WIN\"}" \
+  # 4. Win 路径 forbidden-paths.txt 删条目（通用红线）→ 拦（\n 是合法 JSON escape）
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\test\\foo\\scripts\\forbidden-paths.txt","old_string":"auth/\npayment/","new_string":"payment/"},"cwd":"C:\\projects\\test\\foo"}' \
     | bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
   [ $? = 2 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Win forbidden 删条目"; }
 
   # 5. POSIX 回归（普通文件）→ 放行
-  echo "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"src/foo.ts\",\"old_string\":\"a\",\"new_string\":\"b\"},\"cwd\":\"$(pwd)\"}" \
+  printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"src/foo.ts","old_string":"a","new_string":"b"},"cwd":"."}' \
     | bash .claude/hooks/immutable-guard.sh > /dev/null 2>&1
   [ $? = 0 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: POSIX 普通文件应放行"; }
 
-  echo "pass=$pass fail=$fail"
+  echo "pass=$pass fail=$fail (expect 5/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
