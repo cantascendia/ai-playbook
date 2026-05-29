@@ -173,6 +173,32 @@ fi
     } >> docs/ai-cto/REVIEW-QUEUE.md
     echo "$TS | sha=${SHORT_SHA} | mode=$MODE | reviewer=$REVIEWER | bytes=${#OUTPUT}" \
       >> docs/ai-cto/CODEX-REVIEW-LOG.md
+
+    # v3.10.1 fix: 计量回写 .evolve-cost-month.json（飞轮发现 cost counter 死）
+    COST_FILE="docs/ai-cto/.evolve-cost-month.json"
+    if [ -f "$COST_FILE" ]; then
+      MONTH=$(date +%Y-%m 2>/dev/null || echo unknown)
+      # bytes → cents: 估算 $0.01/KB（gpt-5.5 input 价格 ~$1.25/M token，约 4 字节/token）
+      ADD_CENTS=$(( ${#OUTPUT} / 100 ))
+      [ "$ADD_CENTS" -lt 1 ] && ADD_CENTS=1  # 至少 1 cent/次
+
+      # 读现状（用 sed，避免 jq 依赖）— 月度 reset 检查
+      CUR_MONTH=$(sed -nE 's/.*"month"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' "$COST_FILE" | head -1)
+      if [ "$CUR_MONTH" != "$MONTH" ]; then
+        # 月份变了 → reset
+        printf '{"month":"%s","codex_token_cents":%d,"cap_cents":2000,"reviews_count":1,"exceeded":false,"schema":"v3.10.1"}\n' \
+          "$MONTH" "$ADD_CENTS" > "$COST_FILE"
+      else
+        CUR_CENTS=$(sed -nE 's/.*"codex_token_cents"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$COST_FILE" | head -1)
+        CUR_COUNT=$(sed -nE 's/.*"reviews_count"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$COST_FILE" | head -1)
+        CAP=$(sed -nE 's/.*"cap_cents"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$COST_FILE" | head -1)
+        NEW_CENTS=$((${CUR_CENTS:-0} + ADD_CENTS))
+        NEW_COUNT=$((${CUR_COUNT:-0} + 1))
+        EXCEEDED=$([ "$NEW_CENTS" -gt "${CAP:-2000}" ] && echo true || echo false)
+        printf '{"month":"%s","codex_token_cents":%d,"cap_cents":%d,"reviews_count":%d,"exceeded":%s,"schema":"v3.10.1"}\n' \
+          "$MONTH" "$NEW_CENTS" "${CAP:-2000}" "$NEW_COUNT" "$EXCEEDED" > "$COST_FILE"
+      fi
+    fi
   else
     echo "$TS | sha=${SHORT_SHA} | mode=${MODE:-no-reviewer-available} | reviewer=none" \
       >> docs/ai-cto/CODEX-REVIEW-LOG.md

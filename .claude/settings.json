@@ -71,6 +71,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/bypass-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/destructive-action-guard.sh"
           }
         ]
       }
@@ -127,7 +131,7 @@
           },
           {
             "type": "command",
-            "command": "test -x .agents/skills/codex-bridge/run.sh && bash .agents/skills/codex-bridge/run.sh HEAD && echo '🔄 §48 cross-review + PR autopilot 已在后台触发。结果稍后出现在 docs/ai-cto/REVIEW-QUEUE.md 和 PR comment。' || true"
+            "command": "[ \"${CTO_AUTOREVIEW_ON_STOP:-1}\" = \"1\" ] && test -x .agents/skills/codex-bridge/run.sh && bash .agents/skills/codex-bridge/run.sh HEAD && echo '🔄 §48 cross-review + PR autopilot 已在后台触发。结果稍后出现在 docs/ai-cto/REVIEW-QUEUE.md 和 PR comment。关闭：export CTO_AUTOREVIEW_ON_STOP=0' || true"
           }
         ]
       }
