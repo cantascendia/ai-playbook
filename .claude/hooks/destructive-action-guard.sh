@@ -17,6 +17,15 @@ maybe_run_override "destructive-action-guard"
 [ "$HOOK_TOOL_NAME" != "Bash" ] && exit 0
 [ -z "$HOOK_BASH_CMD" ] && exit 0
 
+# v3.10.2 fix（飞轮第 6 轮自食其果）：剥离非执行内容再匹配，避免 false positive
+# - heredoc body（cat > file <<'EOF' ... EOF 之间的文本不是命令）
+# - 单/双引号字符串内容（echo "DROP TABLE" 不是执行 DROP）
+# 用 SCAN_CMD（剥离版）做匹配，原 HOOK_BASH_CMD 仅用于报错展示
+SCAN_CMD=$(printf '%s' "$HOOK_BASH_CMD" \
+  | sed -E "s/<<-?'?[A-Za-z_]+'?.*//" \
+  | sed -E "s/'[^']*'//g" \
+  | sed -E 's/"[^"]*"//g')
+
 # Destructive 模式列表（保守 — 宁误拦也不漏）
 # 分 3 类：
 #   A. 文件系统级灾难：rm -rf / / rm -rf ~ / find -delete
@@ -35,7 +44,7 @@ CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy
 # 复合 destructive（不可逆 + 大规模）
 COMBINED_DESTRUCTIVE="${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}"
 
-if echo "$HOOK_BASH_CMD" | grep -qiE -- "$COMBINED_DESTRUCTIVE"; then
+if echo "$SCAN_CMD" | grep -qiE -- "$COMBINED_DESTRUCTIVE"; then
   # Opt-out: 极端情况（如真要清理测试环境）需 explicit 解锁
   if [ "${CTO_DESTRUCTIVE_CONFIRMED:-0}" = "1" ]; then
     audit_log "destructive-action-allowed" "cmd=$(echo "$HOOK_BASH_CMD" | head -c 200) env=1"
