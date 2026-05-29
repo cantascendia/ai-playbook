@@ -1,0 +1,20 @@
+id: 033-guard-scan-strip
+description: v3.10.2 destructive-guard 剥离 heredoc/引号内容防 false positive，但复合命令仍拦
+priority: P0
+input:
+  - "cat > f.md <<EOF ... DROP TABLE ... EOF (heredoc 文本，应放行)"
+  - 'echo "terraform destroy is dangerous" (字符串，应放行)'
+  - "gh pr create --body \"fixes rm -rf guard\" (PR body，应放行)"
+  - "rm -rf / (真灾难，应拦)"
+  - "echo start && rm -rf / (复合命令，应拦)"
+acceptance_criteria:
+  - heredoc/引号内 destructive 词 → exit 0 放行
+  - 引号外真 destructive 命令 → exit 2 拦
+  - 复合命令 (&&/;/|) 后的 destructive → exit 2 拦
+sota_reference:
+  - '飞轮第 6 轮自食其果（destructive-guard 拦自己写 PR body）'
+verification_command: |
+  pass=0
+  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"echo \"DROP TABLE x\""},"cwd":"."}' | bash .claude/hooks/destructive-action-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
+  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' | bash .claude/hooks/destructive-action-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
+  echo "pass=$pass (expect 2)"
