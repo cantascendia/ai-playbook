@@ -18,10 +18,10 @@ maybe_run_override "test-lock-guard"
 # 测试文件模式
 TEST_PATTERN='/tests?/|/__tests__/|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|_test\.py$|test_[^/]+\.py$|_test\.go$|.*Test\.java$|.*Spec\.scala$'
 
-REL_PATH="$HOOK_FILE_PATH"
-if [ -n "$HOOK_CWD" ]; then
-  REL_PATH="${HOOK_FILE_PATH#$HOOK_CWD/}"
-fi
+# v3.11 fix（飞轮第 7 轮 redundancy-hunter 发现）：旧逻辑 ${HOOK_FILE_PATH#$HOOK_CWD/}
+# 在 Windows 反斜杠路径下不剥离 → test-lock 在 Windows 静默失效。用统一 normalize_paths。
+normalize_paths
+REL_PATH="$HOOK_REL"
 
 if echo "$REL_PATH" | grep -qE -- "$TEST_PATTERN"; then
   if [ "${CTO_TEST_LOCK_ACK:-0}" = "1" ]; then

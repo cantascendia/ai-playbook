@@ -12,8 +12,10 @@ maybe_run_override "eval-gate"
 
 [ -z "$HOOK_FILE_PATH" ] && exit 0
 
-CWD="${HOOK_CWD:-.}"
-REL_PATH="${HOOK_FILE_PATH#$CWD/}"
+# v3.11 fix（飞轮第 7 轮 redundancy-hunter 发现）：旧逻辑 ${HOOK_FILE_PATH#$CWD/}
+# 在 Windows 反斜杠路径下不剥离 → eval-gate 在 Windows 静默失效。用统一 normalize_paths。
+normalize_paths
+REL_PATH="$HOOK_REL"
 
 # Prompt 类文件模式（改这些必须配 eval）
 PROMPT_PATTERN='\.claude/commands/|\.claude/agents/|\.claude/skills/|\.agents/skills/|^CLAUDE\.md$|/CLAUDE\.md$|playbook/handbook\.md$|\.claude/output-styles/'

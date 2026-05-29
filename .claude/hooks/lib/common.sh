@@ -47,6 +47,28 @@ read_hook_input() {
          HOOK_CWD HOOK_SESSION_ID HOOK_EVENT HAS_JQ
 }
 
+# v3.11（飞轮第 7 轮 team 迭代）：统一路径 normalize helper
+# 解决 Windows 反斜杠路径剥离静默失效（learned rule 2026-05-12 警告的同源 bug）
+# v3.9.1/.2 修了 forbidden/immutable，但 test-lock/eval-gate 漏 sweep — 本 helper 统一
+#
+# 用法：read_hook_input 后调 normalize_paths，得到：
+#   HOOK_NORM_FILE — 反斜杠转正斜杠的绝对路径
+#   HOOK_NORM_CWD  — 同上 cwd
+#   HOOK_REL       — 相对路径（剥离 cwd 前缀；剥离失败用 basename）
+#   HOOK_BASENAME  — 文件名
+normalize_paths() {
+  HOOK_NORM_FILE="${HOOK_FILE_PATH//\\//}"
+  local cwd="${HOOK_CWD:-.}"
+  HOOK_NORM_CWD="${cwd//\\//}"
+  HOOK_REL="${HOOK_NORM_FILE#${HOOK_NORM_CWD}/}"
+  # 剥离失败（不在 cwd 内 / 绝对路径残留）→ basename 兜底
+  case "$HOOK_REL" in
+    /*|[A-Za-z]:/*) HOOK_REL=$(basename "$HOOK_NORM_FILE") ;;
+  esac
+  HOOK_BASENAME=$(basename "$HOOK_NORM_FILE")
+  export HOOK_NORM_FILE HOOK_NORM_CWD HOOK_REL HOOK_BASENAME
+}
+
 # 硬阻止：exit 2 + stderr（Claude 会读 stderr 当作错误反馈）
 block_with_reason() {
   local reason="$1"
