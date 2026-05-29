@@ -77,6 +77,15 @@
             "command": "bash .claude/hooks/destructive-action-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/mcp-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
