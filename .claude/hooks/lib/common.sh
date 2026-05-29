@@ -38,6 +38,13 @@ read_hook_input() {
   HOOK_JSON=$(cat 2>/dev/null || echo '{}')
   HOOK_TOOL_NAME=$(_json_get "$HOOK_JSON" "tool_name")
   HOOK_FILE_PATH=$(_json_get "$HOOK_JSON" "tool_input.file_path")
+  # v3.11.1（飞轮第 8 轮 architect-critic 发现）：MCP filesystem 工具用 tool_input.path
+  # 不是 file_path。不取它 → mcp__filesystem__write_file 改 CLAUDE.md 绕过所有红线。
+  # 若 file_path 为空则回退取 path（MCP filesystem）/ source（move 的源）。
+  if [ -z "$HOOK_FILE_PATH" ]; then
+    HOOK_FILE_PATH=$(_json_get "$HOOK_JSON" "tool_input.path")
+  fi
+  HOOK_MCP_DEST=$(_json_get "$HOOK_JSON" "tool_input.destination")
   HOOK_BASH_CMD=$(_json_get "$HOOK_JSON" "tool_input.command")
   HOOK_OLD_STRING=$(_json_get "$HOOK_JSON" "tool_input.old_string")
   HOOK_NEW_STRING=$(_json_get "$HOOK_JSON" "tool_input.new_string")
