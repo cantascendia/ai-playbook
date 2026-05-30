@@ -69,10 +69,23 @@ for f in "$EVAL_DIR"/*.yaml; do
   fi
 
   # 执行 verification_command（子 shell 隔离）
-  # </dev/null：防 hang — eval 里某个 guard 若漏管道 stdin 会阻塞等终端输入；
-  # 给 /dev/null 让它立即 EOF。带自己管道的 guard 调用（printf|bash guard）不受影响。
-  out=$(cd "$REPO_ROOT" && bash -c "$vc" </dev/null 2>&1)
-  rc=$?
+  # </dev/null：防 hang — eval 里某个 guard 若漏管道 stdin 会阻塞等终端输入；给 /dev/null 立即 EOF。
+  # v3.13 A5（refuted-A5 的跨平台替换方案）：timeout 包裹防 runaway vc 卡死 CI。
+  #   不用 ulimit/gVisor（Windows 实测失效 + 对 27 项目分发工具过度工程）。
+  #   timeout 在 Win Git Bash + ubuntu 均可用；缺失时回退裸跑（不致命）。
+  EVAL_TIMEOUT="${EVAL_TIMEOUT:-60}"
+  if command -v timeout >/dev/null 2>&1; then
+    out=$(cd "$REPO_ROOT" && timeout "$EVAL_TIMEOUT" bash -c "$vc" </dev/null 2>&1)
+    rc=$?
+    if [ "$rc" = "124" ]; then
+      FAIL=$((FAIL+1)); FAILED_LIST="$FAILED_LIST $id"
+      echo "✗ FAIL  $id (timeout ${EVAL_TIMEOUT}s — runaway verification_command)"
+      continue
+    fi
+  else
+    out=$(cd "$REPO_ROOT" && bash -c "$vc" </dev/null 2>&1)
+    rc=$?
+  fi
 
   if echo "$out" | grep -qE 'FAIL|fail=[1-9]'; then
     FAIL=$((FAIL+1)); FAILED_LIST="$FAILED_LIST $id"

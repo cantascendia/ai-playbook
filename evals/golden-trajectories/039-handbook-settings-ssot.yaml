@@ -54,5 +54,13 @@ verification_command: |
   grep -qE 'Compaction API|pause_after_compaction' "$HB" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook 缺 §4.5 Compaction API"; }
 
-  echo "pass=$pass fail=$fail (expect 6/0)"
+  # 7. v3.13 O11：§49 缺号已补（自称查章节一致性的系统不留缺号）
+  grep -qE '^## 49\.' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook §49 缺号未补"; }
+
+  # 8. v3.13 D4：LLM-judge 明确为"建议非阻断"（阻断权只在确定性 hook + eval + 人）
+  grep -qE 'LLM-as-Judge 是"建议"不是"阻断"|建议性证据|阻断权只在确定性' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §47 未声明 LLM-judge 仅建议"; }
+
+  echo "pass=$pass fail=$fail (expect 8/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

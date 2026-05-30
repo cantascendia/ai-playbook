@@ -19,9 +19,22 @@ DAY=$(date +%Y-%m-%d 2>/dev/null || echo unknown)
 TS=$(date -Iseconds 2>/dev/null || date +%s)
 LOG_FILE="${LOG_DIR}/${DAY}.jsonl"
 
-# 简单 JSON 字符串转义
+# v3.13 O10（SOTA team 审计）：secret 脱敏 — 写日志前 redact 常见密钥/令牌。
+# GitHub 2026 扫描发现 24008 个 MCP 配置相关 secret 泄露；eval verification_command 可能把
+# env secret 带进 bash 命令 → 不脱敏会写进 jsonl。在 _escape 前先 redact 原始值。
+_redact() {
+  echo "$1" | sed -E \
+    -e 's/sk-[A-Za-z0-9_-]{16,}/[REDACTED_SK]/g' \
+    -e 's/(ghp|gho|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/[REDACTED_GH]/g' \
+    -e 's/AKIA[A-Z0-9]{16}/[REDACTED_AWS]/g' \
+    -e 's/xox[baprs]-[A-Za-z0-9-]{10,}/[REDACTED_SLACK]/g' \
+    -e 's/[Bb]earer[[:space:]]+[A-Za-z0-9._+\/=-]{20,}/Bearer [REDACTED]/g' \
+    -e 's/(([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd])["'"'"' ]*[:=]["'"'"' ]*)[A-Za-z0-9._+\/=-]{12,}/\1[REDACTED]/g'
+}
+
+# 简单 JSON 字符串转义（先 redact 再 escape）
 _escape() {
-  echo "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n' | head -c 500
+  _redact "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n' | head -c 500
 }
 
 TOOL=$(_escape "${HOOK_TOOL_NAME:-}")
