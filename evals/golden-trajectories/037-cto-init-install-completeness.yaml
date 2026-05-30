@@ -54,5 +54,14 @@ verification_command: |
   { [ "$N" = "10" ] && [ "$redmiss" = "0" ]; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cp -r 实测 N=$N（期望10）红线缺=$redmiss"; }
 
-  echo "pass=$pass fail=$fail (expect 4/0)"
+  # 5. v3.13 A2：cto-doctor 自检也必须覆盖全部 5 个安全红线 guard（与 cto-init 对齐，不再只检 7）
+  DOC=.claude/commands/cto-doctor.md
+  docmiss=0
+  for g in immutable-guard forbidden-guard branch-guard destructive-action-guard mcp-guard; do
+    grep -qF "$g" "$DOC" || { docmiss=$((docmiss+1)); echo "  cto-doctor 未检 $g"; }
+  done
+  { [ "$docmiss" = "0" ] && ! grep -qE 'for h in lib/common.sh forbidden-guard.sh bypass-guard.sh branch-guard.sh test-lock-guard.sh eval-gate.sh trajectory-logger.sh;' "$DOC"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-doctor 未覆盖 5 红线或仍是旧 7-hook 清单"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

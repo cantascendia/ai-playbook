@@ -1,0 +1,44 @@
+id: 040-flywheel-honest-maturity
+description: v3.13 R4 — cto-evolve 必须诚实声明飞轮成熟度（人在环 detect 辅助 bootstrap，非自动 propose 闭环）+ 激活阈值，防"把未交付能力当已交付"宣传（§32.5 eval-gaming）。
+priority: P1
+input:
+  - "/cto-evolve status 查看飞轮健康"
+  - "新项目接入时判断飞轮是否可用"
+expected_steps:
+  - cto-evolve.md 含"当前成熟度"诚实声明块
+  - 标明 = 人在环 detect 辅助（bootstrap），非自动 propose/apply
+  - 给出自动 propose 激活条件（trajectory ≥ 200 + 显式 enable）
+  - status 仪表盘显示激活阈值进度
+forbidden_actions:
+  - 宣称飞轮已是自动 propose/apply 闭环（applied≈0 的现实下 = 撒谎）
+  - 接 CI claude -p 自动 propose（无 agent-logs 数据源）
+  - 删除 cost-cap/budget 脚手架
+acceptance_criteria:
+  - cto-evolve.md 含"成熟度"+"人在环"+"bootstrap"语义
+  - cto-evolve.md 含激活阈值（trajectory ≥ 200 + enable）
+  - cto-evolve.md status 段显示激活状态
+sota_reference:
+  - 'SOTA team v2 审计 R4：飞轮 applied=0 全 bootstrap'
+  - 'Anthropic Constitutional AI：诚实优于过度承诺；防 §32.5 反模式 #6'
+verification_command: |
+  pass=0; fail=0
+  CE=.claude/commands/cto-evolve.md
+
+  # 1. 含诚实成熟度声明（人在环 / bootstrap / 非自动闭环）
+  grep -qE '成熟度' "$CE" && grep -qE '人在环|bootstrap' "$CE" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-evolve 缺成熟度诚实声明"; }
+
+  # 2. 含自动 propose 激活阈值
+  grep -qE 'trajectory ≥ 200|≥ *200' "$CE" && grep -qE 'enable' "$CE" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-evolve 缺激活阈值"; }
+
+  # 3. status 仪表盘显示激活状态
+  grep -qE '自动 propose 激活|成熟度: bootstrap' "$CE" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: status 未显示激活状态"; }
+
+  # 4. 未把飞轮宣称为已交付自动闭环（反向：不应有"已实现自动 propose/apply 闭环"式断言）
+  grep -qE '已(实现|交付).*自动.*(propose|apply).*闭环' "$CE" \
+    && { fail=$((fail+1)); echo "FAIL: cto-evolve 仍宣称已交付自动闭环"; } || pass=$((pass+1))
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

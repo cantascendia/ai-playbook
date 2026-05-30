@@ -91,6 +91,9 @@ scan_stale() {
 }
 scan_stale "README.md" '(^|[^0-9])21 ?(个)?( cto)?( )?(命令|commands)' "commands 实 ${CMD_N}"
 scan_stale "CLAUDE.md" '(^|[^0-9])17 ?(个)?(命令|commands)' "commands 实 ${CMD_N}"
+# v3.13 O3：防 eval 门禁硬编码数字回潮（门禁应"全部可执行 eval pass"，数量引 COUNTS.md）
+scan_stale "playbook/handbook.md" '12\+ *(trajectory|golden)' "eval 门禁不应硬编码数字"
+scan_stale ".claude/commands/cto-eval.md" '总计：12 条' "eval 报告模板不应硬编码 12 条"
 
 echo ""
 echo "═══════════════════════════════════════"

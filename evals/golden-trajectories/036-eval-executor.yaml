@@ -56,5 +56,13 @@ verification_command: |
   rm -f "$TMPDIR/zzz-tmp-skip.yaml"
   echo "$SOUT" | grep -q 'SKIP  zzz-tmp-skip' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 vc 未 SKIP"; }
 
-  echo "pass=$pass fail=$fail (expect 4/0)"
+  # 5. judge（v3.13 O5）：vc exit 0 但**无 pass=/fail=/PASS/FAIL 断言标记** → SKIP，**不计 PASS**
+  #    （防 typo/no-op/被吞命令静默过门 = §32.5 反模式 #6 eval-gaming）
+  printf 'id: zzz-tmp-nomark\ndescription: tmp\nverification_command: |\n  echo hello\n  true\n' > "$TMPDIR/zzz-tmp-nomark.yaml"
+  NOUT=$(bash "$RUNNER" zzz-tmp-nomark 2>&1)
+  rm -f "$TMPDIR/zzz-tmp-nomark.yaml"
+  { echo "$NOUT" | grep -q 'SKIP  zzz-tmp-nomark' && ! echo "$NOUT" | grep -q 'PASS  zzz-tmp-nomark'; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无断言标记被误判 PASS（O5 漏洞复发）"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

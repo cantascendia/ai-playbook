@@ -1,5 +1,5 @@
 id: 039-handbook-settings-ssot
-description: v3.13 — handbook §41.3/§41.8 不再内嵌过时/残缺 settings.json，改指向 SSOT；真 settings.json 含全部 3 个红线 guard 接线（修 R2：旧示例缺 immutable/destructive/mcp + §41.3 用废弃 $CLAUDE_TOOL_INPUT）。
+description: v3.13 handbook 不变量 — §41.3/§41.8 改指向 settings.json SSOT（含 3 红线接线，修 R2）+ §4.2 禁压清单（错误轨迹不可压缩）+ §4.5 Compaction API（O8）。
 priority: P0
 input:
   - "读 handbook §41 找 settings.json 配置"
@@ -46,5 +46,13 @@ verification_command: |
   grep -qE 'mcp__' "$SJ" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: settings.json 无 mcp__ matcher"; }
 
-  echo "pass=$pass fail=$fail (expect 4/0)"
+  # 5. v3.13 O8：§4.2 含"禁止压缩清单"（错误轨迹/失败测试不可压缩）
+  grep -qE '禁止压缩清单|错误 / 失败的 tool 输出|错误轨迹' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook §4.2 缺禁压清单"; }
+
+  # 6. v3.13 O8：§4.5 Compaction API（保护 CONSTITUTION/红线）
+  grep -qE 'Compaction API|pause_after_compaction' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook 缺 §4.5 Compaction API"; }
+
+  echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

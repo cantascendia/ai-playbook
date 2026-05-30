@@ -20,6 +20,17 @@ disable-model-invocation: false
 - Voyager 技能库 — 我们 SKILL-CANDIDATES.md（不自动入库）
 - Reflexion + MAR 多 critic — pattern-detector 输出由 codex 二次审
 
+## ⚠️ 当前成熟度（v3.13 诚实声明 — SOTA team 审计 R4）
+
+> **飞轮现状 = 「人在环 detect 辅助」（bootstrap 阶段），不是「自动 propose/apply 闭环」。**
+> 不要把它当作"已交付的自治进化能力"对外宣传或随子项目分发。诚实优于过度承诺（防 §32.5 eval-gaming）。
+
+- ✅ **已工作**：`detect` 真能跑 pattern-detector + auditor 出 SELF-AUDIT；learned-rules（Bugbot）真在用；多 critic 真防幻觉（本次 SOTA team 实证）。
+- ⚠️ **未达阈值**：`applied` 至今 ≈ 0，从未**自动**产出并落地 proposal——都是人触发 + 人决策。月度统计仍是 bootstrap 占位。
+- 🚫 **不做**：不接 CI 跑 `claude -p` 自动 propose（CI 内无 agent-logs trajectory 数据源，信号质量低 + 真实 API 成本）。保留 cost-cap/budget 脚手架（为未来真吞吐量铺路，删除收益为零）。
+- **自动 propose 激活条件**（满足才升级为半自治）：累计 trajectory ≥ 200 **且** 用户显式 `/cto-evolve enable`。未满足前，`detect` 只产报告供人决策。
+- **子项目**：默认**不分发**飞轮（cto-init 不复制 self-audit-weekly.yml / 飞轮组件属 advanced，仅 full 档主仓自用）。
+
 ## 子命令
 
 ### `detect` — 跑 pattern detector + 4 auditor + codex
@@ -84,6 +95,8 @@ disable-model-invocation: false
 ```
 v3.9 Evolution Flywheel Status
 ─────────────────────────────
+成熟度: bootstrap（人在环 detect 辅助；自动 propose 未激活）
+自动 propose 激活: ❌ 未达阈值（需 trajectory ≥ 200 + /cto-evolve enable；当前 <N>/200）
 最近自审: <YYYY-MM-DD>
 最近 EVOLUTION-PROPOSAL: <YYYY-MM-DD>-<slug>
 最近 apply 的 PR: #N (<date>, status: open/merged/closed)

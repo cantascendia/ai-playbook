@@ -193,9 +193,19 @@ Claude Code 的同步方式：
 |---|---|---|
 | **永驻上下文** | 5–10% | CLAUDE.md（系统提示）、CONSTITUTION.md（项目原则） |
 | **任务上下文** | 30–40% | 当前 SPEC + PLAN + 相关代码读取 |
-| **工具调用** | 20–30% | tool 的输出（应及时压缩） |
+| **工具调用** | 20–30% | tool 的输出（**成功**的可压缩，见下方禁压清单） |
 | **对话历史** | 20–30% | 最近 N 轮 + 重要决策摘要 |
 | **预留余量** | 10–15% | 防止溢出 |
+
+**🔴 禁止压缩清单（v3.13 / SOTA team O8）**：压缩时**优先丢弃成功 tool 输出**，但以下**必须保留**：
+
+- ❌ **错误 / 失败的 tool 输出**（stderr、非零 exit、stack trace）
+- ❌ **断言失败的测试输出**（哪条 eval/test fail + 实际 vs 期望）
+- ❌ **REVIEW-QUEUE / 审计发现**（codex review、SELF-AUDIT、对抗验证结论）
+- ❌ **CONSTITUTION / 14 铁律 / 已确认的红线触发记录**
+
+> 业界共识（SwirlAI 2026 / Anthropic context engineering）：**错误轨迹被压缩掉 → agent 重复同一个错误**。
+> 与 learned-rules（Bugbot 模式）同理——失败是最高价值的上下文，绝不能因"它不是成功输出"就丢。
 
 ### 4.3 Lazy Tool Loading（延迟加载工具）
 
@@ -210,6 +220,17 @@ Claude Code 的 MCP 工具默认走 `ToolSearch` 延迟加载（官方报告约 
 - 每 3 轮：检查 docs/ai-cto/ 文件总量是否在按需引用，而非被一次性塞入
 - 任务切换处用 `/clear` 重置 context
 - 出现 context 溢出 → 优化 tool 输出而非加 token 上限
+
+### 4.5 Compaction API（自动压缩时保护宪法 / 错误轨迹）
+
+> Anthropic Compaction API（`compact-2026-01-12`+）在上下文接近上限时自动总结历史。
+> 默认总结**可能丢掉** CONSTITUTION / 14 铁律 / 错误轨迹 → enforcement 与防错记忆双失效。
+> 长会话 / 长时程 agent 必须配置压缩指令保护红线。
+
+- **custom instructions**：在 compaction 配置里显式要求"逐字保留 CONSTITUTION / 14 铁律 / §4.2 禁压清单（错误轨迹、失败测试、REVIEW-QUEUE 发现）"。
+- **`pause_after_compaction`**：压缩后暂停一拍，让 CTO 校验红线仍在上下文（防 silent 丢失），再继续。
+- **与 §4.2 一致**：压缩"成功输出可丢、错误/红线必留"是同一原则在 API 层的落地。
+- **本地无 API 场景**：靠 hooks（SessionStart 重注入 CONSTITUTION/STATUS）+ PreCompact hook 提醒先存盘 docs/ai-cto/，达到同样效果（settings.json 已有 PreCompact 提醒）。
 
 ---
 
@@ -3821,7 +3842,7 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
 ### 47.1 三种模式
 
 **模式 A：Eval Gate**（推荐起步）
-- PR opened → GH Actions 跑 `cto-eval run` → 12+ trajectory 全 pass 才能 merge
+- PR opened → GH Actions 跑 `bash scripts/run-evals.sh` → **全部可执行类 eval 真跑 pass** 才能 merge（数量见 `docs/ai-cto/COUNTS.md`，不硬编码）
 - 触发条件：改动 commands / agents / skills / CLAUDE.md / handbook
 
 **模式 B：LLM-as-Judge 评分**
@@ -3850,7 +3871,7 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
   ↓
 GH Actions trigger
   ↓
-cto-eval run（12+ golden trajectory）
+run-evals.sh（全部可执行 golden trajectory，数量见 COUNTS.md）
   ↓ pass
 LLM-as-Judge（双 Judge：Opus + gpt-5.5）
   ↓ avg score > 7
