@@ -26,8 +26,8 @@ REL_PATH="${NORMALIZED_FILE#${NORMALIZED_CWD}/}"
 # SSOT: scripts/forbidden-paths.txt（v3.6.1 已落地）
 SSOT="${NORMALIZED_CWD}/scripts/forbidden-paths.txt"
 if [ ! -f "$SSOT" ]; then
-  # SSOT 缺失：fallback 到 hardcoded（同手册 §32.1）
-  PATTERN='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+  # SSOT 缺失：fallback（v3.13 O7：单源 common.sh，同手册 §32.1）
+  PATTERN="$(forbidden_fallback_pattern)"
 else
   PATTERN=$(grep -vE '^\s*(#|$)' "$SSOT" | tr '\n' '|' | sed 's/|$//')
 fi

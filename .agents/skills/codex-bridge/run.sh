@@ -10,6 +10,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -z "$REPO_ROOT" ] && exit 0
 cd "$REPO_ROOT"
 
+# v3.13 O7：source common.sh 复用 forbidden_fallback_pattern（单源，防本脚本旧版漏 billing/keys/terraform/.github）
+# 仅定义函数无副作用；失败则用内联兜底。
+# shellcheck disable=SC1091
+[ -f .claude/hooks/lib/common.sh ] && source .claude/hooks/lib/common.sh 2>/dev/null || true
+
 # 0. TOCTOU 防护：mkdir 原子锁 + stale lock auto-clear (>60min)
 LOCK_DIR="docs/ai-cto/.codex-bridge.lock"
 mkdir -p docs/ai-cto
@@ -52,8 +57,10 @@ run_grep() {
 SSOT="scripts/forbidden-paths.txt"
 if [ -f "$SSOT" ]; then
   PATTERN=$(grep -v '^#' "$SSOT" | grep -v '^$' | tr '\n' '|' | sed 's/|$//')
+elif command -v forbidden_fallback_pattern >/dev/null 2>&1; then
+  PATTERN="$(forbidden_fallback_pattern)"  # v3.13 O7：单源（修旧版漏 billing/keys/terraform/.github）
 else
-  PATTERN='auth/|payment/|secrets/|migration|crypto/|infra/'
+  PATTERN='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
 fi
 FORBIDDEN=$(git diff --name-only "${TARGET}~1" "${TARGET}" 2>/dev/null | run_grep -E "$PATTERN")
 

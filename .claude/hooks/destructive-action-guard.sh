@@ -38,8 +38,8 @@ fi
 # A. 文件系统（v3.11: 路径前加 ["']? 容忍引号包裹，因 v3.11 不再剥引号）
 FS_PATTERNS='rm\s+-rf\s+["'"'"']?/($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?~($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?[$]HOME|rm\s+-rf\s+["'"'"']?\.\s|rm\s+-rf\s+["'"'"']?\*($|\s)|find\s+/?\s.*-delete|>\s*/dev/sda|mkfs|dd\s+if=.*of=/dev/'
 
-# B. 数据库
-DB_PATTERNS='\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b|\bTRUNCATE\s+(TABLE\s+)?[a-z_]|DELETE\s+FROM\s+[a-z_]+\s*;|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL'
+# B. 数据库（v3.13 O7：SQL 核心从 common.sh 单源 + 本 guard 的 shell 外壳扩展）
+DB_PATTERNS="$(destructive_sql_core)|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL"
 
 # C. 云服务 destructive（v3.11: 关键资源前加 ["']? 容忍引号）
 CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'

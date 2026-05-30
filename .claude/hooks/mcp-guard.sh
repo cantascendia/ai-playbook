@@ -36,7 +36,8 @@ DESTRUCTIVE_MCP_TOOL='_(delete|drop|destroy|purge|wipe)($|_)|_delete_|delete_(br
 HOOK_MCP_QUERY=$(_json_get "$HOOK_JSON" "tool_input.query")
 HOOK_MCP_SQL=$(_json_get "$HOOK_JSON" "tool_input.sql")
 SQL_TEXT="${HOOK_MCP_QUERY}${HOOK_MCP_SQL}"
-DESTRUCTIVE_SQL='\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b|\bTRUNCATE\b|DELETE\s+FROM\s+[a-z_]+\s*(;|$)|\bUPDATE\s+[a-z_]+\s+SET\b.*(;|$)'
+# v3.13 O7：SQL 核心从 common.sh 单源 + 本 guard 的 UPDATE-no-WHERE 扩展（execute_sql 参数场景）
+DESTRUCTIVE_SQL="$(destructive_sql_core)|\bUPDATE\s+[a-z_]+\s+SET\b.*(;|$)"
 
 BLOCKED=0
 REASON=""
@@ -76,7 +77,7 @@ if echo "$HOOK_TOOL_NAME" | grep -qiE '__(write_file|edit_file|move_file|create_
     if [ -f "$SSOT" ]; then
       FP=$(grep -vE '^\s*(#|$)' "$SSOT" | tr '\n' '|' | sed 's/|$//')
     else
-      FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+      FP="$(forbidden_fallback_pattern)"  # v3.13 O7：单源
     fi
     if [ -n "$FP" ] && echo "$HOOK_REL" | grep -qE -- "($FP)"; then
       [ "${CTO_DOUBLE_SIGNED:-0}" != "1" ] && { BLOCKED=1; REASON="MCP filesystem 写 forbidden 路径: $HOOK_REL（绕过 forbidden-guard）"; }

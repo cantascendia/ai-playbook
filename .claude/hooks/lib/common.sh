@@ -139,3 +139,21 @@ audit_log() {
 require_jq() {
   return 0  # v3.8 不再依赖 jq，总是 OK（用 fallback parser）
 }
+
+# ─── v3.13 O7：单源正则（防多 guard 各写一份漂移 — learned rule 2026-05-12）───
+
+# forbidden 路径 fallback pattern（SSOT 缺失时用）。canonical 唯一源。
+# 此前 forbidden-guard / mcp-guard / codex-bridge 三处各写，codex-bridge 那份还缺
+# billing/keys/terraform/.github/workflows → 漂移。统一到这里。
+forbidden_fallback_pattern() {
+  echo 'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+}
+
+# destructive SQL 共享核心（DROP/TRUNCATE/无 WHERE 的 DELETE）。
+# 各 guard 在此核心上 compose 自己的上下文扩展：
+#   - destructive-action-guard（扫 Bash 命令）：core + 外壳包装（psql/mongo/redis）
+#   - mcp-guard（扫 execute_sql query 参数）：core + UPDATE-no-WHERE
+# 单源核心防两边 DROP/TRUNCATE 定义漂移。
+destructive_sql_core() {
+  echo '\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b|\bTRUNCATE\b|DELETE\s+FROM\s+[a-z_]+\s*(;|$)'
+}
