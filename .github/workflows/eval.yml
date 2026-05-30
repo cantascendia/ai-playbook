@@ -1,6 +1,6 @@
 name: Eval Gate (铁律 #12)
 
-# 修改 commands / agents / skills / CLAUDE.md / handbook 时跑全量 eval
+# 修改 commands / agents / skills / CLAUDE.md / handbook / 计数 SSOT 时跑全量 eval
 on:
   pull_request:
     paths:
@@ -12,6 +12,8 @@ on:
       - 'playbook/handbook.md'
       - 'evals/**'
       - 'scripts/run-evals.sh'
+      - 'scripts/check-counts.sh'
+      - 'docs/ai-cto/COUNTS.md'
       - '.claude/hooks/**'
   workflow_dispatch:
 
@@ -28,6 +30,14 @@ jobs:
           N=$(ls evals/golden-trajectories/*.yaml 2>/dev/null | wc -l)
           echo "count=$N" >> $GITHUB_OUTPUT
           echo "Found $N golden trajectories"
+
+      # v3.13 SSOT gate（SOTA team 审计 R1）：COUNTS.md 自称唯一计数源但一直无 enforcer
+      # → 计数漂移（hooks 写 9 实 10）。check-counts.sh 比对 COUNTS vs 文件系统，不符 exit 1。
+      # 同时硬查 5 个安全红线 guard 存在（防 cto-init 安装链断裂复发）。
+      - name: Check counts SSOT (R1)
+        run: |
+          chmod +x scripts/check-counts.sh
+          bash scripts/check-counts.sh
 
       # v3.12 核心 gate（飞轮第 7-8 轮 team 修「铁律 #12 eval 空壳」）：
       # 旧 CI 只 count yaml + assert 字段存在 = §32.5 反模式 #6 eval-gaming。
@@ -82,4 +92,4 @@ jobs:
 
       - name: Summary
         run: |
-          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories: real-exec + structure)"
+          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories: counts-SSOT + real-exec + structure)"

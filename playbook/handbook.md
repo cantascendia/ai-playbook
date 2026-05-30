@@ -3204,70 +3204,16 @@ echo "$CLAUDE_TOOL_INPUT" | grep -qE '...' && echo '⚠️ 提醒...' || true
 **⑤ Stop — 会话结束摘要**
 - 行为：列出未提交改动 + 提醒触及 forbidden 路径时该跑哪些命令
 
-### 41.3 完整 .claude/settings.json hooks 配置
+### 41.3 完整 settings.json 配置 → 见 SSOT（仓库 `.claude/settings.json`）
 
-```json
-{
-  "permissions": {
-    "allow": ["Read", "Glob", "Grep", "Bash(git status)", "Bash(git diff*)", "Bash(git log*)", "Bash(git branch*)"]
-  },
-  "hooks": {
-    "SessionStart": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "test -f docs/ai-cto/CONSTITUTION.md && head -150 docs/ai-cto/CONSTITUTION.md 2>/dev/null; test -f docs/ai-cto/STATUS.md && head -150 docs/ai-cto/STATUS.md 2>/dev/null"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "echo \"$CLAUDE_USER_PROMPT\" | grep -iqE '\\b(yolo|accept all|vibe ship|--no-verify|skip tests|just do it)\\b' && echo '⚠️ §33 红线提醒：检测到 vibe 关键词。Forbidden 路径（auth/支付/secrets/migration）禁止 vibe coding。请改用 /cto-spec specify 启动 spec-driven 流程。' || true"
-      }]
-    }],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{
-          "type": "command",
-          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*tests?/' && echo '🛑 §20.3 Test-Lock 提醒（铁律 #14）：编辑测试文件需符合 spec 变更或 bug 修复场景，不得为让测试通过而改测试。如确需修改请明确说明依据。' || true"
-        }]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{
-          "type": "command",
-          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*(/auth/|/payment/|/billing/|/secrets/|/migration|/migrations/|/crypto/|/infra/|terraform/)' && echo '⚠️ §32.1 Forbidden 路径：此改动需要双签（CTO + senior + 第二模型 §19）。AI 不得单方面合并；PR 必须打 requires-double-review 标签。' || true"
-        }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{
-          "type": "command",
-          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\"file_path\"\\s*:\\s*\"[^\"]*(\\.claude/commands/|/CLAUDE\\.md|playbook/handbook\\.md|\\.agents/skills/)' && echo '📊 §35 提醒（铁律 #12）：本次修改触及 prompt/commands/CLAUDE.md/skills。无 eval 不进 main — 合并前请运行 /cto-eval run。' || true"
-        }]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [{
-          "type": "command",
-          "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'git commit' && (cd \"$(pwd)\" && git diff --cached --name-only | grep -qE '(auth|payment|secrets|migration|crypto)/' && echo '⚠️ commit 触及 §32.1 forbidden 路径。push 前建议跑 /cto-vibe-check 完整审计。' || true) || true"
-        }]
-      }
-    ],
-    "Stop": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "echo '— 会话结束摘要 —'; git status --short 2>/dev/null | head -20; echo '如有未提交改动且涉及 §32.1 forbidden 路径，建议运行 /cto-vibe-check + /cto-review 后再 push。'"
-      }]
-    }]
-  }
-}
-```
+> 🔴 **v3.13 修正（SOTA team 审计 R2）**：本节曾内嵌一份**完整 v3.7 时代** settings.json，
+> 用 `$CLAUDE_TOOL_INPUT`（不存在的 env var = §41.0 揭示的 silent no-op bug）+ 纯 `echo` 软提醒、
+> **无任何 exit-2 硬拦截**。任何人照抄即装出"看着有 hook、实则全静默"的残缺系统。已删除以防误抄。
+>
+> **唯一权威配置源（SSOT）= 仓库根 `.claude/settings.json`**。安装时整文件复制它，不要从手册抄 JSON。
+> 当前生效的三层 enforcement 设计意图见 **§41.8**；v3.7→v3.8 升级路径见 §41.8 末尾。
+>
+> 历史 v3.7 inline 模式（`$CLAUDE_TOOL_INPUT` + echo）已废弃，仅在 git 历史中可查。
 
 ### 41.4 UX 量化对比（添加新功能）
 
@@ -3339,17 +3285,26 @@ export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
 第 3 层：additionalContext injection — 引导 Claude 下一步动作
 ```
 
-#### 7 个 v3.8 hook 脚本（`.claude/hooks/*.sh`）
+#### 10 个 hook 脚本（`.claude/hooks/*.sh`，计数权威源 `docs/ai-cto/COUNTS.md`）
+
+> 🔴 **v3.13 修正（SOTA team 审计 R2）**：本表曾只列 7 个，漏了 immutable / destructive / mcp
+> 三个**安全红线 guard** → cto-init 照表只装 7 个 → 新项目红线层有名无实。现补齐为 10 个。
+> 安装时靠 `cp -r .claude/hooks/` **整目录复制**，不靠手抄此表（清单仅供核对）。
 
 | Hook | Event | 触发 | 行为 | Opt-out env |
 |---|---|---|---|---|
-| `forbidden-guard.sh` | PreToolUse Edit/Write/MultiEdit | file_path 命中 SSOT (`scripts/forbidden-paths.txt`) | **exit 2 + stderr** | `CTO_DOUBLE_SIGNED=1` |
+| `immutable-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | CONSTITUTION / forbidden-paths.txt 删条目 / CLAUDE.md 铁律段 / handbook §32-§35（仅 self） | **exit 2 + stderr** | `CTO_CONSTITUTION_AMEND=1` |
+| `forbidden-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | file_path 命中 SSOT (`scripts/forbidden-paths.txt`) | **exit 2 + stderr** | `CTO_DOUBLE_SIGNED=1` |
+| `branch-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | 当前 branch ∈ {main, master, production, prod, release} | **exit 2 + stderr** | `CTO_MAIN_EDIT_ALLOWED=1` |
 | `bypass-guard.sh` | PreToolUse Bash | 命中 6+ 种 bypass 模式（`--no-verify` / `core.hooksPath` / `HUSKY=0` / `chmod -x .husky` / `git stash bypass` / `SKIP=`） | **exit 2 + stderr** | `CTO_BYPASS_ALLOWED=1` |
-| `branch-guard.sh` | PreToolUse Edit/Write/MultiEdit | 当前 branch ∈ {main, master, production, prod, release} | **exit 2 + stderr** | `CTO_MAIN_EDIT_ALLOWED=1` |
+| `destructive-action-guard.sh` 🔴 | PreToolUse Bash | 命中不可逆模式（`rm -rf /` / `DROP TABLE` / `terraform destroy` / `kubectl delete ns` 等，剥离 heredoc/引号防误判） | **exit 2 + stderr** | `CTO_DESTRUCTIVE_CONFIRMED=1` |
+| `mcp-guard.sh` 🔴 | PreToolUse `mcp__.*` | MCP destructive 工具名 / execute_sql 含 DROP-TRUNCATE-DELETE-no-WHERE / filesystem 写红线文件 | **exit 2 + stderr** | `CTO_MCP_DESTRUCTIVE_CONFIRMED=1` |
 | `test-lock-guard.sh` | PreToolUse Edit/Write/MultiEdit | file_path 命中 tests/ 模式 | additionalContext 注入提醒 + exit 0（不阻止） | `CTO_TEST_LOCK_ACK=1` |
 | `vibe-prompt-guard.sh` | UserPromptSubmit | prompt 含 vibe 关键词 | additionalContext 注入红线 + exit 0 | — |
 | `eval-gate.sh` | PostToolUse Edit/Write/MultiEdit | file_path 命中 commands/skills/CLAUDE.md/handbook | additionalContext 提醒铁律 #12 + exit 0 | `CTO_EVAL_GATE_ACK=1` |
 | `trajectory-logger.sh` | PostToolUse * | 任意 tool call | 写真 jsonl（含 tool/file/cmd/session）— 修 §44 失效 | — |
+
+> 🔴 标记 = **安全红线 guard**，任何安装档位（minimal/full）都必须在，缺任一 = cto-doctor 判 fail。
 
 公用库：`.claude/hooks/lib/common.sh`
 - `_json_get` — jq 优先 / sed fallback（Windows git-bash 无 jq 时）
@@ -3372,55 +3327,26 @@ export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
 
 **关键：paths 必须是 YAML list 或 comma-separated string（无空格）**。`paths: "a, b, c"`（带空格）loader 会解析为单一字符串字面量 → 永不命中。教训来自 codex 第 3 轮 dogfood review。
 
-#### 完整 .claude/settings.json（v3.8）
+#### 完整 .claude/settings.json → 见 SSOT（不再内嵌，防漂移）
 
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": "*",
-      "hooks": [
-        { "type": "command", "command": "if [ -d docs/ai-cto ]; then echo '🔄 检测到项目记忆'; head -150 docs/ai-cto/CONSTITUTION.md 2>/dev/null; head -150 docs/ai-cto/STATUS.md 2>/dev/null; fi" }
-      ]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": "*",
-      "hooks": [{ "type": "command", "command": "bash .claude/hooks/vibe-prompt-guard.sh" }]
-    }],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/forbidden-guard.sh" },
-          { "type": "command", "command": "bash .claude/hooks/branch-guard.sh" },
-          { "type": "command", "command": "bash .claude/hooks/test-lock-guard.sh" }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/bypass-guard.sh" }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/eval-gate.sh" }]
-      },
-      {
-        "matcher": "*",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/trajectory-logger.sh" }]
-      }
-    ],
-    "Stop": [{
-      "matcher": "*",
-      "hooks": [
-        { "type": "command", "command": "echo '— 会话结束摘要 —'; git status --short 2>/dev/null | head -20" },
-        { "type": "command", "command": "test -x .agents/skills/codex-bridge/run.sh && bash .agents/skills/codex-bridge/run.sh HEAD || true" }
-      ]
-    }]
-  }
-}
+> 🔴 **v3.13 修正（SOTA team 审计 R2）**：本节曾内嵌一份"v3.8 完整 settings.json"，但它
+> **漏了 immutable-guard（PreToolUse Edit）、destructive-action-guard（PreToolUse Bash）、
+> 以及整个 `mcp__.*` matcher（mcp-guard）**——只有 7 个 hook 接线。照抄即装出缺 3 个红线的系统。
+> 已删除内嵌 JSON，改指向 SSOT，避免手册与实际配置再次漂移。
+>
+> **唯一权威配置 = 仓库根 `.claude/settings.json`**。安装时整文件复制它。其 PreToolUse 接线应为：
+
 ```
+Edit|Write|MultiEdit → immutable-guard → forbidden-guard → branch-guard → test-lock-guard
+Bash                 → bypass-guard → destructive-action-guard
+mcp__.*              → mcp-guard          ← 关键：MCP 工具单独 matcher，旧示例完全没有
+PostToolUse Edit|Write|MultiEdit → eval-gate ；  PostToolUse * → trajectory-logger
+Stop → 会话摘要 + codex-bridge §48 跨模型 autopilot
+```
+
+三层 enforcement 设计意图见本节开头；10 个 guard 职责见上表。
+**自检**：装完跑 `/cto-doctor`，确认 5 个 🔴 红线 guard（immutable/forbidden/branch/destructive/mcp）全部接线且 exit-2 真生效；
+`grep -c 'mcp__' .claude/settings.json` 应 ≥ 1（漏了 mcp matcher 是旧示例最致命的洞）。
 
 #### Claude Code Hook 协议（必须知道）
 

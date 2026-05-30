@@ -1,0 +1,50 @@
+id: 038-check-counts-enforcer
+description: v3.13 — scripts/check-counts.sh 真存在且是 COUNTS.md SSOT 的真 enforcer（修 R1：旧 COUNTS 声称它是 CI gate 但脚本根本不存在 = 铁律#2 vaporware）。
+priority: P0
+input:
+  - "改组件数量后跑 check-counts.sh"
+  - "COUNTS.md 数字 vs 文件系统实际比对"
+  - "不符 exit 1（CI gate）"
+expected_steps:
+  - check-counts.sh 存在且可执行
+  - 当前 repo 跑 exit 0（COUNTS 已同步文件系统）
+  - 对 hooks/commands/sub-agents/evals/skills 六类都做 assert
+  - 含 5 个安全红线 guard 存在性检查
+forbidden_actions:
+  - COUNTS.md 声称 check-counts.sh 是 CI gate 但脚本不存在（铁律#2）
+  - enforcer 漏检某类组件导致该类计数可静默漂移
+acceptance_criteria:
+  - scripts/check-counts.sh 存在
+  - 当前 repo bash 跑 exit 0
+  - 脚本含 hooks/commands/sub-agents/evals/skills 的 assert_count 调用
+  - 脚本含 5 个安全红线 guard 存在性检查
+sota_reference:
+  - 'SOTA team v2 审计 2026-05-30：SSOT 无 enforcer 必漂移（提案 R1）'
+  - 'AlphaEvolve evaluator-grounded：声称的 gate 必须真存在真执行'
+verification_command: |
+  pass=0; fail=0
+  CC=scripts/check-counts.sh
+
+  # 1. 存在
+  [ -f "$CC" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts.sh 不存在"; }
+
+  # 2. 当前 repo 跑 exit 0（COUNTS 已同步）
+  if [ -f "$CC" ]; then
+    bash "$CC" >/dev/null 2>&1 && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts 当前 repo 非 exit 0（有漂移）"; }
+  else
+    fail=$((fail+1))
+  fi
+
+  # 3. 六类组件 assert 全在
+  miss=0
+  for k in 'hooks (.sh)' 'cto-* commands' 'sub-agents' 'evals' 'skills (.claude)' 'skills (.agents)'; do
+    grep -qF "$k" "$CC" 2>/dev/null || { miss=$((miss+1)); echo "  check-counts 漏检 $k"; }
+  done
+  [ "$miss" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts 漏检 $miss 类"; }
+
+  # 4. 含 5 红线 guard 存在性检查
+  grep -qE 'immutable forbidden branch destructive-action mcp-guard|安全红线' "$CC" 2>/dev/null \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts 无 5 红线 guard 检查"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
