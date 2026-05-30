@@ -63,5 +63,10 @@ verification_command: |
   { [ "$docmiss" = "0" ] && ! grep -qE 'for h in lib/common.sh forbidden-guard.sh bypass-guard.sh branch-guard.sh test-lock-guard.sh eval-gate.sh trajectory-logger.sh;' "$DOC"; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-doctor 未覆盖 5 红线或仍是旧 7-hook 清单"; }
 
-  echo "pass=$pass fail=$fail (expect 5/0)"
+  # 6. v3.13 Q3：平台范围 opt-in — cto-init 含 --with-codex/--with-antigravity，默认只 Claude Code
+  INIT2=.claude/commands/cto-init.md
+  { grep -qE 'with-codex' "$INIT2" && grep -qE 'with-antigravity' "$INIT2" && grep -qE '默认只.*Claude Code|默认不装' "$INIT2"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 无 AG/Codex opt-in 平台范围"; }
+
+  echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
