@@ -2,7 +2,8 @@
 
 > 飞轮第 7 轮 redundancy-hunter 发现：命令数在 6+ 处不一致（17/18/21/10/23）。
 > 本文件是**唯一计数权威源**。README / CLAUDE.md / STATUS / handbook 引用本表，不硬写数字。
-> 改组件数量时**只**更新本文件 + 跑 `bash scripts/check-counts.sh` 校验。
+> 改组件数量时**只**更新本文件。
+> ⚠️ **诚实声明（2026-05-30 SOTA team 审计修正）**：`scripts/check-counts.sh` **尚未实现**（违反铁律 #2 的旧承诺已撤回）。在它落地前，本表靠人工核实，无自动 enforcer → 计数仍会漂移。实现它是 v3.13 P0（提案 R1）。
 
 最后核实：2026-05-29（飞轮第 7-8 轮 team 迭代）
 
@@ -10,7 +11,7 @@
 |---|---|---|
 | cto-* commands | **23** | `.claude/commands/cto-*.md` |
 | sub-agents | **5** | `.claude/agents/*.md`（eval-runner / harness-auditor / pattern-detector / reliability-auditor / vibe-checker）|
-| hooks (.sh) | **9** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh |
+| hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
 | evals | **36** | `evals/golden-trajectories/*.yaml`（001-036；023-036 含 `verification_command` 真执行，001-022 trajectory 类）|
@@ -31,5 +32,5 @@
 
 ## 校验
 
-`scripts/check-counts.sh` 自动比对真实文件数 vs 本表，CI gate。
-旧的散落数字（README「21」/ CLAUDE.md「17」/ STATUS「18」/ handbook「10」）需逐一改为引用本表。
+⚠️ **当前无自动校验**。`scripts/check-counts.sh`（自动比对真实文件数 vs 本表 + grep 散落数字一致性，CI gate）**待实现**（v3.13 P0 / 提案 R1）。
+散落的过时数字需逐一改为引用本表：README「21」实 23 / CLAUDE.md「17」实 21 / handbook §41「5-7 hook」实 10 / §42「3 sub-agent」实 5 / eval「12/28」实 36（14 可执行 + 22 trajectory）。
