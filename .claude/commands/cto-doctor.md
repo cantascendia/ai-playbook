@@ -22,12 +22,16 @@ command -v codex >/dev/null 2>&1 && echo "codex: $(codex --version)" || echo "co
 command -v claude >/dev/null 2>&1 && echo "claude: $(claude --version 2>&1 | head -1)" || echo "claude: ⚠️ headless 模式不可用"
 ```
 
-### 2. 验证 hook 文件存在
+### 2. 验证 hook 文件存在（10 个 + lib，含 5 安全红线）
 
 ```bash
 echo ""
-echo "=== Hook 文件 ==="
-for h in lib/common.sh forbidden-guard.sh bypass-guard.sh branch-guard.sh test-lock-guard.sh eval-gate.sh trajectory-logger.sh; do
+echo "=== Hook 文件（应 10 个 .sh + lib/common.sh，见 COUNTS.md）==="
+# v3.13 A2：7→10，补 immutable / destructive-action / mcp-guard（批1 安装链断裂修复对齐）
+for h in lib/common.sh \
+         immutable-guard.sh forbidden-guard.sh branch-guard.sh \
+         bypass-guard.sh destructive-action-guard.sh mcp-guard.sh \
+         test-lock-guard.sh vibe-prompt-guard.sh eval-gate.sh trajectory-logger.sh; do
   f=".claude/hooks/$h"
   if [ -f "$f" ]; then
     echo "✓ $h ($(wc -l < "$f") 行)"
@@ -35,6 +39,16 @@ for h in lib/common.sh forbidden-guard.sh bypass-guard.sh branch-guard.sh test-l
     echo "✗ $h MISSING"
   fi
 done
+
+echo ""
+echo "=== 安全红线 guard 硬检查（缺任一 = 安装失败，health 判 fail）==="
+REDLINE_FAIL=0
+for g in immutable-guard forbidden-guard branch-guard destructive-action-guard mcp-guard; do
+  [ -f ".claude/hooks/$g.sh" ] && echo "✓ 🔴 $g" || { echo "✗ 🔴 $g MISSING — 红线层残缺！"; REDLINE_FAIL=1; }
+done
+# settings.json 必须接线 mcp__.* matcher（旧示例最致命的洞）
+grep -qE 'mcp__' .claude/settings.json 2>/dev/null && echo "✓ settings.json 含 mcp__.* matcher" || { echo "✗ settings.json 无 mcp__ matcher — mcp-guard 未接线"; REDLINE_FAIL=1; }
+[ "$REDLINE_FAIL" = "1" ] && echo "🛑 安全红线不完整 → health 直接判 FAIL（不计分）"
 ```
 
 ### 3. 端到端 enforcement 测试（关键）
@@ -65,6 +79,16 @@ test_hook "bypass-guard core.hooksPath" 2 \
   "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git config core.hooksPath /dev/null\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/bypass-guard.sh"
 test_hook "bypass-guard 普通命令" 0 \
   "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls -la\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/bypass-guard.sh"
+
+# v3.13 A2：补 3 个安全红线 guard 的端到端 exit-2 测试（批1 安装链断裂的核心 guard）
+test_hook "immutable-guard CONSTITUTION" 2 \
+  "printf '%s' '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"docs/ai-cto/CONSTITUTION.md\",\"old_string\":\"x\",\"new_string\":\"y\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/immutable-guard.sh"
+test_hook "destructive-action-guard rm -rf /" 2 \
+  "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm -rf /\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/destructive-action-guard.sh"
+test_hook "mcp-guard delete_project" 2 \
+  "printf '%s' '{\"tool_name\":\"mcp__x__delete_project\",\"tool_input\":{},\"cwd\":\"$CWD\"}' | bash .claude/hooks/mcp-guard.sh"
+test_hook "mcp-guard 只读 list 放行" 0 \
+  "printf '%s' '{\"tool_name\":\"mcp__x__list_projects\",\"tool_input\":{},\"cwd\":\"$CWD\"}' | bash .claude/hooks/mcp-guard.sh"
 ```
 
 ### 4. trajectory 日志格式

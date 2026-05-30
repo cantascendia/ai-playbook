@@ -70,13 +70,24 @@ if [ -f "$BIZ_SSOT" ]; then
 else
   BIZ_PATTERN='^(src|app|lib|apps|packages)/'
 fi
-BUSINESS=$(git diff --name-only "${TARGET}~1" "${TARGET}" 2>/dev/null | run_grep -E "$BIZ_PATTERN")
+DIFF_FILES=$(git diff --name-only "${TARGET}~1" "${TARGET}" 2>/dev/null)
+BUSINESS=$(echo "$DIFF_FILES" | run_grep -E "$BIZ_PATTERN")
 
-if [ -z "$BUSINESS" ] && [ "${FORCE:-0}" != "1" ]; then
-  echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=skipped-non-business | reason=docs_or_config_only" \
+# v3.13 O4（SOTA team 审计）：安全/enforcement 相关改动必审，绝不当"non-business"跳过。
+# 旧 bug：BIZ_PATTERN 只认 src/app/lib，把 .claude/hooks（红线 guard）判 non-business →
+# v3.10–v3.12 全部安全改动自 2026-05-12 起零跨模型审 18 天。系统最核心的"跨模型防盲区"在
+# 最高风险改动上空转。修：SECURITY_PATTERN 命中即视为 review-worthy（business OR security）。
+SECURITY_PATTERN='^\.claude/hooks/|^\.claude/commands/|^\.claude/skills/|^\.agents/skills/|^scripts/|^CLAUDE\.md$|^playbook/handbook\.md$|^docs/ai-cto/CONSTITUTION\.md$|^\.claude/settings\.json$'
+SECURITY=$(echo "$DIFF_FILES" | run_grep -E "$SECURITY_PATTERN")
+
+if [ -z "$BUSINESS" ] && [ -z "$SECURITY" ] && [ "${FORCE:-0}" != "1" ]; then
+  echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=skipped-non-business | reason=docs_or_config_only_no_security" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
   exit 0
 fi
+# 记录触发原因（business / security / both）便于审计
+[ -n "$SECURITY" ] && echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=review-triggered | reason=security_relevant_change" \
+  >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
 # 3. Debounce：同 commit 不重复 review
 if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ] && \

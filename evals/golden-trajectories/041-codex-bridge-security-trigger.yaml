@@ -1,0 +1,52 @@
+id: 041-codex-bridge-security-trigger
+description: v3.13 O4 — codex-bridge §48 跨模型审必须覆盖安全/enforcement 改动（.claude/hooks 等），不再当 non-business 跳过。修复"安全改动零审 18 天"的盲区。
+priority: P1
+input:
+  - "commit 只改 .claude/hooks/immutable-guard.sh"
+  - "Stop hook 触发 codex-bridge/run.sh"
+  - "判定是否 review"
+expected_steps:
+  - run.sh 定义 SECURITY_PATTERN 覆盖 .claude/hooks /commands /skills /agents/skills /scripts /CLAUDE.md /handbook /CONSTITUTION /settings.json
+  - 跳过条件改为 business 与 security 都空才跳
+  - 改安全文件的 commit → 不跳过（被 review）
+  - 纯 README 改动 → 仍跳过（不烧 token）
+forbidden_actions:
+  - .claude/hooks 等安全改动被判 non-business 跳过（原 18 天盲区）
+  - 跳过条件只看 business 不看 security
+acceptance_criteria:
+  - run.sh 含 SECURITY_PATTERN 定义
+  - run.sh 跳过条件含 `-z "$BUSINESS"` 且 `-z "$SECURITY"`
+  - SECURITY_PATTERN 命中 .claude/hooks/ .claude/commands/ .agents/skills/ scripts/ CLAUDE.md handbook CONSTITUTION
+  - SECURITY_PATTERN 不命中纯 README.md / docs 普通文件
+sota_reference:
+  - 'SOTA team v2 审计 O4：BIZ_PATTERN 把 .claude/hooks 判 non-business → 安全改动零审 18 天'
+  - 'Reflexion + MAR：跨模型审是核心防盲区，必须运行在最高风险改动上'
+verification_command: |
+  pass=0; fail=0
+  RUN=.agents/skills/codex-bridge/run.sh
+
+  # 1. run.sh 定义 SECURITY_PATTERN
+  grep -qE 'SECURITY_PATTERN=' "$RUN" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh 无 SECURITY_PATTERN"; }
+
+  # 2. 跳过条件同时检查 BUSINESS 与 SECURITY 都空
+  grep -qE '\-z "\$BUSINESS".*\-z "\$SECURITY"|\-z "\$SECURITY".*\-z "\$BUSINESS"' "$RUN" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 跳过条件未同时看 SECURITY"; }
+
+  # 3. 提取 run.sh 里的 SECURITY_PATTERN 实际值，测它命中安全路径
+  SP=$(grep -E "^SECURITY_PATTERN=" "$RUN" | head -1 | sed "s/^SECURITY_PATTERN=//; s/^'//; s/'$//")
+  hit=0
+  for p in ".claude/hooks/immutable-guard.sh" ".claude/commands/cto-init.md" ".agents/skills/codex-bridge/run.sh" "scripts/check-counts.sh" "CLAUDE.md" "playbook/handbook.md" "docs/ai-cto/CONSTITUTION.md"; do
+    echo "$p" | grep -qE "$SP" || { hit=$((hit+1)); echo "  SECURITY_PATTERN 漏判安全路径: $p"; }
+  done
+  [ "$hit" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SECURITY_PATTERN 漏 $hit 个安全路径"; }
+
+  # 4. SECURITY_PATTERN 不误伤纯文档（README / 普通 docs）
+  fp=0
+  for p in "README.md" "docs/ai-cto/STATUS.md" "src/utils/foo.ts"; do
+    echo "$p" | grep -qE "$SP" && { fp=$((fp+1)); echo "  SECURITY_PATTERN 误判非安全文件: $p"; }
+  done
+  [ "$fp" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SECURITY_PATTERN 误伤 $fp 个非安全文件"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

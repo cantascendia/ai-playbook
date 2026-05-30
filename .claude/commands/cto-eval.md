@@ -129,14 +129,16 @@ priority: P0
 5. 验证 acceptance_criteria
 6. 输出每条 pass/fail + 详情
 
+> 实际执行：可执行类（含 `verification_command`）跑 `bash scripts/run-evals.sh` 真执行；
+> trajectory 类（无 vc）做静态可达性。**总数/可执行数见 `docs/ai-cto/COUNTS.md`，不硬编码。**
+
 ```markdown
-## Eval Run 报告
+## Eval Run 报告（v3.12 两层）
 
-总计：12 条
-通过：10 ✅
-失败：2 ❌
+可执行类（run-evals.sh 真跑）：[N] 条 → [N] PASS / [M] FAIL
+trajectory 类（静态可达性）：[K] 条 → [可达]/[partial]
 
-### 失败详情
+### 失败详情（可执行类，硬信号）
 - 003-refactor: 实际改了 8 个文件，超过 acceptance_criteria（≤ 5）
 - 005-spec-driven: 触发了 forbidden_action（直接 commit main）
 

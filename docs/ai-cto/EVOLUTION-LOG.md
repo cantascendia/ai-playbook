@@ -122,3 +122,20 @@ Month | Patterns Detected | Patterns Applied | Cost (codex token cents) | Notes
 **飞轮价值实证**：真 executor 第一次跑就抓到我上一版（v3.11）引入的安全回归。
 若 eval 一直是空壳（count yaml），这个 `\n`→空格的 forbidden 比对破坏永远不会被发现。
 = AlphaEvolve「fitness 必须真执行才有意义」的工程化验证。
+
+---
+
+## 2026-05-30 v3.13 批2 — 飞轮诚实降级（R4）+ 防漂移
+
+**触发**：SOTA team v2 审计（R4）+ 用户"继续批2"。飞轮 applied=0 全 bootstrap，从未自动产 proposal。
+
+**诚实定位（不再当"已交付自治能力"）**：
+- 飞轮 = **人在环 detect 辅助（bootstrap）**，非自动 propose/apply 闭环。
+- 自动 propose 激活条件：累计 trajectory ≥ 200 + 用户显式 `/cto-evolve enable`。未达前 detect 只产报告供人决策。
+- **不接 CI claude -p**（CI 内无 agent-logs 数据源，信号质量低 + 真实 API 成本）。
+- **保留** cost-cap/budget 脚手架（删除收益为零，为未来真吞吐量铺路）。
+- 子项目默认不分发飞轮（属 advanced，仅主仓 full 档自用）。
+
+cto-evolve.md 加"当前成熟度"块 + status 仪表盘显示激活阈值进度。
+
+> 本条记录飞轮自己的诚实降级——这恰是飞轮设计哲学（Constitution-anchored + 防 eval-gaming）作用在飞轮自身的体现。

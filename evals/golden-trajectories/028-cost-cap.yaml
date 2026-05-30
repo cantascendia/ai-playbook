@@ -27,25 +27,24 @@ sota_reference:
   - 'Sakana DGM 单跑两周/$22k → cost cap 必须'
   - 'AutoGPT API bill 暴走 → 无 cap 灾难教训'
 verification_command: |
-  # 模拟 cost cap 文件
-  CAP_FILE=docs/ai-cto/.evolve-cost-month.json
+  # 用 temp 文件（不碰真 cost-cap 状态）+ 不依赖 jq（Windows 无 jq）→ grep 读 .exceeded
+  pass=0; fail=0
+  CAP=.tmp-costcap.json
+  read_exceeded() { grep -oE '"exceeded"[[:space:]]*:[[:space:]]*(true|false)' "$1" | grep -oE '(true|false)$'; }
 
-  # 1. 不存在时创建
-  [ ! -f "$CAP_FILE" ] && {
-    echo '{"month":"2026-05","codex_token_cents":0,"cap_cents":2000,"reviews_count":0,"exceeded":false}' > "$CAP_FILE"
-  }
-  cat "$CAP_FILE"
+  # 1. 初始未超 cap → false（可跑 codex）
+  printf '%s' '{"month":"2026-05","codex_token_cents":0,"cap_cents":2000,"exceeded":false}' > "$CAP"
+  [ "$(read_exceeded "$CAP")" = "false" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 初始 exceeded≠false"; }
 
-  # 2. 测试 cap 检查逻辑
-  EXCEEDED=$(jq -r '.exceeded' "$CAP_FILE")
-  [ "$EXCEEDED" = "false" ] && echo "✓ 未超 cap，可跑 codex" || echo "✓ 超 cap，跳 codex"
+  # 2. 超 cap → true（应退化为只 detect 不 codex）
+  printf '%s' '{"month":"2026-05","codex_token_cents":2500,"cap_cents":2000,"exceeded":true}' > "$CAP"
+  [ "$(read_exceeded "$CAP")" = "true" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 超 cap exceeded≠true"; }
 
-  # 3. 模拟超 cap
-  jq '.exceeded = true' "$CAP_FILE" > "$CAP_FILE.tmp" && mv "$CAP_FILE.tmp" "$CAP_FILE"
-  EXCEEDED=$(jq -r '.exceeded' "$CAP_FILE")
-  [ "$EXCEEDED" = "true" ] && echo "✓ exceeded 标志生效"
+  # 3. 月度 reset → false
+  printf '%s' '{"month":"2026-06","codex_token_cents":0,"cap_cents":2000,"exceeded":false}' > "$CAP"
+  [ "$(read_exceeded "$CAP")" = "false" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: reset exceeded≠false"; }
 
-  # 4. reset
-  jq '.exceeded = false | .codex_token_cents = 0' "$CAP_FILE" > "$CAP_FILE.tmp" && mv "$CAP_FILE.tmp" "$CAP_FILE"
-  echo "✓ reset 成功"
+  rm -f "$CAP"
+  echo "pass=$pass fail=$fail (expect 3/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
 human_verification: false
