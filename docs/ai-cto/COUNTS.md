@@ -14,8 +14,8 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **47** | `evals/golden-trajectories/*.yaml`（001-047；023-047 含 `verification_command` 真执行，001-022 trajectory 类）|
-| eval 可执行类 | **25** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12+v3.13）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
+| evals | **48** | `evals/golden-trajectories/*.yaml`（001-048；023-048 含 `verification_command` 真执行，001-022 trajectory 类）|
+| eval 可执行类 | **26** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12+v3.13）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
 | learned-rules | **4** | `.claude/rules/learned/*.md`（active；archived 见 archived/）|
 | handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
