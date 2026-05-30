@@ -3434,15 +3434,23 @@ grep -q "CLAUDE_TOOL_INPUT" .claude/settings.json && echo "⚠️ v3.7 silent ho
 
 ## 42. Sub-agents 实战（落地手册 §39 多代理设计）
 
-> ai-playbook 自身实施了 3 个专属 sub-agent（`.claude/agents/*.md`），把手册的"多代理编排"从设计落地为可程序化调用的工具。
+> ai-playbook 自身实施了 **5** 个专属 sub-agent（`.claude/agents/*.md`，计数权威源 COUNTS.md），把手册的"多代理编排"从设计落地为可程序化调用的工具。
 
-### 42.1 三个 sub-agent 职责矩阵
+### 42.1 五个 sub-agent 职责矩阵
+
+> 🔴 v3.13 修正：此前只列 3 个（漏 pattern-detector / reliability-auditor）。模型路由按"任务类型"分级
+> （A7）：深度推理 → opus；rubric/检查清单应用 → sonnet（opus 过度）；关键词/marker 扫描 → haiku。
 
 | Sub-agent | 模型 | 工具 | 触发场景 | 与 slash 的关系 |
 |---|---|---|---|---|
-| **harness-auditor** | opus | Read/Glob/Grep | PR 合并前 / 月度审计 | 程序化入口；slash `/cto-harness-audit` 是人工触发 |
-| **eval-runner** | sonnet | Read/Bash | 改 commands/agents/skills/CLAUDE.md 后回归 | 包装 `/cto-eval run` 并行执行 |
-| **vibe-checker** | haiku | Read/Grep/Bash | UserPromptSubmit hook 报警后深度审计 | hook 做关键词检测，sub-agent 做全量 |
+| **harness-auditor** | sonnet | Read/Glob/Grep | PR 合并前 / 月度审计 | rubric 评分（§34 八原则）→ sonnet 够用，opus 过度 |
+| **reliability-auditor** | sonnet | Read/Glob/Grep | 月度 SLO / 季度 fallback 演练 | ARE 检查清单应用 → sonnet |
+| **pattern-detector** | sonnet | Read/Glob/Grep/Bash | 飞轮 detect（§50）| 从 log 抽 pattern，需轻推理 → sonnet |
+| **eval-runner** | sonnet | Read/Bash | 改 commands/agents/skills/CLAUDE.md 后回归 | 包装 run-evals.sh 并行执行 |
+| **vibe-checker** | haiku | Read/Grep/Bash | UserPromptSubmit hook 报警后深度审计 | 关键词/marker 扫描 → haiku 够用 |
+
+> 成本：worker 用便宜模型省 40–60%（研究：多 agent 15× token overhead）。harness/reliability-auditor
+> 从 opus 降 sonnet 是本次 A7 优化——它们是 rubric 应用不是深度推理，sonnet 质量足够。
 
 ### 42.2 文件位置约定
 
@@ -3490,18 +3498,44 @@ Task(
 ```
 Planner（规划层）  →  Claude Code 主线 + /cto-spec
 Generator（生成层） →  Claude Code 主线（编码）
-Evaluator（评估层） →  harness-auditor + vibe-checker + eval-runner ← 这里
+Evaluator（评估层） →  harness-auditor + reliability-auditor + pattern-detector + vibe-checker + eval-runner ← 这里
 Validator（验证层） →  CI/CD pipeline + /cto-release
 ```
 
-3 个 sub-agent 全部位于 **Evaluator 层**，构成"机器化质检"主链。
+5 个 sub-agent 全部位于 **Evaluator 层**，构成"机器化质检"主链。
 
-### 42.6 CTO 职责
+### 42.6 Build Packet — sub-agent 返回结构化契约（v3.13 A7）
 
-- 第零轮：复制 ai-playbook 的 3 个 sub-agent 到目标项目（如目标项目需要程序化质检）
+> 问题：sub-agent 若把整个 trajectory / 长篇 prose 写回主线（或 REVIEW-QUEUE），会污染父 context
+> （研究：多 agent 15× token overhead 的主因之一）。**强制结构化返回 + token 上限**。
+
+每个 sub-agent 最终返回**只**应是这个 packet（≤ 1000–2000 tokens）：
+
+```json
+{
+  "id": "harness-auditor-2026-05-30",
+  "summary": "≤ 500 tokens 的结论摘要（不是过程）",
+  "findings": [
+    { "severity": "critical|major|minor", "location": "文件:行 / §章节", "description": "一句话" }
+  ],
+  "verdict": "pass | fail | needs-human",
+  "score": 0
+}
+```
+
+- **summary ≤ 500 tokens**：是结论不是过程；过程留在 sub-agent 自己的 context（用完即弃）。
+- **findings 带 location**：可定位，不是空泛评价。
+- **verdict**：父线据此决策；`needs-human` 触发人审，不自行 merge。
+- **禁止**：把 `git show` 全 diff / 完整文件内容 / 多轮思考过程写进返回。父线要细节自己去读源。
+- 与 §48 一致：cross-review 也按此 packet 回写 REVIEW-QUEUE，不灌全文。
+
+### 42.7 CTO 职责
+
+- 第零轮：按 §49 档位决定是否复制 sub-agent 到目标项目（advanced，minimal 档可不装）
 - 创建新 sub-agent 前先问：能否用 slash command + hook 解决？
 - 出现 sub-agent 互调 / 跨权限调用 → 立即审视边界设计
 - 每月：审视 sub-agent 调用频次，识别该合并 / 拆分的 agent
+- 模型路由：深度推理 opus / rubric 应用 sonnet / 关键词扫描 haiku（§42.1）
 
 ---
 

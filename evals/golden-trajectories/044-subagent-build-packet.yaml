@@ -1,0 +1,47 @@
+id: 044-subagent-build-packet
+description: v3.13 A7 — handbook §42 列全 5 个 sub-agent（修漏 pattern/reliability）+ 定义 Build Packet 结构化返回契约（防 sub-agent 污染父 context）+ 模型按任务分级（rubric 类 sonnet 非 opus）。
+priority: P2
+input:
+  - "Task 调 sub-agent 返回结果"
+  - "§42 查 sub-agent 矩阵 + 模型路由"
+expected_steps:
+  - §42 矩阵列全 5 个 sub-agent
+  - 定义 Build Packet schema（id/summary≤500/findings/verdict）+ token 上限
+  - harness-auditor / reliability-auditor model = sonnet（rubric 应用非深度推理）
+  - 禁止 sub-agent 把全 diff/全文写回父线
+forbidden_actions:
+  - §42 只列 3 个 sub-agent（漏 pattern-detector/reliability-auditor）
+  - sub-agent 无结构化返回契约（污染父 context）
+  - rubric 类 sub-agent 用 opus（过度）
+acceptance_criteria:
+  - handbook §42 含 Build Packet + summary token 上限
+  - §42 列 5 个 sub-agent（pattern-detector + reliability-auditor 都在）
+  - harness-auditor.md / reliability-auditor.md model 为 sonnet
+sota_reference:
+  - 'SOTA team v2 审计 A7：多 agent 15× token overhead，worker 便宜模型省 40-60% + 结构化 handoff'
+  - 'Anthropic 多 agent 研究系统：orchestrator-worker + 摘要回传'
+verification_command: |
+  pass=0; fail=0
+  HB=playbook/handbook.md
+
+  # 1. §42 含 Build Packet + token 上限
+  grep -qE 'Build Packet' "$HB" && grep -qE 'summary.*500|≤ *500' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §42 缺 Build Packet 或 token 上限"; }
+
+  # 2. §42 列全 5 个 sub-agent
+  miss=0
+  for a in harness-auditor reliability-auditor pattern-detector eval-runner vibe-checker; do
+    grep -qE "\*\*$a\*\*|$a" "$HB" || { miss=$((miss+1)); echo "  §42 漏 $a"; }
+  done
+  [ "$miss" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §42 漏 $miss 个 sub-agent"; }
+
+  # 3. harness-auditor + reliability-auditor model = sonnet
+  { grep -qE '^model: sonnet' .claude/agents/harness-auditor.md && grep -qE '^model: sonnet' .claude/agents/reliability-auditor.md; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: rubric 类 sub-agent 未降为 sonnet"; }
+
+  # 4. Build Packet 禁止全文回写（含 verdict 字段）
+  grep -qE '"verdict"|verdict.*pass.*fail.*needs-human' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Build Packet 缺 verdict 契约"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

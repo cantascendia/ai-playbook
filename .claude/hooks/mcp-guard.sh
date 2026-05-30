@@ -9,6 +9,11 @@
 # OWASP Agentic Top 10 (2026) ASI04(供应链) + ASI06(memory) + Least-Agency 原则。
 #
 # 接线：settings.json PreToolUse matcher "mcp__.*"（match 所有 MCP 工具）
+#
+# v3.13 A4（PoC 否决）：**不**在此扫"MCP 工具 description 投毒"。PreToolUse stdin 只含
+# tool_input（调用参数），不含工具注册时的 description 元数据 → hook 层扫描是 no-op = 虚假安全。
+# description 投毒须在 注册/manifest 层（签名校验）或外部 mcp-scan 防御。
+# 详见 .claude/rules/learned/2026-05-30-mcp-description-poison-not-in-hook-stdin.md
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"

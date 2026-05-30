@@ -161,6 +161,24 @@ accessibility-checklist, release-readiness, codex-bridge。
 
 根据检测结果，预填 CLAUDE.md 的 `技术栈` 和 `构建和测试` 区域。
 
+### 4.5 MCP token 税审计（v3.13 A6）
+
+> 研究：5–10 个 MCP server 环境，第一次输入前就消耗 **50k–143k tokens**（单工具 schema 500–820 tokens）。
+> §4.3 已有 ToolSearch 延迟加载策略，但 cto-init 此前未量化 MCP 税。规模化（27+ 项目）影响显著。
+
+扫目标项目 `.mcp.json` + `.claude/settings.json` 的 `enabledMcpjsonServers`：
+
+```bash
+# 列已启用的 MCP server（这些会预加载所有工具 schema 进 context）
+ENABLED=$(grep -oE '"enabledMcpjsonServers"[^]]*\]' "$TARGET/.claude/settings.json" 2>/dev/null)
+MCP_COUNT=$(grep -oE '"[a-zA-Z0-9_-]+"' "$TARGET/.mcp.json" 2>/dev/null | wc -l)
+```
+
+- 若 `enabledMcpjsonServers` 非空且 server ≥ 3 → 提示："预计 MCP schema 预加载约 [N×600] tokens。
+  建议：低频 MCP 从 `enabledMcpjsonServers` 移除，改用 `ToolSearch` 按需加载（§4.3，官方 ~85% 节省）。"
+- 默认建议：`enabledMcpjsonServers: []`（全部走 ToolSearch），仅高频 server 显式启用。
+- 写入安装报告的"MCP token 税"一节。
+
 ### 5. 输出安装报告
 
 ```

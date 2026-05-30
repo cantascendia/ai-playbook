@@ -1,0 +1,54 @@
+id: 045-skill-single-source
+description: v3.13 O9 — 5 个跨平台 skill 单源同步（.claude/skills 为 SSOT，sync-skills.sh --check 守一致）+ skill description 质量（非空、含触发语义），防字节级双写漂移。
+priority: P2
+input:
+  - "改 .claude/skills/<name>/SKILL.md 后同步到 .agents/skills"
+  - "CI 跑 sync-skills.sh --check"
+expected_steps:
+  - sync-skills.sh 存在，--check 模式比对 5 个跨平台 skill
+  - .claude/skills 为唯一源，.agents/skills 是镜像
+  - 当前两侧一致 → exit 0
+  - skill description 非 trivial（含做什么/何时触发）
+forbidden_actions:
+  - 5 跨平台 skill 字节级双写无校验（drift 等待发生）
+  - skill description 过短无法路由（< 触发语义）
+acceptance_criteria:
+  - scripts/sync-skills.sh 存在
+  - sync-skills.sh --check 当前 exit 0（5/5 一致）
+  - 5 个跨平台 skill 两侧字节级相同
+  - 每个 .claude/skills SKILL.md description 长度合理（含触发语义）
+sota_reference:
+  - 'SOTA team v2 审计 O9 + EVOLUTION-PROPOSAL #14：5 skill 字节级双写无同步'
+  - 'SkillReducer：< 20 token description = broken routing'
+verification_command: |
+  pass=0; fail=0
+  SS=scripts/sync-skills.sh
+
+  # 1. 脚本存在
+  [ -f "$SS" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: sync-skills.sh 不存在"; }
+
+  # 2. --check 当前一致
+  bash "$SS" --check >/dev/null 2>&1 && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: sync-skills --check 报漂移"; }
+
+  # 3. 5 个跨平台 skill 字节级相同
+  d=0
+  for s in accessibility-checklist design-system-enforcement i18n-enforcement release-readiness ux-quality-checklist; do
+    diff -q ".claude/skills/$s/SKILL.md" ".agents/skills/$s/SKILL.md" >/dev/null 2>&1 || { d=$((d+1)); echo "  漂移: $s"; }
+  done
+  [ "$d" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $d 个 skill 两侧不一致"; }
+
+  # 4. description 质量：每个 .claude/skills SKILL.md frontmatter description ≥ 30 字符
+  #    （处理 YAML block scalar `description: >` 多行 — 累计到下一个顶层 key / --- 为止）
+  short=0
+  for f in .claude/skills/*/SKILL.md; do
+    DLEN=$(awk '
+      /^description:/ { g=1; line=$0; sub(/^description:[[:space:]]*>?[[:space:]]*/,"",line); buf=line; next }
+      g { if ($0 ~ /^[a-zA-Z_-]+:/ || $0 ~ /^---/) { exit } buf=buf $0 }
+      END { gsub(/[[:space:]]/,"",buf); print length(buf) }
+    ' "$f")
+    [ "${DLEN:-0}" -ge 30 ] || { short=$((short+1)); echo "  description 过短: $(basename $(dirname $f)) (${DLEN:-0} 字符)"; }
+  done
+  [ "$short" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $short 个 skill description 过短"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
