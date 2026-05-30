@@ -1,0 +1,54 @@
+id: 047-guard-regex-single-source
+description: v3.13 O7 — destructive-SQL 核心 + forbidden fallback 正则单源到 common.sh，各 guard compose，防多 guard 各写一份漂移（learned rule 2026-05-12 单 sweep）。
+priority: P1
+input:
+  - "destructive-action-guard 扫 Bash 命令"
+  - "mcp-guard 扫 execute_sql 参数"
+  - "forbidden-guard / mcp-guard / codex-bridge fallback"
+expected_steps:
+  - common.sh 定义 forbidden_fallback_pattern() + destructive_sql_core()
+  - destructive-action-guard DB_PATTERNS = core + shell 外壳
+  - mcp-guard DESTRUCTIVE_SQL = core + UPDATE-no-WHERE
+  - 三处 forbidden fallback 都用 forbidden_fallback_pattern（codex-bridge 修全）
+forbidden_actions:
+  - 多 guard 各写一份 SQL/forbidden 正则（漂移风险）
+  - codex-bridge fallback 缺 billing/keys/terraform/.github（旧 bug）
+  - 单源后行为变化（DROP/TRUNCATE/forbidden 漏拦）
+acceptance_criteria:
+  - common.sh 含 forbidden_fallback_pattern + destructive_sql_core
+  - destructive-action-guard / mcp-guard 用 destructive_sql_core（不再内联 DROP 正则）
+  - forbidden-guard / mcp-guard 用 forbidden_fallback_pattern
+  - codex-bridge fallback 含完整 forbidden 路径（billing/keys/terraform/.github）
+sota_reference:
+  - 'SOTA team v2 审计 O7 + learned rule 2026-05-12：共同模式发现一处必须全 sweep'
+verification_command: |
+  pass=0; fail=0
+  CM=.claude/hooks/lib/common.sh
+
+  # 1. common.sh 定义两个单源函数
+  grep -qE 'forbidden_fallback_pattern\(\)' "$CM" && grep -qE 'destructive_sql_core\(\)' "$CM" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: common.sh 缺单源函数"; }
+
+  # 2. destructive-action-guard + mcp-guard 用 destructive_sql_core（不再各写 DROP 正则）
+  { grep -qE 'destructive_sql_core' .claude/hooks/destructive-action-guard.sh \
+    && grep -qE 'destructive_sql_core' .claude/hooks/mcp-guard.sh; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SQL 核心未单源化"; }
+
+  # 3. forbidden-guard + mcp-guard 用 forbidden_fallback_pattern
+  { grep -qE 'forbidden_fallback_pattern' .claude/hooks/forbidden-guard.sh \
+    && grep -qE 'forbidden_fallback_pattern' .claude/hooks/mcp-guard.sh; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden fallback 未单源化"; }
+
+  # 4. codex-bridge fallback 含完整 forbidden 路径（修旧 bug：曾漏 billing/keys/terraform/.github）
+  RUN=.agents/skills/codex-bridge/run.sh
+  grep -qE 'forbidden_fallback_pattern' "$RUN" && grep -qE 'billing.*keys.*terraform|\.github/workflows' "$RUN" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: codex-bridge fallback 仍不完整/未单源"; }
+
+  # 5. 单源后行为不变：destructive 仍拦 DROP/TRUNCATE，mcp SELECT 放行
+  p2=0
+  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"TRUNCATE t"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || p2=$((p2+1))
+  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && p2=$((p2+1))
+  [ "$p2" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 单源后 SQL 行为变化 (p2=$p2)"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
