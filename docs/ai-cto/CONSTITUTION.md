@@ -37,7 +37,7 @@ ai-playbook 是 **AI-native CTO 闭环指挥系统** — 让 Claude Code + Antig
 ## 质量宪法
 
 1. **Health Score ≥ 90**（v3.9 现状 94/100）
-2. **Eval pass rate ≥ 90%**（28 条 golden trajectory）
+2. **Eval pass rate ≥ 90%**（可执行类全 pass；数量见 `docs/ai-cto/COUNTS.md`）
 3. **Test coverage**：核心 hooks 必须有端到端 eval
 4. **Codex dogfood**：每个 PR 必跑 §48 跨模型审
 5. **Failure budget**：连续 3 周相同 pattern 未采纳 → P0 升级人审
