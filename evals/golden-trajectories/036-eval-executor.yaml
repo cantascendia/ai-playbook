@@ -64,5 +64,15 @@ verification_command: |
   { echo "$NOUT" | grep -q 'SKIP  zzz-tmp-nomark' && ! echo "$NOUT" | grep -q 'PASS  zzz-tmp-nomark'; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无断言标记被误判 PASS（O5 漏洞复发）"; }
 
-  echo "pass=$pass fail=$fail (expect 5/0)"
+  # 6. v3.13 A5：runaway vc 被 timeout 拦（EVAL_TIMEOUT=2 + sleep 5 → FAIL，不卡死）
+  if command -v timeout >/dev/null 2>&1; then
+    printf 'id: zzz-tmp-slow\ndescription: tmp\nverification_command: |\n  sleep 5\n  echo PASS\n' > "$TMPDIR/zzz-tmp-slow.yaml"
+    TOUT=$(EVAL_TIMEOUT=2 bash "$RUNNER" zzz-tmp-slow 2>&1)
+    rm -f "$TMPDIR/zzz-tmp-slow.yaml"
+    echo "$TOUT" | grep -qE 'timeout|FAIL  zzz-tmp-slow' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: runaway vc 未被 timeout 拦"; }
+  else
+    pass=$((pass+1))  # 无 timeout 命令的环境跳过此项（不算失败）
+  fi
+
+  echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

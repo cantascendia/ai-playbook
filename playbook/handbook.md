@@ -2910,6 +2910,10 @@ jobs:
 
 ## 38. Agent Loop 模式（执行循环范式）
 
+> 📚 **§38–§40 = advanced 综述参考（v3.13 D3 标注）**：Agent Loop 六范式 / Multi-Agent 四范式 /
+> Pair Programming 三模式是 SOTA 教材性对照，**无 enforcement 钩子**。按 §49 分层分发：
+> **不随子项目分发**（属 advanced，主仓 full 档保留 + 按需 WebFetch）。子项目只需 §41 红线层 + 核心命令。
+
 > 单一模式已过时。生产 agent 系统是 **hybrid**：高层 planner + 低层执行者 + 关键节点自评。
 
 ### 38.1 六大主流模式对照
@@ -3839,6 +3843,11 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
 
 > 把 agent 流程接入 CI/CD：PR 合并不只是 lint + test，还要过 eval gate 和 LLM-as-Judge 评分。这是铁律 #12（无 eval 不进 main）真正落地的工程实施。
 
+> 🔴 **LLM-as-Judge 是"建议"不是"阻断"（v3.13 D4 标注）**：2026 业界共识 — LLM judge 可被 prompt
+> injection 操纵，**不能作单一防线**。本手册所有 LLM judge（§47 评分 / §48 八维 cross-review /
+> 017-ci-judge / cto-review）的输出是**建议性证据**，供人决策参考；**真正的合并阻断权只在确定性
+> hook（exit 2）+ 可执行 eval（run-evals.sh FAIL → exit 1）+ 人 merge**。绝不让 LLM 评分单独 gate merge。
+
 ### 47.1 三种模式
 
 **模式 A：Eval Gate**（推荐起步）
@@ -4104,6 +4113,45 @@ BUSINESS=$(git diff --name-only ...| grep -E "$BIZ_PATTERN")
 - §32 双签机制 → 本章是 Codex 自动审一遍，仍需人审才合并（Codex 不是双签的"第二人"）
 - §47 LLM-as-Judge → 本章可作为 Judge 的辅助证据
 - §35 EDD → review 反馈可固化为新 golden trajectory
+
+---
+
+## 49. 分层分发与子项目适配（Layered Distribution — v3.13）
+
+> SOTA team v2 审计（2026-05-30）核心战略结论：这套系统对"ai-playbook 自身研发"先进，
+> 但作为"装进任意子项目的标准件"**过重**——真正的过度工程不是某个组件，而是
+> **"不区分 self vs subproject 就全量分发一切"** 这个策略本身。本节文档化 v3.13 的分层修复。
+> （本节同时填补 §49 编号空洞——自称查章节一致性的系统不该留缺号。）
+
+### 49.1 分发档位
+
+| 档位 | 给谁 | 装什么 |
+|---|---|---|
+| **minimal** | 刚起步 / 小项目 / 只要安全护栏 | **全部 hooks（红线层强制）** + CLAUDE.md + settings.json + 核心 8 命令 + 5 enforcement skills + scripts SSOT |
+| **full**（默认，向后兼容） | 深度使用 / 多平台 | minimal + 全部 advanced 命令 + 全部 .agents/skills（跨平台） |
+
+`/cto-init <路径> [--profile=minimal|full]`（§29 + cto-init.md）。小项目推荐显式 `minimal`。
+
+### 49.2 不可省 vs 可选
+
+- 🔴 **安全红线全档强制**：immutable / forbidden / branch / destructive-action / mcp-guard——
+  靠 `cp -r .claude/hooks/` **整目录复制**，漏装结构上不可能（修 v3.13 P0 安装链断裂）。
+- ⚪ **advanced opt-in**：飞轮（§50，子项目默认不装）/ canary（§45）/ replay（§44）/
+  三平台 Antigravity·Codex 配置 / §38-§40 综述章节 / ARE（§43）—— 按需启用，不压垮小项目。
+
+### 49.3 self vs subproject 检测
+
+hook 运行时自动判别（immutable-guard `IS_AI_PLAYBOOK_SELF`：含 `playbook/handbook.md` §50 = 主仓）：
+- **主仓**：守 CLAUDE.md 14 铁律段 / handbook §32-§35 / CONSTITUTION / forbidden SSOT。
+- **子项目**：CLAUDE.md 是项目级配置（守 CONSTITUTION 若存在 + forbidden SSOT 删除），
+  主仓专用守护段 no-op（learned rule 2026-05-12：装到子项目别被自己拦）。
+- 强制覆盖：`CTO_IS_SUBPROJECT=1` / `CTO_IS_AI_PLAYBOOK_SELF=1`。
+
+### 49.4 与其他章节
+
+- §29 安装/迁移 → 本节是"装多少"的分层策略
+- §41 hooks → 红线层是分发的不可省核心
+- §50 飞轮 → advanced，子项目默认不分发
 
 ---
 

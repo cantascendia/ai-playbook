@@ -1,0 +1,43 @@
+id: 043-precommit-eval-gate
+description: v3.13 A3 — install-pre-commit.sh 生成的 pre-commit hook 含铁律#12 本地 gate（改 agent 配置无 evals 配套 → 警告/STRICT 阻止），补本地 commit 层硬约束（此前仅 PR eval.yml 兜底，直接 push 可绕过）。
+priority: P2
+input:
+  - "bash scripts/install-pre-commit.sh 装 hook"
+  - "git commit 改了 .claude/commands 但无 evals/"
+expected_steps:
+  - 生成的 hook 检查 staged config 文件 vs evals/ 配套
+  - 无配套 → 警告（默认）/ STRICT 阻止
+  - 带 opt-out CTO_EVAL_GATE_ACK / STRICT 开关
+  - 仍异步触发 §48 codex-bridge
+forbidden_actions:
+  - 生成的 hook 无铁律#12 检查（直接 push 绕过 eval gate）
+  - 默认就硬阻止 commit（破坏用户流，应默认警告）
+acceptance_criteria:
+  - install-pre-commit.sh 生成的 hook 含 staged config vs evals 检查
+  - 含铁律#12 / §35 引用
+  - 含 STRICT + ACK opt-out 机制
+  - 仍保留 §48 codex-bridge 触发
+sota_reference:
+  - 'SOTA team v2 审计 A3：铁律#12 仅 PR 兜底，直接 push 可绕过'
+verification_command: |
+  pass=0; fail=0
+  IPC=scripts/install-pre-commit.sh
+
+  # 1. 生成的 hook 含 staged config vs evals 检查
+  grep -qE 'git diff --cached --name-only' "$IPC" && grep -qE 'evals/' "$IPC" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 staged-vs-evals 检查"; }
+
+  # 2. 含铁律#12 / §35 引用
+  grep -qE '铁律 #12|无 eval 不进 main|§35' "$IPC" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无铁律#12 引用"; }
+
+  # 3. 含 STRICT + ACK opt-out
+  grep -qE 'CTO_EVAL_GATE_STRICT' "$IPC" && grep -qE 'CTO_EVAL_GATE_ACK' "$IPC" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 STRICT/ACK 机制"; }
+
+  # 4. 仍保留 §48 codex-bridge 触发
+  grep -qE 'codex-bridge/run.sh' "$IPC" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 丢了 §48 触发"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

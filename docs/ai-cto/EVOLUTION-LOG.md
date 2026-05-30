@@ -45,8 +45,13 @@
 ```
 Month | Patterns Detected | Patterns Applied | Cost (codex token cents) | Notes
 ------|-------------------|------------------|--------------------------|------
-2026-05 | 0 | 0 | 0 | Bootstrap
+2026-05 | 18 (SOTA team v2 提案: keep7/opt11/redo4/add8/drop4) | 12 (v3.12 + v3.13 批1/批2: O1/O2/O3/O4/O5/O8/R1/R2/R4/A2 等) | ~0 (codex 订阅 auth，非 API 计费) | bootstrap：均为人触发 detect + 人决策，非自动 propose
 ```
+
+> 回填说明（v3.13 O11）：此前为 `0|0|0` 占位（飞轮 applied=0 的诚实反映）。实际"进化"
+> 由 multi-agent team 审计（人触发）+ 人决策驱动，非自动 propose 闭环——见 §50 / cto-evolve
+> "成熟度"声明。Detected=团队提案条目，Applied=已落地修复，Cost≈0（codex 走订阅 auth）。
+> FP 率：本轮 SOTA team 1 条 refuted / 8 验证 ≈ 12.5%（< SLO 30% 目标）。
 
 ## 与其他文件关系
 

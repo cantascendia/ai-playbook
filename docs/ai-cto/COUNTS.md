@@ -14,11 +14,11 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **41** | `evals/golden-trajectories/*.yaml`（001-041；023-041 含 `verification_command` 真执行，001-022 trajectory 类）|
-| eval 可执行类 | **19** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12+v3.13）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
+| evals | **43** | `evals/golden-trajectories/*.yaml`（001-043；023-043 含 `verification_command` 真执行，001-022 trajectory 类）|
+| eval 可执行类 | **21** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12+v3.13）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
 | learned-rules | **4** | `.claude/rules/learned/*.md`（active；archived 见 archived/）|
-| handbook 章节 | **§1-§50**（§49 缺号，待补/重编）| `playbook/handbook.md`（4287 行）|
+| handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
 | 已部署项目 | **27** | nilou-network 6 + 其他 21 |
 
 ## 版本
