@@ -4162,9 +4162,13 @@ BUSINESS=$(git diff --name-only ...| grep -E "$BIZ_PATTERN")
 | 档位 | 给谁 | 装什么 |
 |---|---|---|
 | **minimal** | 刚起步 / 小项目 / 只要安全护栏 | **全部 hooks（红线层强制）** + CLAUDE.md + settings.json + 核心 8 命令 + 5 enforcement skills + scripts SSOT |
-| **full**（默认，向后兼容） | 深度使用 / 多平台 | minimal + 全部 advanced 命令 + 全部 .agents/skills（跨平台） |
+| **full**（默认，向后兼容） | 深度使用 / 需飞轮·设计·发布全套 | minimal + 全部 advanced 命令 |
 
-`/cto-init <路径> [--profile=minimal|full]`（§29 + cto-init.md）。小项目推荐显式 `minimal`。
+**平台范围（v3.13 Q3）**：默认**只分发 Claude Code**（绝大多数装机项目只用 Claude Code，三平台对称会让 AG/Codex 配置成死重）。
+Antigravity/Codex 显式 opt-in：`--with-codex`（+ codex-bridge §48 + AGENTS.md）/ `--with-antigravity`（+ GEMINI.md）。
+`.agents/skills` 跨平台镜像仅 opt-in 时装（与 `.claude/skills` 重复，Claude-only 无需）。
+
+`/cto-init <路径> [--profile=minimal|full] [--with-codex] [--with-antigravity]`（§29 + cto-init.md）。小项目推荐 `minimal`。
 
 ### 49.2 不可省 vs 可选
 

@@ -24,10 +24,24 @@ disable-model-invocation: false
 | 档位 | 给谁 | 装什么 |
 |---|---|---|
 | **minimal** | 刚起步 / 小项目 / 只想要安全护栏 | **全部 hooks**（红线层，强制）+ CLAUDE.md + settings.json + 核心 8 命令（start/resume/spec/review/release/vibe-check/doctor/constitution）+ 5 个 enforcement skills + scripts SSOT |
-| **full**（默认，向后兼容） | 深度使用 / 多平台 / 需要飞轮·设计·发布全套 | minimal 的一切 + 全部 advanced 命令（canary/replay/image/design/models/cross-review/evolve/skills/harness-audit/audit/link）+ 全部 .agents/skills |
+| **full**（默认，向后兼容） | 深度使用 / 需要飞轮·设计·发布全套 | minimal 的一切 + 全部 advanced 命令（canary/replay/image/design/models/cross-review/evolve/skills/harness-audit/audit/link）|
 
 **铁律（任何档位都不可省）**：`.claude/hooks/` **整目录复制**——10 个红线 guard 一个都不能漏（见下 §3d）。
 缺省 `--profile`：默认 `full`（不破坏现有安装流）。新/小项目**推荐显式 `--profile=minimal`**。
+
+### 平台范围（v3.13 Q3 — 默认只 Claude Code，AG/Codex opt-in）
+
+> 战略决策（2026-05-30）：绝大多数装机项目**只用 Claude Code**。三平台对称分发会让 Antigravity/Codex
+> 配置成为死重。故**默认只分发 Claude Code 配置**（含 §48 codex-bridge 也不默认装），AG/Codex 显式 opt-in：
+
+| 平台 flag | 额外装 |
+|---|---|
+| （默认，无 flag） | 仅 Claude Code：`.claude/*` + CLAUDE.md + scripts。**不**装 `.agents/skills`（跨平台 skill 与 `.claude/skills` 重复） |
+| `--with-codex` | + `.agents/skills/codex-bridge`（§48 跨模型 review，需 codex CLI）+ `templates/AGENTS.md` → 目标 `AGENTS.md` |
+| `--with-antigravity` | + `templates/GEMINI.md` → 目标 `GEMINI.md`（+ `.agents/rules/` 若存在） |
+
+> 注：5 个跨平台 skill（accessibility/i18n/design-system/release-readiness/ux-quality）的 `.claude/skills`
+> 版本已随 minimal/full 装；`.agents/skills` 是其镜像（§42 / sync-skills.sh），Claude-only 项目无需。
 
 ## 执行步骤
 
@@ -116,15 +130,29 @@ cp -r .claude/skills "$TARGET/.claude/skills"
 应含（核对用，复制靠 cp -r）：`forbidden-policy/` `test-lock-rules/` `eval-gate-policy/`
 `constitution-loader/` `handbook-search/`（+ 其他 .claude/skills/ 下的 SKILL.md）。
 
-#### 3e. .agents/skills/（跨平台 Skill — **仅 full 档**）
+#### 3e. .agents/skills/ + 跨平台配置（**opt-in，默认不装** — v3.13 Q3）
 
-> minimal 档跳过（Antigravity/Codex 跨平台是 advanced）。full 档整目录复制：
+> 默认只 Claude Code，**不**装 `.agents/skills`（跨平台 skill 与 `.claude/skills` 重复，Claude-only 无需）。
+> 仅在显式 flag 时装对应平台：
 ```bash
-[ "$PROFILE" = "full" ] && cp -r .agents/skills "$TARGET/.agents/skills"
+# --with-codex：§48 跨模型 review + Codex 配置
+if [ "$WITH_CODEX" = "1" ]; then
+  mkdir -p "$TARGET/.agents/skills"
+  cp -r .agents/skills/codex-bridge "$TARGET/.agents/skills/codex-bridge"
+  cp templates/AGENTS.md "$TARGET/AGENTS.md"
+fi
+# --with-antigravity：Antigravity 配置
+if [ "$WITH_ANTIGRAVITY" = "1" ]; then
+  cp templates/GEMINI.md "$TARGET/GEMINI.md"
+  [ -d .agents/rules ] && cp -r .agents/rules "$TARGET/.agents/rules"
+fi
+# 若装了任一跨平台 → 把 5 个跨平台 skill 镜像也带上（sync-skills 维持一致）
+if [ "$WITH_CODEX" = "1" ] || [ "$WITH_ANTIGRAVITY" = "1" ]; then
+  for s in accessibility-checklist design-system-enforcement i18n-enforcement release-readiness ux-quality-checklist; do
+    mkdir -p "$TARGET/.agents/skills/$s"; cp ".agents/skills/$s/SKILL.md" "$TARGET/.agents/skills/$s/SKILL.md"
+  done
+fi
 ```
-full 档含：ux-quality-checklist, i18n-enforcement, design-system-enforcement,
-accessibility-checklist, release-readiness, codex-bridge。
-**例外**：`codex-bridge`（§48 跨模型 review）若用户只用 Claude Code 也可不装——属 opt-in。
 
 #### 3g. scripts/（SSOT + 工具）
 - 创建目标项目 `scripts/`

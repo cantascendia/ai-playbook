@@ -10,17 +10,17 @@
 
 > **Claude Code 优先的 AI CTO 闭环指挥系统** · Plan-to-Ship · with cross-model audit
 
-[![Handbook §1-§48](https://img.shields.io/badge/handbook-%C2%A71--%C2%A748-blue?style=flat-square)](playbook/handbook.md)
-[![Slash Commands](https://img.shields.io/badge/commands-21-brightgreen?style=flat-square)](.claude/commands/)
-[![Sub-Agents](https://img.shields.io/badge/sub--agents-4-orange?style=flat-square)](.claude/agents/)
-[![Evals](https://img.shields.io/badge/evals-19-red?style=flat-square)](evals/golden-trajectories/)
-[![Hooks](https://img.shields.io/badge/hooks-6-purple?style=flat-square)](.claude/settings.json)
+[![Handbook §1-§50](https://img.shields.io/badge/handbook-%C2%A71--%C2%A750-blue?style=flat-square)](playbook/handbook.md)
+[![Slash Commands](https://img.shields.io/badge/commands-23-brightgreen?style=flat-square)](.claude/commands/)
+[![Sub-Agents](https://img.shields.io/badge/sub--agents-5-orange?style=flat-square)](.claude/agents/)
+[![Evals](https://img.shields.io/badge/evals-26%20exec%20%2B%2022%20traj-red?style=flat-square)](evals/golden-trajectories/)
+[![Hooks](https://img.shields.io/badge/hooks-10-purple?style=flat-square)](.claude/settings.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Docs: 中文](https://img.shields.io/badge/docs-中文-red?style=flat-square)](playbook/handbook.md)
 [![GitHub Stars](https://img.shields.io/github/stars/cantascendia/ai-playbook?style=social)](https://github.com/cantascendia/ai-playbook)
 
-> 🇨🇳 用 Claude Code 做主执行器，按需委派 Antigravity / Codex，自动化 14 条铁律 · Hooks 拦截违规 · 跨模型 review · 12 + 7 条 golden trajectory eval 闭环
-> 🇬🇧 Claude Code as primary executor, delegate to Antigravity / Codex on demand. Auto-enforce 14 iron rules via hooks · cross-model review · 19 golden trajectory evals.
+> 🇨🇳 用 Claude Code 做主执行器，按需委派 Antigravity / Codex，自动化 14 条铁律 · Hooks 拦截违规 · 跨模型 review · **26 条可执行 eval 真跑 + 22 条 trajectory（待真跑 Claude）**闭环（计数见 `docs/ai-cto/COUNTS.md`）
+> 🇬🇧 Claude Code as primary executor, delegate to Antigravity / Codex on demand. Auto-enforce 14 iron rules via hooks · cross-model review · **26 executable evals (really run) + 22 trajectory evals**.
 
 ---
 
@@ -38,10 +38,10 @@
 | 特性 | 原生 Claude Code | 手写 Cursor Rules | **AI Playbook** |
 |---|:---:|:---:|:---:|
 | 跨机器路径自适应 | ❌ | ❌ | ✅ |
-| 21 个预设 slash commands | ❌ | ❌ | ✅ |
-| 4 个程序化质检 sub-agents | ❌ | ❌ | ✅ |
-| 19 条 golden trajectory eval | ❌ | ❌ | ✅ |
-| Hooks 自动化（6 类事件）| ❌ | ⚠️ 部分 | ✅ |
+| 23 个预设 slash commands | ❌ | ❌ | ✅ |
+| 5 个程序化质检 sub-agents | ❌ | ❌ | ✅ |
+| 26 可执行 eval 真跑 + 22 trajectory | ❌ | ❌ | ✅ |
+| Hooks 自动化（10 个 guard）| ❌ | ⚠️ 部分 | ✅ |
 | Constitution 协议（双签）| ❌ | ❌ | ✅ |
 | 跨平台 Skills 双位置 | ❌ | ❌ | ✅ |
 | 🆕 **Agent Reliability**（§43）| ❌ | ❌ | ✅ |
@@ -79,12 +79,12 @@ cd /your/project
 跑完一遍，确认所有组件就位：
 
 ```bash
-# 1️⃣ 健康检查（无副作用）
-ls .claude/commands/ | wc -l        # 应见 21
-ls .claude/agents/ | wc -l          # 应见 4
-ls .claude/skills/ | wc -l          # 应见 5
-ls .claude/rules/ | wc -l           # 应见 3
-ls evals/golden-trajectories/ | wc -l  # 应见 19+
+# 1️⃣ 健康检查（无副作用；权威计数见 docs/ai-cto/COUNTS.md）
+bash scripts/check-counts.sh         # 一键校验所有计数 vs 文件系统
+ls .claude/commands/cto-*.md | wc -l   # 应见 23
+ls .claude/agents/*.md | wc -l         # 应见 5
+ls .claude/hooks/*.sh | wc -l          # 应见 10（含 5 安全红线）
+ls evals/golden-trajectories/ | wc -l  # 应见 48（26 可执行 + 22 trajectory）
 
 # 2️⃣ Codex 跨模型 review 链路（如已 codex login）
 codex --version                      # ≥ 0.125.0
@@ -113,9 +113,9 @@ git reset --hard HEAD~1 && rm -rf src/sandbox
 ```mermaid
 graph TB
     subgraph "Claude Code 主执行"
-        CL[CLAUDE.md<br/>14 条铁律]
-        CMD[.claude/commands/<br/>21 个 cto-*]
-        AGT[.claude/agents/<br/>4 sub-agents]
+        CL[CLAUDE.md<br/>14 铁律·4 层]
+        CMD[.claude/commands/<br/>23 个 cto-*]
+        AGT[.claude/agents/<br/>5 sub-agents]
     end
 
     subgraph "记忆 docs/ai-cto/"
