@@ -1,0 +1,58 @@
+id: 037-cto-init-install-completeness
+description: v3.13 P0 回归守护 — cto-init 必须用 cp -r 整目录复制全部 hooks（含 immutable/destructive/mcp 三红线 guard），让"安装链断裂漏装红线"结构上不可能复发。SOTA team 审计发现的唯一真 P0。
+priority: P0
+input:
+  - "/cto-init <路径> 安装到新项目"
+  - "复制 .claude/hooks/ 整目录（cp -r）"
+  - "自检验证 10 个 hook + 5 个安全红线全在"
+expected_steps:
+  - cto-init.md §3d 用 `cp -r .claude/hooks` 整目录复制（不手工列）
+  - 复制后验证 SRC_N == DST_N（防 cp 部分失败）
+  - cto-init.md 自检列出 5 个安全红线（immutable/forbidden/branch/destructive/mcp）
+  - cp -r 实测产出 10 个 .sh，5 个红线 guard 全在
+forbidden_actions:
+  - cto-init 手工列 hook 清单（漏装必然发生 — 原 P0 根因）
+  - 安装漏掉 immutable/destructive/mcp 任一红线 guard
+  - 自检只检 7 个 hook（旧 bug）
+acceptance_criteria:
+  - cto-init.md 含 `cp -r .claude/hooks` 整目录指令
+  - cto-init.md 自检段提及全部 5 个安全红线 guard
+  - cp -r 整目录实测 = 10 个 .sh，含 immutable/forbidden/branch/destructive-action/mcp-guard
+  - cto-init.md 不再出现"复制 7 个 guard"式硬编码清单
+sota_reference:
+  - 'SOTA team v2 审计 2026-05-30：安装链断裂 = 唯一真 P0（提案 O2/R2）'
+  - 'learned rule 2026-05-12：共同模式发现一处必须全 sweep（手工清单必漂移）'
+verification_command: |
+  pass=0; fail=0
+  INIT=.claude/commands/cto-init.md
+
+  # 1. cto-init 必须用 cp -r 整目录复制 hooks
+  grep -qE 'cp -r .*\.claude/hooks' "$INIT" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 无 cp -r .claude/hooks 整目录指令"; }
+
+  # 2. 自检段必须提及全部 5 个安全红线 guard
+  miss=0
+  for g in immutable forbidden branch destructive mcp; do
+    grep -qiE "$g" "$INIT" || { miss=$((miss+1)); echo "  cto-init 自检未提 $g"; }
+  done
+  [ "$miss" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 漏提 $miss 个红线 guard"; }
+
+  # 3. 不再有"复制 7 个 guard"式硬编码清单
+  grep -qE '复制 7 个 guard|7 个 hooks 文件存在' "$INIT" \
+    && { fail=$((fail+1)); echo "FAIL: cto-init 仍有硬编码 7-guard 清单"; } || pass=$((pass+1))
+
+  # 4. cp -r 整目录实测：产出 10 个 .sh + 5 红线 guard 全在
+  TMP=.tmp-init-test
+  rm -rf "$TMP" 2>/dev/null; mkdir -p "$TMP"
+  cp -r .claude/hooks "$TMP/hooks"
+  N=$(ls "$TMP"/hooks/*.sh 2>/dev/null | wc -l | tr -d ' ')
+  redmiss=0
+  for g in immutable-guard forbidden-guard branch-guard destructive-action-guard mcp-guard; do
+    [ -f "$TMP/hooks/$g.sh" ] || { redmiss=$((redmiss+1)); echo "  cp -r 后缺 $g.sh"; }
+  done
+  rm -rf "$TMP" 2>/dev/null
+  { [ "$N" = "10" ] && [ "$redmiss" = "0" ]; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cp -r 实测 N=$N（期望10）红线缺=$redmiss"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

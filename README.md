@@ -61,8 +61,9 @@ git clone https://github.com/cantascendia/ai-playbook ~/.claude/playbook
 # 2. 进入你的项目，启动 Claude Code
 cd /your/project
 
-# 3. 一键初始化完整 CTO 系统（21 commands + 4 agents + 5 skills + hooks）
-/cto-init /your/project
+# 3. 一键初始化完整 CTO 系统（全部计数见 docs/ai-cto/COUNTS.md：23 commands + 5 agents + 10 hooks + skills）
+/cto-init /your/project          # 默认 full 档
+# 小项目只要安全护栏 + 核心命令：/cto-init /your/project --profile=minimal
 
 # 4. 第零轮：扫描代码 → 产品愿景 → 生成 docs/ai-cto/ 记忆
 /cto-start
@@ -288,7 +289,7 @@ MIT License — 自由使用、修改、分发
 
 <div align="center">
 
-**v3.5** · §1-§48 完整手册 · 21 commands · 4 sub-agents · 19 evals · 6 hooks 自动化
+**v3.13** · §1-§50 完整手册 · 23 commands · 5 sub-agents · 36 evals（14 可执行真跑）· 10 hooks 自动化（计数权威源：`docs/ai-cto/COUNTS.md`）
 
 Made with Claude Code · Dogfooded on itself
 

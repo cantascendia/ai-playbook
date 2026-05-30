@@ -80,7 +80,7 @@
 
 ## 自动化 vs 手动命令
 
-> 大部分检查由 `.claude/settings.json` 中的 hooks **自动触发**（§41）。下面 17 个命令是**决策入口或深度审计**，仅在需要时手动调用。
+> 大部分检查由 `.claude/settings.json` 中的 hooks **自动触发**（§41）。下面这些命令是**决策入口或深度审计**，仅在需要时手动调用（完整计数见 `docs/ai-cto/COUNTS.md`）。
 
 **Hooks 自动接管的场景**（无需手动）：
 - 会话启动 → 自动加载 `docs/ai-cto/CONSTITUTION.md` + `STATUS.md`

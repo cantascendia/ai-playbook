@@ -1,0 +1,50 @@
+id: 039-handbook-settings-ssot
+description: v3.13 — handbook §41.3/§41.8 不再内嵌过时/残缺 settings.json，改指向 SSOT；真 settings.json 含全部 3 个红线 guard 接线（修 R2：旧示例缺 immutable/destructive/mcp + §41.3 用废弃 $CLAUDE_TOOL_INPUT）。
+priority: P0
+input:
+  - "读 handbook §41 找 settings.json 配置"
+  - "§41.3 历史 v3.7 / §41.8 当前设计"
+  - "实际配置以 .claude/settings.json 为 SSOT"
+expected_steps:
+  - handbook §41.3 不再内嵌 $CLAUDE_TOOL_INPUT 式 v3.7 全配置
+  - handbook §41.8 改为指向 .claude/settings.json SSOT
+  - 真 .claude/settings.json 含 immutable + destructive + mcp 三红线接线
+forbidden_actions:
+  - handbook 内嵌完整 settings.json（必与实际漂移）
+  - 权威示例缺 immutable/destructive/mcp matcher（照抄即装残缺系统）
+  - 文档保留 $CLAUDE_TOOL_INPUT（silent no-op bug 复发）
+acceptance_criteria:
+  - handbook §41 不再含 $CLAUDE_TOOL_INPUT
+  - handbook §41 指向 .claude/settings.json 为 SSOT
+  - 真 .claude/settings.json 含 immutable-guard + destructive-action-guard + mcp-guard 接线
+  - settings.json 含 mcp__.* matcher
+sota_reference:
+  - 'SOTA team v2 审计 2026-05-30：§41.3/§41.8 权威示例缺 3 红线（提案 R2）'
+  - 'ACE 防 context collapse：配置单一源，文档引用不复制'
+verification_command: |
+  pass=0; fail=0
+  HB=playbook/handbook.md
+  SJ=.claude/settings.json
+
+  # 1. §41.3 已从"内嵌完整 v3.7 配置"转为 SSOT 指针（正向断言，避免误杀 §41.0 的 bug 讲解
+  #    与升级路径里合法的 grep CLAUDE_TOOL_INPUT 检测命令）
+  grep -qE '已删除以防误抄|历史 v3.7 inline 模式.*已废弃' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §41.3 未转为 SSOT 指针（v3.7 内嵌块可能还在）"; }
+
+  # 2. handbook §41 指向 settings.json SSOT
+  grep -qE '\.claude/settings\.json.*SSOT|SSOT.*\.claude/settings\.json|唯一权威配置' "$HB" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook 未指向 settings.json SSOT"; }
+
+  # 3. 真 settings.json 含 3 个红线 guard 接线
+  miss=0
+  for g in immutable-guard destructive-action-guard mcp-guard; do
+    grep -qF "$g" "$SJ" || { miss=$((miss+1)); echo "  settings.json 缺 $g 接线"; }
+  done
+  [ "$miss" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: settings.json 缺 $miss 个红线 guard"; }
+
+  # 4. settings.json 含 mcp__.* matcher（旧示例最致命的洞）
+  grep -qE 'mcp__' "$SJ" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: settings.json 无 mcp__ matcher"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
