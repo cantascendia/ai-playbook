@@ -59,6 +59,10 @@ for f in "$EVAL_DIR"/*.yaml; do
       case "$id" in "$pat"*) match=1 ;; esac
     done
     [ "$match" = "0" ] && continue
+  else
+    # v3.14：无 filter（全量）时跳过 zzz-* 保留前缀（036 meta-eval 临时文件，
+    # 仅在显式按 id 跑时执行；泄漏的也不污染全量结果）
+    case "$id" in zzz-*) continue ;; esac
   fi
 
   vc=$(extract_vc "$f")

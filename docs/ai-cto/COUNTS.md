@@ -17,7 +17,7 @@
 | evals | **48** | `evals/golden-trajectories/*.yaml`（001-048；023-048 含 `verification_command` 真执行，001-022 trajectory 类）|
 | eval 可执行类 | **26** | 含 `verification_command`，`scripts/run-evals.sh` 真跑（v3.12+v3.13）；其余 22 为 trajectory 类（SKIP，需真跑 Claude）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
-| learned-rules | **4** | `.claude/rules/learned/*.md`（active；archived 见 archived/）|
+| learned-rules | **7** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）|
 | handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
 | 已部署项目 | **27** | nilou-network 6 + 其他 21 |
 

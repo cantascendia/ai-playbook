@@ -69,7 +69,9 @@ assert_count "cto-* commands" "$CMD_N" "cto-* commands"
 AGENT_N=$(ls .claude/agents/*.md 2>/dev/null | wc -l | tr -d ' ')
 assert_count "sub-agents" "$AGENT_N" "sub-agents"
 
-EVAL_N=$(ls evals/golden-trajectories/*.yaml 2>/dev/null | wc -l | tr -d ' ')
+# v3.14：排除 zzz-* 保留前缀（036 meta-eval 临时文件；被 session 限额杀死时会泄漏在此目录，
+# 此前导致 49≠48 TIER1 误 fail）。真 eval 永不以 zzz- 开头。
+EVAL_N=$(ls evals/golden-trajectories/*.yaml 2>/dev/null | grep -vc '/zzz-' | tr -d ' ')
 assert_count "evals" "$EVAL_N" "evals (golden-trajectories)"
 
 SKILL_C_N=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l | tr -d ' ')
@@ -77,6 +79,10 @@ assert_count "skills (.claude)" "$SKILL_C_N" "skills (.claude)"
 
 SKILL_A_N=$(ls -d .agents/skills/*/ 2>/dev/null | wc -l | tr -d ' ')
 assert_count "skills (.agents)" "$SKILL_A_N" "skills (.agents)"
+
+# v3.14：补 learned-rules 检查（此前漏检 → 4≠7 漂移未被发现，bold-audit 抓到）
+LRULE_N=$(ls .claude/rules/learned/*.md 2>/dev/null | grep -vc 'README' | tr -d ' ')
+assert_count "learned-rules" "$LRULE_N" "learned-rules"
 
 echo ""
 echo "=== TIER 2：散落过时数字扫描（软警告）==="
