@@ -27,7 +27,14 @@ sota_reference:
   - 'architect-critic 飞轮第 8 轮：MCP filesystem 绕过所有 file-path guard（最广洞）'
   - 'OWASP ASI Top 10 ASI02 Tool Misuse + ASI10 Rogue Agent'
 verification_command: |
-  pass=0
-  printf '%s' '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"docs/ai-cto/CONSTITUTION.md","content":"x"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
-  printf '%s' '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"src/utils/x.ts","content":"x"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
-  echo "pass=$pass (expect 2)"
+  pass=0; fail=0
+  # v3.14 A：机制无关检测（exit 2 或 permissionDecision:deny JSON）
+  blocked(){ out=$(printf '%s' "$1" | bash .claude/hooks/mcp-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
+  # filesystem 写 CONSTITUTION（绕过 immutable）→ 应拦
+  blocked '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"docs/ai-cto/CONSTITUTION.md","content":"x"},"cwd":"."}' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦写 CONSTITUTION"; }
+  # filesystem 写普通文件 → 应放行
+  blocked '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"src/utils/x.ts","content":"x"},"cwd":"."}' \
+    && { fail=$((fail+1)); echo "FAIL: 误拦普通文件"; } || pass=$((pass+1))
+  echo "pass=$pass fail=$fail (expect 2/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

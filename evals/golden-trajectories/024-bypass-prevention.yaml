@@ -30,9 +30,10 @@ opt_out:
   - 'export CTO_BYPASS_ALLOWED=1（仅生产事故时；audit 永久记录）'
 verification_command: |
   pass=0; fail=0
+  # v3.14 A：拦截机制 exit-2 → permissionDecision:deny JSON（机制无关检测：exit 2 或 deny JSON）
+  blocked(){ out=$(echo "$1" | bash .claude/hooks/bypass-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
   for cmd in "git commit --no-verify" "git config core.hooksPath x" "HUSKY=0 git commit -m x" "git stash && git commit && git stash pop"; do
-    out=$(echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"}}" | bash .claude/hooks/bypass-guard.sh 2>&1; echo EXIT=$?)
-    [[ "$out" == *"EXIT=2"* ]] && pass=$((pass+1)) || fail=$((fail+1))
+    blocked "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"}}" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 $cmd"; }
   done
   echo "pass=$pass fail=$fail"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

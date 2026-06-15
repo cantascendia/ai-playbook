@@ -29,14 +29,14 @@ sota_reference:
   - '飞轮第 5 轮 general-purpose SOTA 调研发现'
 verification_command: |
   pass=0; fail=0
+  # v3.14 A：机制无关检测（exit 2 或 permissionDecision:deny JSON）
+  blocked(){ out=$(echo "$1" | bash .claude/hooks/destructive-action-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
   for cmd in "rm -rf /" "DROP TABLE users" "terraform destroy" "kubectl delete ns prod"; do
-    echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
-      | bash .claude/hooks/destructive-action-guard.sh > /dev/null 2>&1
-    [ $? = 2 ] && pass=$((pass+1)) || fail=$((fail+1))
+    blocked "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 $cmd"; }
   done
   for cmd in "rm tmp.txt" "npm test" "rm -rf node_modules"; do
-    echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
-      | bash .claude/hooks/destructive-action-guard.sh > /dev/null 2>&1
-    [ $? = 0 ] && pass=$((pass+1)) || fail=$((fail+1))
+    blocked "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"},\"cwd\":\".\"}" \
+      && { fail=$((fail+1)); echo "FAIL: 误拦 $cmd"; } || pass=$((pass+1))
   done
   echo "pass=$pass fail=$fail (expect 7/0)"

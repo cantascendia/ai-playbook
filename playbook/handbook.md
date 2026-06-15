@@ -3321,9 +3321,13 @@ export CTO_HOOK_TESTLOCK=off  # 仅关闭测试锁定
 | `immutable-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | CONSTITUTION / forbidden-paths.txt 删条目 / CLAUDE.md 铁律段 / handbook §32-§35（仅 self） | **exit 2 + stderr** | `CTO_CONSTITUTION_AMEND=1` |
 | `forbidden-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | file_path 命中 SSOT (`scripts/forbidden-paths.txt`) | **exit 2 + stderr** | `CTO_DOUBLE_SIGNED=1` |
 | `branch-guard.sh` 🔴 | PreToolUse Edit/Write/MultiEdit | 当前 branch ∈ {main, master, production, prod, release} | **exit 2 + stderr** | `CTO_MAIN_EDIT_ALLOWED=1` |
-| `bypass-guard.sh` | PreToolUse Bash | 命中 6+ 种 bypass 模式（`--no-verify` / `core.hooksPath` / `HUSKY=0` / `chmod -x .husky` / `git stash bypass` / `SKIP=`） | **exit 2 + stderr** | `CTO_BYPASS_ALLOWED=1` |
-| `destructive-action-guard.sh` 🔴 | PreToolUse Bash | 命中不可逆模式（`rm -rf /` / `DROP TABLE` / `terraform destroy` / `kubectl delete ns` 等，剥离 heredoc/引号防误判） | **exit 2 + stderr** | `CTO_DESTRUCTIVE_CONFIRMED=1` |
-| `mcp-guard.sh` 🔴 | PreToolUse `mcp__.*` | MCP destructive 工具名 / execute_sql 含 DROP-TRUNCATE-DELETE-no-WHERE / filesystem 写红线文件 | **exit 2 + stderr** | `CTO_MCP_DESTRUCTIVE_CONFIRMED=1` |
+| `bypass-guard.sh` | PreToolUse Bash | 命中 6+ 种 bypass 模式（`--no-verify` / `core.hooksPath` / `HUSKY=0` / `chmod -x .husky` / `git stash bypass` / `SKIP=`） | **deny JSON**（v3.14）| `CTO_BYPASS_ALLOWED=1` |
+| `destructive-action-guard.sh` 🔴 | PreToolUse Bash | 命中不可逆模式（`rm -rf /` / `DROP TABLE` / `terraform destroy` / `kubectl delete ns` 等，剥离 heredoc/引号防误判） | **deny JSON**（v3.14）| `CTO_DESTRUCTIVE_CONFIRMED=1` |
+| `mcp-guard.sh` 🔴 | PreToolUse `mcp__.*` | MCP destructive 工具名 / execute_sql 含 DROP-TRUNCATE-DELETE-no-WHERE / filesystem 写红线文件 | **deny JSON**（v3.14）| `CTO_MCP_DESTRUCTIVE_CONFIRMED=1` |
+
+> **v3.14 A 拦截机制分两类**（common.sh）：
+> - **file guard**（immutable/forbidden/branch/test-lock，Edit/Write/MultiEdit）→ `block_with_reason` = **exit 2 + stderr**（实测对文件类工具可靠）。
+> - **Bash/mcp guard**（bypass/destructive/mcp）→ `deny_with_reason` = **exit 0 + `permissionDecision:deny` JSON**。对冲 GitHub #23284（Bash-tool 的 exit-2 在某些版本只报错不拦截）；本环境 live A/B 实测 deny JSON 真拦 Bash。
 | `test-lock-guard.sh` | PreToolUse Edit/Write/MultiEdit | file_path 命中 tests/ 模式 | additionalContext 注入提醒 + exit 0（不阻止） | `CTO_TEST_LOCK_ACK=1` |
 | `vibe-prompt-guard.sh` | UserPromptSubmit | prompt 含 vibe 关键词 | additionalContext 注入红线 + exit 0 | — |
 | `eval-gate.sh` | PostToolUse Edit/Write/MultiEdit | file_path 命中 commands/skills/CLAUDE.md/handbook | additionalContext 提醒铁律 #12 + exit 0 | `CTO_EVAL_GATE_ACK=1` |
@@ -3370,7 +3374,7 @@ Stop → 会话摘要 + codex-bridge §48 跨模型 autopilot
 ```
 
 三层 enforcement 设计意图见本节开头；10 个 guard 职责见上表。
-**自检**：装完跑 `/cto-doctor`，确认 5 个 🔴 红线 guard（immutable/forbidden/branch/destructive/mcp）全部接线且 exit-2 真生效；
+**自检**：装完跑 `/cto-doctor`，确认 5 个 🔴 红线 guard（immutable/forbidden/branch/destructive/mcp）全部接线且真拦截（file guard 测 exit-2，Bash/mcp guard 测 deny JSON — `test_blocked` 机制无关）；
 `grep -c 'mcp__' .claude/settings.json` 应 ≥ 1（漏了 mcp matcher 是旧示例最致命的洞）。
 
 #### Claude Code Hook 协议（必须知道）

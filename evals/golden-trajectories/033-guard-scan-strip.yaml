@@ -24,7 +24,14 @@ acceptance_criteria:
 sota_reference:
   - '飞轮第 6 轮自食其果（destructive-guard 拦自己写 PR body）'
 verification_command: |
-  pass=0
-  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"echo \"DROP TABLE x\""},"cwd":"."}' | bash .claude/hooks/destructive-action-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
-  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' | bash .claude/hooks/destructive-action-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
-  echo "pass=$pass (expect 2)"
+  pass=0; fail=0
+  # v3.14 A：机制无关检测（exit 2 或 permissionDecision:deny JSON）
+  blocked(){ out=$(printf '%s' "$1" | bash .claude/hooks/destructive-action-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
+  # 引号内 destructive 词 → 应放行（不 blocked）
+  blocked '{"tool_name":"Bash","tool_input":{"command":"echo \"DROP TABLE x\""},"cwd":"."}' \
+    && { fail=$((fail+1)); echo "FAIL: 误拦引号内 DROP TABLE"; } || pass=$((pass+1))
+  # 引号外真灾难 → 应拦
+  blocked '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 rm -rf /"; }
+  echo "pass=$pass fail=$fail (expect 2/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

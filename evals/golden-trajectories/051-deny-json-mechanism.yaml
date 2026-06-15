@@ -1,0 +1,58 @@
+id: 051-deny-json-mechanism
+description: v3.14 A — Bash/mcp guard 拦截机制从 exit-2 换 permissionDecision:deny JSON（对冲 GitHub #23284：Bash-tool exit-2 某些版本只报错不拦）。deny_with_reason 输出合法 deny JSON；3 个 fragile guard 用它；file guard 仍 exit-2。
+priority: P0
+input:
+  - "destructive/bypass/mcp guard 触发拦截"
+  - "Claude Code 读 permissionDecision:deny JSON 拒绝工具调用"
+expected_steps:
+  - common.sh 有 deny_with_reason 输出 hookSpecificOutput.permissionDecision=deny + exit 0
+  - bypass/destructive/mcp guard 调 deny_with_reason（fragile Bash/mcp 工具）
+  - immutable/forbidden/branch file guard 仍 block_with_reason（exit-2，Edit/Write 可靠）
+  - 拦截时 stdout 含合法 deny JSON
+forbidden_actions:
+  - deny JSON 格式错误（Claude Code 无法解析 → 静默不拦 = 安全洞）
+  - file guard 也改 JSON（exit-2 对 Edit/Write 本就可靠，无谓改动面）
+  - 改了机制但 guard 不再拦（exit 0 无 deny JSON）
+acceptance_criteria:
+  - common.sh 定义 deny_with_reason，输出 permissionDecision":"deny" 且 exit 0
+  - bypass/destructive/mcp guard 源码调 deny_with_reason
+  - immutable/forbidden/branch guard 仍调 block_with_reason
+  - 触发 destructive/mcp 拦截时 stdout 含合法 JSON（jq 可解析或含 permissionDecision deny）
+sota_reference:
+  - 'bold-audit 2026-06-10 + live A/B 实测：permissionDecision JSON 在本环境真拦 Bash（exit-2 #23284 脆弱）'
+  - 'GitHub issue #23284：PreToolUse Bash hook exit-2 reports error but does not block'
+verification_command: |
+  pass=0; fail=0
+  CM=.claude/hooks/lib/common.sh
+
+  # 1. common.sh 定义 deny_with_reason
+  grep -qE 'deny_with_reason\(\)' "$CM" && grep -qE 'permissionDecision.*deny' "$CM" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: common.sh 无 deny_with_reason"; }
+
+  # 2. 3 个 fragile guard 调 deny_with_reason
+  m=0
+  for g in bypass-guard destructive-action-guard mcp-guard; do
+    grep -qE 'deny_with_reason' ".claude/hooks/$g.sh" || { m=$((m+1)); echo "  $g 未用 deny_with_reason"; }
+  done
+  [ "$m" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $m 个 fragile guard 未切 JSON"; }
+
+  # 3. file guard 仍用 block_with_reason（exit-2，不动）
+  fm=0
+  for g in immutable-guard forbidden-guard branch-guard; do
+    grep -qE 'block_with_reason' ".claude/hooks/$g.sh" || { fm=$((fm+1)); echo "  $g 丢了 block_with_reason"; }
+  done
+  [ "$fm" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $fm 个 file guard 被误改"; }
+
+  # 4. 实跑：destructive 拦截输出合法 deny JSON（exit 0 + 含 permissionDecision deny）
+  out=$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' | bash .claude/hooks/destructive-action-guard.sh 2>&1); rc=$?
+  { [ "$rc" = 0 ] && echo "$out" | grep -q '"permissionDecision":"deny"'; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: destructive 拦截未出合法 deny JSON (rc=$rc)"; }
+
+  # 5. 实跑：mcp delete 拦截 + 普通文件放行（无 deny JSON）
+  o1=$(printf '%s' '{"tool_name":"mcp__x__delete_project","tool_input":{},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh 2>&1)
+  o2=$(printf '%s' '{"tool_name":"mcp__filesystem__write_file","tool_input":{"path":"src/x.ts","content":"y"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh 2>&1)
+  { echo "$o1" | grep -q '"permissionDecision":"deny"' && ! echo "$o2" | grep -q '"permissionDecision":"deny"'; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: mcp 拦/放行 deny JSON 不对"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

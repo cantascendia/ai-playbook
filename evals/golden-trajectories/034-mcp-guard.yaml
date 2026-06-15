@@ -29,7 +29,14 @@ sota_reference:
   - 'architect-critic 飞轮第 8 轮：destructive-guard 只 match Bash，MCP 删库通道绕过'
   - 'OWASP Agentic Top 10 (2026) ASI04 供应链 + Least-Agency 原则'
 verification_command: |
-  pass=0
-  printf '%s' '{"tool_name":"mcp__x__delete_project","tool_input":{},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || pass=$((pass+1))
-  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && pass=$((pass+1))
-  echo "pass=$pass (expect 2)"
+  pass=0; fail=0
+  # v3.14 A：机制无关检测（exit 2 或 permissionDecision:deny JSON）
+  blocked(){ out=$(printf '%s' "$1" | bash .claude/hooks/mcp-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
+  # delete_project 工具名 → 应拦
+  blocked '{"tool_name":"mcp__x__delete_project","tool_input":{},"cwd":"."}' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 delete_project"; }
+  # execute_sql SELECT → 应放行
+  blocked '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' \
+    && { fail=$((fail+1)); echo "FAIL: 误拦 SELECT"; } || pass=$((pass+1))
+  echo "pass=$pass fail=$fail (expect 2/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

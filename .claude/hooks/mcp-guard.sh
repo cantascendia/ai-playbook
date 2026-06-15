@@ -97,7 +97,7 @@ if [ "$BLOCKED" = "1" ]; then
     exit 0
   fi
   audit_log "mcp-destructive-blocked" "tool=$HOOK_TOOL_NAME reason=$REASON"
-  block_with_reason "🛑 v3.11 MCP DESTRUCTIVE BLOCKED
+  deny_with_reason "🛑 v3.11 MCP DESTRUCTIVE BLOCKED
 
 $REASON
 
