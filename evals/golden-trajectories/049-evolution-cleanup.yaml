@@ -1,0 +1,54 @@
+id: 049-evolution-cleanup
+description: v3.14 演进批（C1/C2/C3）— INDEX 行号→grep 运行时定位、22 条 trajectory 类移 docs/test-plans/（evals/ 全可执行）、README 去营销。诚实化 + 防行号漂移。
+priority: P1
+input:
+  - "handbook-search 定位章节"
+  - "run-evals 跑 evals/golden-trajectories"
+  - "看 README 了解项目"
+expected_steps:
+  - INDEX.md 不含硬编码 L行号范围，改 grep 运行时定位
+  - handbook-search skill 用 grep -nE 定位
+  - evals/golden-trajectories 全部含 verification_command（无 trajectory 类）
+  - docs/test-plans/ 含 22 条 trajectory 规约 + README
+  - README 删营销层（Star History / 竞品对比表）
+forbidden_actions:
+  - INDEX 保留会漂移的硬编码行号
+  - evals/ 混入无 vc 的 trajectory 类（虚高 SKIP 计数）
+  - README 保留单人工具不需要的营销页
+acceptance_criteria:
+  - INDEX.md 无 L<数字>-<数字> 行号范围
+  - handbook-search SKILL.md 含 grep 定位
+  - evals/golden-trajectories 每个 yaml 都有 verification_command
+  - docs/test-plans/ 存在且 ≥ 20 个 yaml
+  - README 无 Star History / 竞品对比表
+sota_reference:
+  - 'bold-audit 2026-06-10：INDEX 行号漂移 20-30 行；22 条永久 SKIP 虚高计数；单人工具不需营销'
+verification_command: |
+  pass=0; fail=0
+
+  # 1. INDEX 无硬编码行号范围（L1423-1503 式）
+  grep -qE 'L[0-9]+-[0-9]+' playbook/INDEX.md \
+    && { fail=$((fail+1)); echo "FAIL: INDEX 仍有硬编码行号范围"; } || pass=$((pass+1))
+
+  # 2. handbook-search 用 grep 定位
+  grep -qE "grep -nE '\^## " .claude/skills/handbook-search/SKILL.md \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook-search 未用 grep 定位"; }
+
+  # 3. evals/golden-trajectories 全部含 verification_command（无 trajectory 类残留）
+  notrj=0
+  for f in evals/golden-trajectories/*.yaml; do
+    case "$(basename $f)" in zzz-*) continue;; esac
+    grep -q '^verification_command:' "$f" || { notrj=$((notrj+1)); echo "  无 vc: $(basename $f)"; }
+  done
+  [ "$notrj" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $notrj 条 eval 无 vc（trajectory 类应移走）"; }
+
+  # 4. docs/test-plans/ 存在且 ≥20 条
+  TP=$(ls docs/test-plans/*.yaml 2>/dev/null | wc -l | tr -d ' ')
+  [ "$TP" -ge 20 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: test-plans 仅 $TP 条（应≥20）"; }
+
+  # 5. README 删营销（无 Star History / 竞品对比表）
+  grep -qiE 'star-history|Star History' README.md \
+    && { fail=$((fail+1)); echo "FAIL: README 仍有 Star History"; } || pass=$((pass+1))
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
