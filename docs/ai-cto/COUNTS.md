@@ -9,12 +9,12 @@
 
 | 组件 | 数量 | 位置 |
 |---|---|---|
-| cto-* commands | **23** | `.claude/commands/cto-*.md` |
+| cto-* commands | **18** | `.claude/commands/cto-*.md`（v3.14 23→18：合并 cross-review→review--cross / relink-all→link--all / refresh→resume--refresh / vibe-check+harness-audit→audit。**分发：minimal 8 / full 11 核心 / +6 advanced opt-in**）|
 | sub-agents | **5** | `.claude/agents/*.md`（eval-runner / harness-auditor / pattern-detector / reliability-auditor / vibe-checker）|
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **27** | `evals/golden-trajectories/*.yaml`（023-049，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 27 PASS/0 SKIP）|
+| evals | **28** | `evals/golden-trajectories/*.yaml`（023-050，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 28 PASS/0 SKIP）|
 | test-plans | **22** | `docs/test-plans/*.yaml`（001-022 trajectory 类规约，无 vc 不自动跑，需人工/Claude 周期验证；v3.14 从 evals/ 移出，计数诚实化）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
 | learned-rules | **7** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）|

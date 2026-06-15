@@ -179,3 +179,13 @@ done
   - **最佳折衷**：保留 CLAUDE.md 在 git 中，但 LINK 区块用 git 钩子在 commit 时自动重置
 - settings.local.json 已在 .gitignore 中，路径缓存安全
 - `/cto-link` 不会修改 ai-playbook 仓库本身，只更新当前工作目录的项目配置
+
+---
+
+## `--all` / `--upgrade` 模式（v3.14 合并自 cto-relink-all）
+
+> 原 `/cto-relink-all` 命令已合并于此。`/cto-link --all [扫描目录]` = 批量迁移多个项目。
+
+- 扫描目录下所有装了 ai-playbook 的项目，逐个 diff 预览 + 批量替换"完整手册"区段 / 升级 hooks。
+- `--upgrade`：把已部署项目升级到当前 ai-playbook 版本（自愿，绝不静默改——learned rule 2026-05-12 教训）。
+- 完整机制见 handbook §29.8。

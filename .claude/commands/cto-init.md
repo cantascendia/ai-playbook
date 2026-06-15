@@ -65,28 +65,35 @@ disable-model-invocation: false
 - 但**写入 LINK 区块**：把当前 ai-playbook 路径作为本机缓存写入 `<!-- AI-PLAYBOOK-LINK:START -->` 区块
 - 这样：当前机器立即可用 + 跨机器迁移时 fallback 列表兜底 + `/cto-link` 可重新发现
 
-#### 3b. .claude/commands/（斜杠命令 — 按档位）
+#### 3b. .claude/commands/（斜杠命令 — 按档位，v3.14 命令 23→18 合并后分核心/高级）
 - 创建目标项目 `.claude/commands/` 目录
-- **永不复制** `cto-init.md` 和 `cto-relink-all.md`（这俩只在 ai-playbook 主仓用）
-- **不要硬编码命令清单数字**——真实数量以 `docs/ai-cto/COUNTS.md` 为准（当前 23 个 cto-*，去掉 init/relink-all 后 21 个可分发）。安装后用 `ls .claude/commands/cto-*.md | wc -l` 报实际数。
+- **永不复制** `cto-init.md`（安装器只在主仓用；cto-relink-all 已合并入 cto-link --all）
+- **不硬编码数字**——真实数量以 `docs/ai-cto/COUNTS.md` 为准。安装后 `ls .claude/commands/cto-*.md | wc -l` 报实际数。
+- v3.14 合并：cross-review→`cto-review --cross`、relink-all→`cto-link --all`、refresh→`cto-resume --refresh`、vibe-check+harness-audit→`cto-audit --vibe|--harness`。
 
-**`--profile=full`（默认）**：复制全部可分发命令：
+**`--profile=minimal`**：核心 8（安全 + 工作流最小集）：
 ```bash
 mkdir -p "$TARGET/.claude/commands"
-for f in .claude/commands/cto-*.md; do
-  b=$(basename "$f")
-  case "$b" in cto-init.md|cto-relink-all.md) continue ;; esac
-  cp "$f" "$TARGET/.claude/commands/$b"
-done
-```
-
-**`--profile=minimal`**：只复制核心 8 命令（其余 advanced 命令用户日后可 `/cto-init --profile=full` 或手动补）：
-```bash
-mkdir -p "$TARGET/.claude/commands"
-for b in cto-start cto-resume cto-spec cto-review cto-release cto-vibe-check cto-doctor cto-constitution; do
+for b in cto-start cto-resume cto-spec cto-review cto-release cto-audit cto-doctor cto-constitution; do
   cp ".claude/commands/$b.md" "$TARGET/.claude/commands/$b.md"
 done
 ```
+
+**`--profile=full`（默认）**：核心 11（minimal 8 + cto-link / cto-eval / cto-evolve）：
+```bash
+mkdir -p "$TARGET/.claude/commands"
+for b in cto-start cto-resume cto-spec cto-review cto-release cto-audit cto-doctor cto-constitution cto-link cto-eval cto-evolve; do
+  cp ".claude/commands/$b.md" "$TARGET/.claude/commands/$b.md"
+done
+```
+
+**`--with-advanced`**（opt-in，低频"仪式"命令）：额外加 6 个：
+```bash
+[ "$WITH_ADVANCED" = "1" ] && for b in cto-canary cto-replay cto-image cto-design cto-skills cto-models; do
+  cp ".claude/commands/$b.md" "$TARGET/.claude/commands/$b.md"
+done
+```
+> 默认不装 advanced（多数项目用不到 canary/replay/image/design/skills/models）。需要时 `--with-advanced` 或单独 cp。
 
 #### 3c. .claude/settings.json（v3.8 Claude Code 配置）
 - 如果目标项目没有 `.claude/settings.json`，复制 v3.8 版过去

@@ -31,3 +31,17 @@ disable-model-invocation: false
    按严重程度分类（🔴 Critical / 🟠 Major / 🟡 Minor / 🔵 Innovation），
    每条含：具体文件名 + 问题描述 + 建议修复方案。
    最后输出优先级排序的变更清单。
+
+---
+
+## 审计模式（v3.14 合并自 cto-vibe-check + cto-harness-audit）
+
+> 原 `/cto-vibe-check` 和 `/cto-harness-audit` 已合并为本命令的子模式。cto-audit 成为统一审计入口：
+
+| 模式 | 干什么 | 委派 |
+|---|---|---|
+| （默认，无 flag） | Playbook 自身一致性：交叉引用 / 命令清单 / 章节计数 / 术语 | 直接跑 + check-counts.sh |
+| `--vibe` | §33 Vibe Coding 红线扫描（commit / marker / experimental / 依赖幻觉，三档分级） | `vibe-checker` sub-agent |
+| `--harness` | §34 Harness 设计自审（八条原则评分 + health score） | `harness-auditor` sub-agent |
+
+sub-agent（vibe-checker / harness-auditor）保留不变，本命令只是统一的人工入口。完整定义见 handbook §33 / §34。
