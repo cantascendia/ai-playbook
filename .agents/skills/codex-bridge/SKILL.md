@@ -1,6 +1,6 @@
 ---
 name: codex-bridge
-description: Claude Code → Codex (gpt-5.5) 跨模型 review 桥接（手册 §48）。被 Stop hook 自动调用，或 /cto-cross-review 手动触发。准备 prompt（git diff + SPEC + CONSTITUTION + 八维 rubric） → 通过 MCP/CLI 调 Codex → 结果追加到 docs/ai-cto/REVIEW-QUEUE.md。
+description: Claude Code → Codex (gpt-5.5) 跨模型 review 桥接（手册 §48）。被 Stop hook 自动调用，或 /cto-review --cross 手动触发。准备 prompt（git diff + SPEC + CONSTITUTION + 八维 rubric） → 通过 MCP/CLI 调 Codex → 结果追加到 docs/ai-cto/REVIEW-QUEUE.md。
 when_to_use: 任务完成后异步跨模型 review，或主动复审历史 commit
 allowed-tools: ["Read", "Write", "Bash"]
 user-invocable: true
@@ -13,7 +13,7 @@ user-invocable: true
 ## 触发链路（v3.7 autopilot）
 
 ```
-Stop hook (auto, 每次会话结束)  /  /cto-cross-review (manual)
+Stop hook (auto, 每次会话结束)  /  /cto-review --cross (manual)
    ↓
 本 skill 准备 prompt
    ↓
@@ -35,7 +35,7 @@ codex review --commit HEAD（订阅 auth）
 | 旧 | 新 |
 |---|---|
 | 手动 `gh pr create` | 自动开 PR（branch 有 commits + 无 open PR）|
-| 手动跑 `/cto-cross-review` | Stop hook 每次会话结束自动跑 |
+| 手动跑 `/cto-review --cross` | Stop hook 每次会话结束自动跑 |
 | codex review 写 REVIEW-QUEUE 后停止 | 同步 PR comment（按 sha 去重）|
 | 锁残留导致永久阻塞 | stale lock >60min auto-clear |
 | forbidden/non-business/debounce silent skip | 全部写 audit log（CODEX-REVIEW-LOG.md）|

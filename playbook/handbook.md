@@ -2350,7 +2350,7 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
    → 自动探测候选路径
    → 把发现的路径写入当前项目 CLAUDE.md 的 LINK 区块
    → 缓存到 .claude/settings.local.json
-4. 运行 /cto-refresh 验证手册可读
+4. 运行 /cto-resume --refresh 验证手册可读
 ```
 
 **探测顺序**（命令内置）：
@@ -2379,7 +2379,7 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
 
 ```bash
 # 在 ai-playbook 仓库中运行
-/cto-relink-all
+/cto-link --all
 ```
 
 命令会：
@@ -3207,9 +3207,9 @@ echo "$CLAUDE_TOOL_INPUT" | grep -qE '...' && echo '⚠️ 提醒...' || true
 | 类别 | 自动化策略 | 命令 |
 |---|---|---|
 | **决策门 / 双签 / 创意** | ❌ 保留手动 | cto-init / cto-link / cto-spec / cto-constitution / cto-design / cto-release / cto-models |
-| **可自动检测的违规** | ✅ Hook 即时执行 | 部分 cto-vibe-check / 部分 cto-eval / 部分 cto-review |
+| **可自动检测的违规** | ✅ Hook 即时执行 | 部分 cto-audit --vibe / 部分 cto-eval / 部分 cto-review |
 | **会话流程** | ✅ Hook 全自动 | 替代 cto-resume 大部分情况 |
-| **全量审计** | ⚠️ Hook 轻量 + 手动深度 | cto-vibe-check / cto-harness-audit / cto-audit |
+| **全量审计** | ⚠️ Hook 轻量 + 手动深度 | cto-audit --vibe / cto-audit --harness |
 
 ### 41.2 五个核心 Hook
 
@@ -3218,7 +3218,7 @@ echo "$CLAUDE_TOOL_INPUT" | grep -qE '...' && echo '⚠️ 提醒...' || true
 - 行为：会话启动时自动 cat `docs/ai-cto/CONSTITUTION.md` + `STATUS.md`（限 300 行避免溢出）
 
 **② UserPromptSubmit — Vibe 关键词预警**
-- 替代：部分 `/cto-vibe-check`
+- 替代：部分 `/cto-audit --vibe`
 - 行为：扫描用户 prompt 含 `yolo` / `accept all` / `vibe` / `--no-verify` / `skip tests` → 提示 §33 红线
 
 **③ PreToolUse(Edit|Write) — 前置拦截**
@@ -3250,7 +3250,7 @@ echo "$CLAUDE_TOOL_INPUT" | grep -qE '...' && echo '⚠️ 提醒...' || true
 | 加载上下文 | `/cto-resume` 手敲 | SessionStart 自动 |
 | 启动 spec | `/cto-spec specify→plan→tasks` | 同（决策门保留） |
 | 编码 | 自由发挥靠记忆 | PreToolUse 即时拦截 forbidden + test-lock |
-| Vibe 检测 | `/cto-vibe-check` 手敲 | UserPromptSubmit + commit 自动 |
+| Vibe 检测 | `/cto-audit --vibe` 手敲 | UserPromptSubmit + commit 自动 |
 | Eval 提醒 | 手动记得跑 | PostToolUse 自动提示 |
 | 发布前 | `/cto-release` | 同（决策门保留） |
 | **常规命令数** | **9** | **4** |
@@ -4056,7 +4056,7 @@ codex review --commit HEAD
 > Claude fallback **失去跨模型价值**（Claude 写的代码 Claude 自审 = 相同认知偏差）。
 > 是降级方案，不是替代方案。
 > REVIEW-QUEUE.md 中清晰标注 `Reviewer:` 字段，让用户知道差异。
-> 如要保持跨模型，等 codex 配额恢复（次月 1 日）后手动 `/cto-cross-review` 重审历史关键 commit。
+> 如要保持跨模型，等 codex 配额恢复（次月 1 日）后手动 `/cto-review --cross` 重审历史关键 commit。
 
 **实装位置**：`.agents/skills/codex-bridge/run.sh` 第 50-130 行（v3.6 起）。
 
