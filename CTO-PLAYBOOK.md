@@ -80,9 +80,9 @@
 
 ## 模型速查（避免退化时选错）
 
-**Claude Code**：Claude Opus 4.6（CTO/架构/审核）/ Claude Sonnet 4.6（标准编码）/ Claude Haiku 4.5（快速轻量）
+**Claude Code**：Claude Opus 4.8（CTO/架构/审核，默认）/ Claude Fable 5（极难推理 opt-in，约 2× 价）/ Claude Sonnet 4.6（标准编码）/ Claude Haiku 4.5（快速轻量）
 
-**Antigravity**：Gemini 3.1 Pro (High/Low) / Gemini 3 Flash / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.6 (Thinking) / GPT-OSS-120b / Gemini 2.5 Computer Use（浏览器子代理专用） / Nano Banana Pro（图像生成）
+**Antigravity**：Gemini 3.1 Pro (High/Low) / Gemini 3 Flash / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.8 (Thinking) / GPT-OSS-120b / Gemini 2.5 Computer Use（浏览器子代理专用） / Nano Banana Pro（图像生成）
 
 **Codex App**：**gpt-5.5（编码旗舰）**/ gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex / gpt-5.3-codex-spark / **gpt-image-2（图像生成 + 4K + reasoning，2026-04-21）**
 

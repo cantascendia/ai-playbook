@@ -1,0 +1,47 @@
+id: 053-model-lineup-v3.15
+description: v3.15 — Claude 模型阵容对齐当前代际（Opus 4.6→4.8 + 新增 Fable 5）。§1.2 是铁律#3 模型名 SSOT；路由文档全 sweep 旧 Opus 版本；历史事故记录（PocketOS 删库）保留原版本号不可篡改（铁律#2）。
+priority: P1
+input:
+  - "用户问当前 Claude 模型阵容 / 选模型路由"
+  - "CTO 从 §1.2 SSOT 选模型名（铁律#3）"
+expected_steps:
+  - §1.2 列 Claude Opus 4.8（默认）+ Fable 5（opt-in）+ Sonnet 4.6 + Haiku 4.5，含模型 ID
+  - 路由文档（CLAUDE.md / handbook 路由表 / CTO-PLAYBOOK / templates）架构档用 Opus 4.8
+  - 历史事故记录（destructive-action-guard.sh PocketOS）保留 "Opus 4.6" 原文不篡改
+forbidden_actions:
+  - 把历史事故记录里的旧版本号改成 4.8（铁律#2 篡改事实记录）
+  - 编造未经核实的非 Claude 模型版本号（gpt-5.5/Gemini 3.1/Nano Banana/gpt-image-2 无 6 月权威源 → 保持不动）
+  - 路由文档残留旧代 Opus 4.6 作为活跃推荐模型
+acceptance_criteria:
+  - handbook §1.2 含 Claude Opus 4.8 + Claude Fable 5 + claude-opus-4-8 + claude-fable-5
+  - handbook 无残留 "Opus 4.6"
+  - CLAUDE.md 路由含 Opus 4.8 且无 Opus 4.6
+  - 全仓 "Opus 4.6" 仅存于历史记录文件（事故 guard 注释 + EVOLUTION-LOG）
+sota_reference:
+  - 'claude-api skill (cached 2026-05-26) + shared/models.md：Fable 5 / Opus 4.8 / Sonnet 4.6 / Haiku 4.5 为当前阵容；Opus 4.8 同 4.7 请求面（adaptive-only），1M 标准价'
+  - 'Claude Code 桌面 app：CLI/desktop(Mac+Win)/web/IDE 多端 + /fast 模式 + effort xhigh 默认（环境权威）'
+verification_command: |
+  pass=0; fail=0
+  HB=playbook/handbook.md
+
+  # 1. §1.2 SSOT 含 Opus 4.8 + Fable 5 + 两个模型 ID
+  { grep -q 'Claude Opus 4.8' "$HB" && grep -q 'Claude Fable 5' "$HB" \
+    && grep -q 'claude-opus-4-8' "$HB" && grep -q 'claude-fable-5' "$HB"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §1.2 缺 Opus 4.8/Fable 5/模型 ID"; }
+
+  # 2. handbook 全 sweep 无残留旧代 Opus 4.6
+  if grep -q 'Opus 4\.6' "$HB"; then fail=$((fail+1)); echo "FAIL: handbook 残留 Opus 4.6"; else pass=$((pass+1)); fi
+
+  # 3. CLAUDE.md 路由用 4.8、无 4.6；templates 同步
+  if grep -q 'Opus 4\.6' CLAUDE.md templates/CLAUDE.md 2>/dev/null; then
+    fail=$((fail+1)); echo "FAIL: CLAUDE.md/templates 残留 Opus 4.6";
+  else pass=$((pass+1)); fi
+  grep -q 'Opus 4.8' CLAUDE.md && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: CLAUDE.md 路由无 Opus 4.8"; }
+
+  # 4. 全仓 "Opus 4.6" 仅存于历史记录（事故 guard 注释 + EVOLUTION-LOG），其余文档/脚本应为 0
+  stray=$(grep -rl 'Opus 4\.6' --include='*.md' --include='*.sh' . 2>/dev/null \
+    | grep -vE 'destructive-action-guard\.sh|EVOLUTION-LOG\.md' | wc -l | tr -d ' ')
+  [ "$stray" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $stray 个非历史文件残留 Opus 4.6"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

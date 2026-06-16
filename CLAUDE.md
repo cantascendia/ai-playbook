@@ -38,7 +38,7 @@
 
 | 任务 | 执行者 | 模型 |
 |---|---|---|
-| 架构设计/深度审核 | Claude Code | Opus 4.6 |
+| 架构设计/深度审核 | Claude Code | Opus 4.8（极难推理 opt-in Fable 5）|
 | 标准编码/测试 | Claude Code | Sonnet 4.6 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 |
 | 浏览器验证/UI mockup | 委派 Antigravity | Gemini 3.1 Pro High |

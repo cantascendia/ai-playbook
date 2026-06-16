@@ -14,7 +14,7 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **30** | `evals/golden-trajectories/*.yaml`（023-052，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 30 PASS/0 SKIP）|
+| evals | **31** | `evals/golden-trajectories/*.yaml`（023-053，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 31 PASS/0 SKIP）|
 | ledger（v3.14 B）| **4 脚本** | `ledger/{collect,distill,propagate,run}.mjs` + README — 跨项目事故账本闭环（collect→distill ≥2项目印证→propagate dry-run）；incidents.jsonl/drafts 是 gitignore 运行时产物 |
 | test-plans | **22** | `docs/test-plans/*.yaml`（001-022 trajectory 类规约，无 vc 不自动跑，需人工/Claude 周期验证；v3.14 从 evals/ 移出，计数诚实化）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|

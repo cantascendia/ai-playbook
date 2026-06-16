@@ -106,7 +106,7 @@ export CTO_FORBIDDEN_REMOVE=1     # 删 forbidden-paths.txt 条目
 
 ## 模型路由
 
-默认 Claude Code 直接执行（Opus 4.6 规划 / Sonnet 4.6 编码 / Haiku 4.5 轻量）。
+默认 Claude Code 直接执行（Opus 4.8 规划 / Sonnet 4.6 编码 / Haiku 4.5 轻量；极难推理 opt-in Fable 5）。
 浏览器验证 / UI 设计 → 委派 Antigravity（Gemini 3.1 Pro High）。
 隔离并行 / 自动化 → 委派 Codex（gpt-5.5）。
 
