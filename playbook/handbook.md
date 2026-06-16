@@ -2347,7 +2347,7 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
    → 自动探测候选路径
    → 把发现的路径写入当前项目 CLAUDE.md 的 LINK 区块
    → 缓存到 .claude/settings.local.json
-4. 运行 /cto-refresh 验证手册可读
+4. 运行 /cto-resume --refresh 验证手册可读
 ```
 
 **探测顺序**（命令内置）：

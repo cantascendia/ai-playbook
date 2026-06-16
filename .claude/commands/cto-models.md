@@ -22,7 +22,6 @@ $ARGUMENTS
 4. `playbook/handbook.md` — §5.2 Codex 模型表
 5. `playbook/handbook.md` — §14 决策框架表
 6. `CTO-PLAYBOOK.md` — 模型速查区
-7. `.claude/commands/cto-refresh.md` — 模型提醒段落（如有）
 
 ## 验证清单
 
