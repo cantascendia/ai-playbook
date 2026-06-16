@@ -696,3 +696,76 @@ I did not identify any discrete, actionable regression introduced by this patch.
 ```
 
 ---
+
+## 2026-06-16T23:31:28+09:00 — Review for 46764f0
+**Reviewer**: claude-fallback-opus | **Mode**: claude-only
+
+```markdown
+## 八维审核报告 — commit `46764f0`
+
+> `docs(v3.14): retire dangling /cto-refresh xrefs after command merge`
+> 3 files, +2 / -4, 纯文档清理
+
+---
+
+### 1. 架构 ✅
+
+纯交叉引用清理，无架构影响。命令合并 `/cto-refresh` → `/cto-resume --refresh` 的设计决策在 PR #29 已完成，此 commit 只扫残留。
+
+### 2. 代码质量 ✅
+
+- **cto-models.md:25** — 删除指向已删文件的 sync target（第 7 项），正确。剩余 6 项编号连续无断裂。
+- **CTO-PLAYBOOK.md:96-100** — 两行合一，`--refresh` 说明内联，格式与 CLAUDE.md:108 对齐。
+- **handbook.md:2350** — `/cto-refresh` → `/cto-resume --refresh`，上下文语义准确。
+
+### 3. 性能 ✅
+
+纯 markdown，无运行时影响。
+
+### 4. 安全 ✅
+
+不涉及 forbidden 路径 / 红线文件。
+
+### 5. 测试 ✅
+
+commit message 提到 eval `050-command-merge` 保持 5/0 green。文档改动不影响可执行逻辑。
+
+### 6. DX（开发者体验） ✅
+
+消除了 3 处 dangling reference，减少新贡献者跟着过期文档走弯路的风险。
+
+### 7. 功能完整性 ⚠️
+
+commit message 自述 **scope 有限**，以下残留显式标记为 follow-up：
+
+| 残留 | 位置 | 风险 |
+|---|---|---|
+| `cto-relink-all` 行仍在 CTO-PLAYBOOK.md:97 | diff 可见 | v3.14 已合并为 `/cto-link --all`，此行是下一个 dangling ref |
+| "15 个" 命令计数过时 | CTO-PLAYBOOK.md（commit message 提到） | 读者看到错误总数 |
+| 其余 4 条已合并命令 | CTO-PLAYBOOK.md 命令表 | 同上 |
+
+**判定 ⚠️**：scope 控制合理（单 commit 只修 `/cto-refresh` 残留），但 follow-up 应尽快闭环，否则 CTO-PLAYBOOK.md 命令表处于半更新状态。
+
+### 8. UX ✅
+
+面向开发者的内部文档，用户无感知。
+
+---
+
+### 总结
+
+| 维度 | 评级 |
+|---|---|
+| 架构 | ✅ |
+| 代码质量 | ✅ |
+| 性能 | ✅ |
+| 安全 | ✅ |
+| 测试 | ✅ |
+| DX | ✅ |
+| 功能完整性 | ⚠️ CTO-PLAYBOOK.md 命令表仍有 4+ 处 stale ref（已标 follow-up） |
+| UX | ✅ |
+
+**结论**：🟢 该 commit 本身干净、scope 明确、commit message 优秀（列出每处改动 + 理由 + eval 状态 + follow-up 声明）。唯一 action item 是尽快处理 CTO-PLAYBOOK.md 剩余的命令表对齐。
+```
+
+---
