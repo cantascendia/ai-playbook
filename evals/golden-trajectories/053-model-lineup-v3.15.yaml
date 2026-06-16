@@ -16,7 +16,7 @@ acceptance_criteria:
   - handbook §1.2 含 Claude Opus 4.8 + Claude Fable 5 + claude-opus-4-8 + claude-fable-5
   - handbook 无残留 "Opus 4.6"
   - CLAUDE.md 路由含 Opus 4.8 且无 Opus 4.6
-  - 全仓 "Opus 4.6" 仅存于历史记录文件（事故 guard 注释 + EVOLUTION-LOG）
+  - 活跃路由/SSOT 文档（handbook/CLAUDE/templates/CTO-PLAYBOOK）无 "Opus 4.6" 当活跃模型；§44 replay 示例用当代默认 opus-4-8（changelog/memory/历史事故记录里描述性提及允许）
 sota_reference:
   - 'claude-api skill (cached 2026-05-26) + shared/models.md：Fable 5 / Opus 4.8 / Sonnet 4.6 / Haiku 4.5 为当前阵容；Opus 4.8 同 4.7 请求面（adaptive-only），1M 标准价'
   - 'Claude Code 桌面 app：CLI/desktop(Mac+Win)/web/IDE 多端 + /fast 模式 + effort xhigh 默认（环境权威）'
@@ -38,10 +38,16 @@ verification_command: |
   else pass=$((pass+1)); fi
   grep -q 'Opus 4.8' CLAUDE.md && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: CLAUDE.md 路由无 Opus 4.8"; }
 
-  # 4. 全仓 "Opus 4.6" 仅存于历史记录（事故 guard 注释 + EVOLUTION-LOG），其余文档/脚本应为 0
-  stray=$(grep -rl 'Opus 4\.6' --include='*.md' --include='*.sh' . 2>/dev/null \
-    | grep -vE 'destructive-action-guard\.sh|EVOLUTION-LOG\.md' | wc -l | tr -d ' ')
-  [ "$stray" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $stray 个非历史文件残留 Opus 4.6"; }
+  # 4. 活跃路由/SSOT 文档不得把旧代 Opus 当活跃模型；§44 replay 示例用当代默认 opus-4-8
+  #    （changelog/memory STATUS+EVOLUTION / 历史事故 guard 注释里描述性提及 4.6→4.8 允许，故只扫路由/SSOT 文档）
+  #    dash-form opus-4-7 回潮防护：v3.15 多 agent 完备性审计发现 cto-replay.md + handbook 示例漏网
+  bad=0
+  for f in playbook/handbook.md CLAUDE.md templates/CLAUDE.md CTO-PLAYBOOK.md; do
+    grep -q 'Opus 4\.6' "$f" 2>/dev/null && { bad=$((bad+1)); echo "  $f 残留 Opus 4.6（活跃路由文档）"; }
+  done
+  { grep -q 'model=opus-4-8' .claude/commands/cto-replay.md && grep -q '"model":"opus-4-8"' "$HB"; } \
+    || { bad=$((bad+1)); echo "  §44 replay 示例未用当代默认 opus-4-8"; }
+  [ "$bad" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $bad 处活跃文档/示例残留旧代 Opus"; }
 
   echo "pass=$pass fail=$fail (expect 5/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

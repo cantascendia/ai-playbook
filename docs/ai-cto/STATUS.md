@@ -3,52 +3,84 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-05-30 v3.12 — 真 eval executor（铁律 #12 从空壳变真执行）
+最后更新：2026-06-16 v3.15 — Claude 模型阵容对齐当代（Opus 4.8 默认 + Fable 5 opt-in）
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v3.12** — `scripts/run-evals.sh` 真执行每个 golden-trajectory 的 `verification_command`
-（14 可执行类真跑 / 22 trajectory 类 SKIP，共 36 eval）。铁律 #12「无 eval 不进 main」从"CI 只 count yaml"
-（§32.5 反模式 #6 eval-gaming 空壳）升级为**真执行 fitness 函数**（AlphaEvolve 原则）。首跑即抓到 v3.11
-`_json_get` 把 `\n` 转空格破坏 forbidden-paths 多行比对的**安全回归** — 真执行 vs 空壳的最强实证。
-组件计数以 `docs/ai-cto/COUNTS.md` 为 SSOT（23 commands / 5 sub-agents / 9 hooks / 36 evals）。
+ai-playbook **v3.15** — Claude 模型阵容对齐当代：§1.2 模型 SSOT 把默认 Opus 升到 **Opus 4.8**
+（`claude-opus-4-8`，$5/$25，1M ctx，128K out，仅 adaptive thinking），新增 **Fable 5**
+（`claude-fable-5`，Opus 之上最强推理档，$10/$50）为极难推理 opt-in；全仓 Opus 4.6→4.8 sweep
+（路由表 / §38-40 agent-loop 示例 / CLAUDE.md / templates / Antigravity Claude-backend 行 / §44 replay 示例）。
+补 Claude Code 运行形态（CLI / 桌面 App Mac+Win / web / IDE）+ `/fast` + effort xhigh 说明。
+非 Claude 模型（gpt-5.5 / Gemini 3.1 Pro / Nano Banana Pro / gpt-image-2）**保持原样**——
+无 2026-06 权威源（铁律 #3）；PocketOS 历史事故注释中的 "Opus 4.6" 是**真实历史记录**，按铁律 #2 不改。
 
-> ⚠️ 本文件 v3.6→v3.12 多轮未滚动更新（pre-existing 债）；逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。
+此前 **v3.14（bold-audit）** 用多 agent 工作流质疑地基，对抗验证后裁决**混合重构**（不推倒重来）：
+Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项目事故 **ledger** 闭环、
+命令 23→18 合并、INDEX 行号 grep 化、README 去营销。再往前 **v3.13** 把平台范围默认收敛为
+**Claude-only**（Antigravity / Codex 改 opt-in）+ 14 铁律 4 层优先级 + check-counts SSOT enforcer 落地。
+
+组件计数以 `docs/ai-cto/COUNTS.md` 为 SSOT：**18 commands / 5 sub-agents / 10 hooks /
+11 skills(.claude) / 31 evals**（全部含 `verification_command`，`scripts/run-evals.sh` 跑 31 PASS / 0 SKIP）
++ 22 test-plans（trajectory 类，移出 evals/ 计数诚实化）。
+
+> ⚠️ 本文件 v3.6→v3.14 多轮未滚动更新（pre-existing 债，v3.15 本次刷新补上头部四段）；
+> 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。下半部「进行中/待办/已部署/已知问题/假设清单」
+> 多数仍停在 v3.4 语境，留作下一轮 STATUS 全量刷新。
 
 ---
 
 ## 质量评分
 
-**v3.6 (今轮，预计)**：~97/100
-- 关键修复：§44 实装（+4）/ TOCTOU + markdown（+2）/ SSOT（+3）/ Smoke test（+2）/ Codex fallback（+2）
-- 待第四轮 dogfooding 重审
+> v3.11 起 Health/ARE 未重跑评分（COUNTS.md 版本表标 TBD）。下方为有据可查的历史值，
+> v3.13–v3.15 待 harness-auditor / reliability-auditor 重审后回填，**不臆造分数**。
 
-**历史**：
-- v3.5 (2026-04-29)：**85/100**（self-audit 发现 v3.5 实装覆盖度仅 65%，纸上设计降分）
-- v3.4 (2026-04-29)：92/100（首次 dogfooding 闭环）
-- v3.3 (2026-04-28)：70.7/100（baseline）
-- v3.0-v3.2：未审计
+| 版本 | Health | ARE | 关键 |
+|---|---|---|---|
+| v3.15 (当前) | TBD | TBD | Claude 模型阵容对齐（Opus 4.8 默认 + Fable 5 opt-in）|
+| v3.14 (bold-audit) | TBD | TBD | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
+| v3.13 | TBD | TBD | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
+| v3.12 | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从空壳变真执行 |
+| v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
+| v3.9.3 | 94 | 72→86 | subproject 检测 |
+| v3.5 (2026-04-29) | 85 | — | self-audit 发现实装覆盖度仅 65%，纸上设计降分 |
+| v3.4 (2026-04-29) | 92 | — | 首次 dogfooding 闭环 |
+| v3.3 (2026-04-28) | 70.7 | — | baseline |
 
 ---
 
 ## 活跃分支
 
-- `main` — 已 push 3facf40
-- `claude/sweet-kare` — 当前工作分支
+- `main` — 最新 `d53f3fc`（v3.14 bold-audit, PR #29 已合）
+- `chore/v3.15-opus48-claude-code-latest` — 当前工作分支：v3.15 模型阵容对齐 + 审计后续 + STATUS 刷新；**PR #31 待人 merge**
 
 ---
 
-## 已完成（v3.4）
+## 已完成（v3.13 → v3.15）
 
-- ✅ 自审 dogfooding（harness-auditor + vibe-checker + 一致性 sub-agent 三路并行）
-- ✅ 创建 HARNESS-CHANGELOG.md
-- ✅ 创建本 STATUS.md
-- ⏳ 修复 5 处过期章节声明
-- ⏳ §33 数据保守化措辞
-- ⏳ 4 个新 eval yaml
-- ⏳ CLAUDE.md audit 决策树
+### v3.15 — Claude 模型阵容对齐当代（branch `de7da50` + 审计后续，PR #31 待 merge）
+- ✅ §1.2 模型 SSOT（铁律 #3）：默认 **Opus 4.8**（`claude-opus-4-8`）+ **Fable 5**（`claude-fable-5`）opt-in + 真实 model ID
+- ✅ 补 Claude Code 运行形态（CLI / 桌面 App Mac+Win / web / IDE）、`/fast` 模式、effort 默认 xhigh 说明
+- ✅ 全仓 Opus 4.6→4.8 sweep + 多 agent 完备性审计抓到 §44 replay 示例 `opus-4-7`→`opus-4-8` 漏网（cto-replay.md + handbook:3658）
+- ✅ 审计后续：修 cto-init 档位清单 + cto-models 悬挂 cto-refresh 引用（v3.14 命令合并尾巴）
+- ✅ 非 Claude 模型保持原样（铁律 #3）；PocketOS 历史事故注释不改（铁律 #2）
+- ✅ eval `053-model-lineup` 守护；全量 31 PASS / 0 FAIL；check-counts SSOT 绿
+
+### v3.14 — bold-audit：质疑地基的全面审计 + 定向重构（PR #29）
+- ✅ 多 agent 工作流裁决「混合重构（不推倒重来）」（裁决书 `REDESIGN-PROPOSAL-2026-06-10-bold-audit.md`）
+- ✅ **Bash/mcp guard 拦截**：`exit 2` → `permissionDecision:deny` JSON（对冲 GitHub #23284）
+- ✅ **跨项目事故 ledger 闭环**：`ledger/{collect,distill,propagate,run}.mjs`（≥2 项目印证才传播，advisory-only）
+- ✅ **命令 23→18 合并**：cross-review→`review --cross` / relink-all→`link --all` / refresh→`resume --refresh` / vibe-check+harness-audit→`audit`（能力零丢失）
+- ✅ **INDEX grep 化**：删硬编码行号（已漂移 20-30 行），改运行时 `grep -nE '^## N\.'` 定位
+- ✅ 22 条 trajectory eval 移 `docs/test-plans/`；README 去营销；阶段 0 止血（删泄漏 meta-eval + `zzz-*` 防复发 + check-counts 补 learned-rules 断言）
+
+### v3.13 — 平台范围收敛 + 治理强化（PR #20–#26）
+- ✅ **平台范围默认 Claude-only**：Antigravity / Codex 改 **opt-in**（PR #26）
+- ✅ **14 铁律 4 层优先级**（L1 安全 > L2 治理 > L3 质量 > L4 效率）+ 理由层（PR #25）
+- ✅ **check-counts.sh SSOT enforcer 落地**（提案 R1）+ 分层分发（minimal/full/advanced）
+- ✅ destructive-SQL + forbidden fallback 单源到 common.sh；飞轮**诚实降级**为「人在环 detect 辅助」（R4）
 
 ---
 
@@ -123,13 +155,6 @@ ai-playbook **v3.12** — `scripts/run-evals.sh` 真执行每个 golden-trajecto
 - **cc-sdd**（gotalab）：与 ai-playbook 最接近，已做跨 8 平台 Skills 分发
 - **disler/claude-code-hooks-mastery**（2k★）：Hooks 实战集合
 - **Aider**：RepoMap 风格 Tree-sitter 自动符号树（暂不抄，文档型仓库无业务符号）
-
----
-
-## 🔀 分支状态
-
-- main：3facf40（v3.3 + §26.5 cto-image 已 push）
-- claude/sweet-kare：v3.4 dogfooding 在写
 
 ---
 
