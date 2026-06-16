@@ -90,6 +90,6 @@ trajectory 类（静态可达性）：[K] 条 → [可达] / [⚠️]
 ## 失败模式
 
 - evals/ 不存在 → 引导用户跑 `/cto-eval init`
-- run-evals.sh 不存在 → 提示这是 < v3.12 的旧部署，需 `/cto-relink-all --upgrade`
+- run-evals.sh 不存在 → 提示这是 < v3.12 的旧部署，需 `/cto-link --all --upgrade`
 - yaml 解析失败 → 指出具体语法错误行
 - verification_command 引用的工具（jq 等）在当前环境缺失 → 标注 + 用 sed fallback

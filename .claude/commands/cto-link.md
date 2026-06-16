@@ -65,7 +65,7 @@ done
 如果区块不存在（旧版 CLAUDE.md 硬编码路径） → 提示用户先运行迁移：
 ```
 检测到旧版 CLAUDE.md（硬编码路径）。
-建议先运行 /cto-relink-all 迁移到新模板，或手动编辑 CLAUDE.md 将"完整手册"区段替换为 fallback 格式（见 templates/CLAUDE.md）。
+建议先运行 /cto-link --all 迁移到新模板，或手动编辑 CLAUDE.md 将"完整手册"区段替换为 fallback 格式（见 templates/CLAUDE.md）。
 ```
 
 ### 4. 写入 settings.local.json 缓存
