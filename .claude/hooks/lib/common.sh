@@ -100,7 +100,9 @@ block_with_reason() {
 deny_with_reason() {
   local reason="$1"
   if [ "$HAS_JQ" = "1" ]; then
-    jq -n --arg r "$reason" \
+    # -c 紧凑输出：与下方无-jq printf 路径字节同形（{"...":"deny"} 无空格），
+    # 否则 jq 默认 pretty-print 带空格，跨环境 grep 检测会漂（v3.14 CI 实测：Linux jq 路径致 7 eval 挂）
+    jq -cn --arg r "$reason" \
       '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
   else
     # 无 jq（Windows git-bash）：手工拼 JSON，reason 转义 \ " 换行
