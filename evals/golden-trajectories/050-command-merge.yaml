@@ -20,6 +20,7 @@ acceptance_criteria:
   - 命令总数 18
   - vibe-checker + harness-auditor sub-agent 仍在（能力保留）
   - cto-init 含 minimal/full/with-advanced 三档
+  - 全仓 .md 命令清单（含 CTO-PLAYBOOK.md 斜杠命令表）不把 5 个已删命令作为 live catalog 条目引用
 sota_reference:
   - 'bold-audit 2026-06-10：命令 23→12 merge 非 kill；评委一致反对砍到 4（牺牲知识复利）'
 verification_command: |
@@ -53,5 +54,15 @@ verification_command: |
   grep -qE 'profile=minimal' "$CMD/cto-init.md" && grep -qE 'with-advanced' "$CMD/cto-init.md" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 无 minimal/advanced 分档"; }
 
-  echo "pass=$pass fail=$fail (expect 5/0)"
+  # 6. 全仓 .md 命令清单不得把 5 个已删命令作为 live catalog 条目（表格行/列表项以 `/cto-xxx 引出）
+  #    结构模式：行首 |/- + 可选反引号 + /cto-<deleted>。天然放过 >/##/裸名(无斜杠)/中段 的合并说明、
+  #    changelog、proposal、sub-agent 区别说明；额外排除 agent-logs/worktrees/evals 目录与 原/合并自 行。
+  #    只有 CTO-PLAYBOOK.md 命令表残留旧行时才命中 → 整表对齐后才 PASS。
+  DEL='cto-cross-review|cto-relink-all|cto-refresh|cto-vibe-check|cto-harness-audit'
+  stray=$(grep -rnE "^[[:space:]]*[|-][[:space:]]*\`?/(${DEL})([[:space:]\`|]|$)" --include='*.md' . 2>/dev/null \
+    | grep -vE '/(agent-logs|worktrees|evals)/' \
+    | grep -vE '原 |合并自' || true)
+  if [ -z "$stray" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 命令清单仍把已删命令列为 live:"; echo "$stray"; fi
+
+  echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
