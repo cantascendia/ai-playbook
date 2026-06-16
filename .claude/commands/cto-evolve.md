@@ -33,6 +33,14 @@ disable-model-invocation: false
 
 ## 子命令
 
+### `ledger` — 跨项目事故账本（v3.14 B，飞轮的跨项目数据层）
+
+`node ledger/run.mjs <projects-root>`（默认 dry-run；`--auto` 才传播）。把 27 项目 agent-logs
+的红线拦截事故聚合 → 聚类（**≥2 项目独立印证才 corroborated**，anti-poison）→ 把 corroborated 的
+learned-rule 草稿反向传播给全舰队 = 共享免疫系统（一项目踩坑，全舰队免疫）。
+传播物是 **advisory learned-rule**（子项目红线 hook 覆盖之，不能关 guard，low blast-radius）。详见 `ledger/README.md`。
+> 与飞轮成熟度边界一致：ledger 自动传播仅限 corroborated + advisory，不碰"不自动改红线"。
+
 ### `detect` — 跑 pattern detector + 4 auditor + codex
 
 并行调用：

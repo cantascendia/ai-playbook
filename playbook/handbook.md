@@ -4316,6 +4316,17 @@ hook 运行时自动判别（immutable-guard `IS_AI_PLAYBOOK_SELF`：含 `playbo
 - §44 Replay → trajectory 是 pattern-detector 数据源
 - §48 跨模型 review → 是飞轮的"评估器"（Reflexion + MAR 多 critic）
 
+### 50.11 跨项目事故账本 ledger（v3.14 B — 飞轮的跨项目数据层）
+
+> bold-audit 评出的唯一真 10x：把"同一类 bug 在多个项目反复踩"变成**共享免疫系统**。
+
+`ledger/`（collect → distill → propagate，入口 `node ledger/run.mjs <projects-root> [--auto]`）：
+- **collect**：27 项目 `.claude/agent-logs/*.jsonl` 的红线拦截事故 → 中央 `incidents.jsonl`（带 source provenance）。
+- **distill**：按 hook+信号聚类；**anti-poison 核心：≥2 个不同项目独立印证才 corroborated**（auto-propagate 候选），单项目单点 → draft-only，一条投毒 incident 无法独自触发全舰队传播。
+- **propagate**：corroborated 草稿 → 各项目 `.claude/rules/learned/ledger-*.md`（默认 dry-run；`--apply` 才写）。
+- **安全**：传播物是 **advisory learned-rule（markdown）**——子项目 immutable-guard/红线 hook 覆盖它，坏 rule 不能关任何 guard（low blast-radius）；全程 provenance 可审计可撤。
+- **与飞轮边界一致**：自动传播仅限 corroborated + advisory，不碰"不自动改红线"。详见 `ledger/README.md`。
+
 ### 50.10 CTO 职责
 
 - 每周 review SELF-AUDIT GitHub Issue（cron 自动开）

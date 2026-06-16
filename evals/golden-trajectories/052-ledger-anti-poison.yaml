@@ -1,0 +1,64 @@
+id: 052-ledger-anti-poison
+description: v3.14 B — 跨项目事故账本 ledger 完整闭环（collect→distill→propagate）+ anti-poison：只有 ≥2 个不同项目独立印证的 pattern 才 corroborated（auto-propagate 候选），单项目单点事故只 draft-only，一条投毒 incident 无法独自触发全舰队传播。
+priority: P0
+input:
+  - "27 项目 agent-logs 拦截事故聚合"
+  - "distill 按 hook+信号聚类，≥2 项目印证才 corroborated"
+  - "propagate 默认 dry-run，--apply 才写，只传 corroborated"
+expected_steps:
+  - collect.mjs/distill.mjs/propagate.mjs/run.mjs/README 齐全
+  - distill 对跨 2 项目 pattern 标 corroborated=true
+  - distill 对单项目 pattern 标 corroborated=false（draft-only）
+  - propagate 默认 dry-run 不写文件
+forbidden_actions:
+  - 单项目单条 incident 触发 auto-propagate（投毒全舰队）
+  - propagate 默认就写（应 dry-run）
+  - 传播物能关掉子项目 guard（应仅 advisory learned-rule）
+acceptance_criteria:
+  - ledger 5 个文件齐全
+  - 跨 2 项目同类 pattern → corroborated:true
+  - 单项目同类 pattern → corroborated:false
+  - propagate 无 --apply 时不写任何目标文件
+  - distill 脚本含 ">= 2" 项目印证逻辑（projects.size >= 2）
+sota_reference:
+  - 'bold-audit 2026-06-10：ledger 是唯一真 10x；对抗验证警告投毒攻击面 → 多项目印证 + advisory + dry-run 防御'
+  - 'learned rule 2026-05-12：同 bug 多项目反复踩 → 共享免疫系统'
+verification_command: |
+  pass=0; fail=0
+  # 1. ledger 文件齐全
+  miss=0
+  for f in collect.mjs distill.mjs propagate.mjs run.mjs README.md; do
+    [ -f "ledger/$f" ] || { miss=$((miss+1)); echo "  缺 ledger/$f"; }
+  done
+  [ "$miss" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: ledger 缺 $miss 文件"; }
+
+  # 2. distill 含 ≥2 项目印证的 anti-poison 逻辑
+  grep -qE 'projects\.size >= 2|projects\.size>=2' ledger/distill.mjs \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: distill 无 ≥2 项目 corroboration 门"; }
+
+  # 3-4. 合成数据 hermetic 测：跨 2 项目 → corroborated；单项目 → draft-only
+  T=.tmp-ledger; rm -rf "$T"; mkdir -p "$T"
+  {
+    printf '%s\n' '{"source_project":"projA","hook":"forbidden-guard.sh","event":"forbidden-blocked","signal":"forbidden path auth"}'
+    printf '%s\n' '{"source_project":"projB","hook":"forbidden-guard.sh","event":"forbidden-blocked","signal":"forbidden path payment"}'
+    printf '%s\n' '{"source_project":"projC","hook":"bypass-guard.sh","event":"bypass-blocked","signal":"bypass noverify attempt"}'
+    printf '%s\n' '{"source_project":"projC","hook":"bypass-guard.sh","event":"bypass-blocked","signal":"bypass noverify again"}'
+  } > "$T/incidents.jsonl"
+  LEDGER_DIR="$T" node ledger/distill.mjs >/dev/null 2>&1
+  # 跨 2 项目（forbidden）应 corroborated:true
+  if grep -lq 'corroborated: true' "$T"/drafts/*forbidden* 2>/dev/null; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 跨 2 项目 pattern 未标 corroborated"; fi
+  # 单项目（bypass）应 corroborated:false（draft-only）
+  if grep -lq 'corroborated: false' "$T"/drafts/*bypass* 2>/dev/null; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 单项目 pattern 未限为 draft-only"; fi
+
+  # 5. propagate 默认 dry-run 不写（造一个假目标项目，验证无 --apply 不写）
+  mkdir -p "$T/proj/.claude"
+  LEDGER_DIR="$T" LEDGER_STAMP=test node ledger/propagate.mjs "$T" >/dev/null 2>&1
+  if [ -d "$T/proj/.claude/rules/learned" ] && ls "$T/proj/.claude/rules/learned/"*.md >/dev/null 2>&1; then
+    fail=$((fail+1)); echo "FAIL: propagate dry-run 竟写了文件"
+  else
+    pass=$((pass+1))
+  fi
+  rm -rf "$T"
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
