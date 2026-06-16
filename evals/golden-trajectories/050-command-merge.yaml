@@ -1,0 +1,57 @@
+id: 050-command-merge
+description: v3.14 C4 命令 23→18 合并 — 5 个冗余命令合并入目标（cross-review→review--cross / relink-all→link--all / refresh→resume--refresh / vibe-check+harness-audit→audit），能力不丢，cto-init 分核心/advanced 档。
+priority: P1
+input:
+  - "用户跑 /cto-review --cross"
+  - "用户跑 /cto-audit --vibe"
+  - "cto-init 按档位装命令"
+expected_steps:
+  - 5 个被合并命令文件已删
+  - 目标命令含对应 flag 说明
+  - sub-agent（vibe-checker/harness-auditor）保留（能力经 sub-agent 不丢）
+  - cto-init 分 minimal 8 / full 11 / advanced opt-in
+forbidden_actions:
+  - 合并后能力丢失（如 §48 cross-review / §34 harness 审计无入口）
+  - 删了命令但目标无 flag 承接
+  - 砍到 4（评委一致反对）
+acceptance_criteria:
+  - cto-cross-review/relink-all/refresh/vibe-check/harness-audit .md 不存在
+  - cto-review 含 --cross、cto-link 含 --all、cto-resume 含 --refresh、cto-audit 含 --vibe 和 --harness
+  - 命令总数 18
+  - vibe-checker + harness-auditor sub-agent 仍在（能力保留）
+  - cto-init 含 minimal/full/with-advanced 三档
+sota_reference:
+  - 'bold-audit 2026-06-10：命令 23→12 merge 非 kill；评委一致反对砍到 4（牺牲知识复利）'
+verification_command: |
+  pass=0; fail=0
+  CMD=.claude/commands
+
+  # 1. 5 个被合并命令已删
+  gone=0
+  for c in cto-cross-review cto-relink-all cto-refresh cto-vibe-check cto-harness-audit; do
+    [ -f "$CMD/$c.md" ] && { gone=$((gone+1)); echo "  未删: $c"; }
+  done
+  [ "$gone" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $gone 个本应合并的命令仍在"; }
+
+  # 2. 目标含对应 flag
+  m=0
+  grep -qE '\-\-cross' "$CMD/cto-review.md" || { m=$((m+1)); echo "  cto-review 缺 --cross"; }
+  grep -qE '\-\-all' "$CMD/cto-link.md" || { m=$((m+1)); echo "  cto-link 缺 --all"; }
+  grep -qE '\-\-refresh' "$CMD/cto-resume.md" || { m=$((m+1)); echo "  cto-resume 缺 --refresh"; }
+  grep -qE '\-\-vibe' "$CMD/cto-audit.md" && grep -qE '\-\-harness' "$CMD/cto-audit.md" || { m=$((m+1)); echo "  cto-audit 缺 --vibe/--harness"; }
+  [ "$m" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $m 个目标缺承接 flag"; }
+
+  # 3. 命令总数 18
+  N=$(ls "$CMD"/cto-*.md | wc -l | tr -d ' ')
+  [ "$N" = "18" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 命令数 $N ≠ 18"; }
+
+  # 4. 能力保留：vibe-checker + harness-auditor sub-agent 仍在
+  { [ -f .claude/agents/vibe-checker.md ] && [ -f .claude/agents/harness-auditor.md ]; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 审计 sub-agent 被误删（能力丢失）"; }
+
+  # 5. cto-init 三档
+  grep -qE 'profile=minimal' "$CMD/cto-init.md" && grep -qE 'with-advanced' "$CMD/cto-init.md" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 无 minimal/advanced 分档"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

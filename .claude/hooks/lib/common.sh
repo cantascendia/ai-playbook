@@ -86,10 +86,31 @@ normalize_paths() {
 }
 
 # 硬阻止：exit 2 + stderr（Claude 会读 stderr 当作错误反馈）
+# 文件类工具（Edit/Write/MultiEdit）的 PreToolUse 用此——实测可靠拦截。
 block_with_reason() {
   local reason="$1"
   echo "$reason" >&2
   exit 2
+}
+
+# v3.14 A：PreToolUse permissionDecision:deny JSON 拦截（exit 0 + stdout JSON）
+# 用于 Bash / mcp__ 工具的 guard——GitHub #23284 记录 Bash-tool 的 exit-2 在某些版本只报错不拦截，
+# permissionDecision JSON 是文档的稳健拦截路径。file guard 仍用 block_with_reason（exit-2 可靠）。
+# 部署前须 live-verify（cto-doctor / 本会话实测）；若该版本 JSON 也不拦，退回 block_with_reason。
+deny_with_reason() {
+  local reason="$1"
+  if [ "$HAS_JQ" = "1" ]; then
+    # -c 紧凑输出：与下方无-jq printf 路径字节同形（{"...":"deny"} 无空格），
+    # 否则 jq 默认 pretty-print 带空格，跨环境 grep 检测会漂（v3.14 CI 实测：Linux jq 路径致 7 eval 挂）
+    jq -cn --arg r "$reason" \
+      '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
+  else
+    # 无 jq（Windows git-bash）：手工拼 JSON，reason 转义 \ " 换行
+    local esc
+    esc=$(printf '%s' "$reason" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$esc"
+  fi
+  exit 0
 }
 
 # 软提醒：用 additionalContext JSON 输出（Claude 看到但不阻止）

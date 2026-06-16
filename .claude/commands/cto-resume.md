@@ -33,3 +33,12 @@ disable-model-invocation: false
 优先使用用户提供的状态恢复点，然后读取代码验证，对比修正后继续。
 
 请恢复会话并继续。
+
+---
+
+## `--refresh` 模式（v3.14 合并自 cto-refresh）
+
+> 原 `/cto-refresh` 命令已合并于此。`/cto-resume --refresh` = 恢复会话 + 重读 handbook 对齐最新行为规范。
+
+- 先走正常 resume（读 docs/ai-cto/ 记忆 + git status），再重读 `playbook/handbook.md` 关键章节（按 INDEX grep 定位）刷新行为对齐。
+- 用于长会话中途感觉"跑偏了"、或 handbook 有更新后重新对齐。

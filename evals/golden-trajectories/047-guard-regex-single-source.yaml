@@ -45,9 +45,11 @@ verification_command: |
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: codex-bridge fallback 仍不完整/未单源"; }
 
   # 5. 单源后行为不变：destructive 仍拦 DROP/TRUNCATE，mcp SELECT 放行
+  # v3.14 A：mcp-guard 改 deny JSON，用机制无关检测（exit 2 或 deny JSON）
+  blocked(){ out=$(printf '%s' "$1" | bash .claude/hooks/mcp-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
   p2=0
-  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"TRUNCATE t"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 || p2=$((p2+1))
-  printf '%s' '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' | bash .claude/hooks/mcp-guard.sh >/dev/null 2>&1 && p2=$((p2+1))
+  blocked '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"TRUNCATE t"},"cwd":"."}' && p2=$((p2+1))
+  blocked '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' || p2=$((p2+1))
   [ "$p2" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 单源后 SQL 行为变化 (p2=$p2)"; }
 
   echo "pass=$pass fail=$fail (expect 5/0)"

@@ -69,13 +69,25 @@ test_hook() {
   fi
 }
 
+# v3.14 A：机制无关的"已拦截"检测 — Bash/mcp guard 改用 permissionDecision:deny JSON（exit 0 + stdout）
+# 对冲 #23284（Bash-tool exit-2 在某些版本只报错不拦）。file guard 仍用 test_hook ...2（exit-2 可靠）。
+test_blocked() {
+  local name="$1" cmd="$2" out rc
+  out=$(eval "$cmd" 2>&1); rc=$?
+  if [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; then
+    echo "✓ $name (blocked: rc=$rc$(echo "$out" | grep -q deny && echo ' +deny-json'))"
+  else
+    echo "✗ $name (rc=$rc 无 deny) ← ENFORCEMENT 失效"
+  fi
+}
+
 test_hook "forbidden-guard auth/" 2 \
   "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"src/auth/x.ts\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/forbidden-guard.sh"
 test_hook "forbidden-guard 普通路径" 0 \
   "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"src/utils/foo.ts\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/forbidden-guard.sh"
-test_hook "bypass-guard --no-verify" 2 \
+test_blocked "bypass-guard --no-verify" \
   "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit --no-verify\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/bypass-guard.sh"
-test_hook "bypass-guard core.hooksPath" 2 \
+test_blocked "bypass-guard core.hooksPath" \
   "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git config core.hooksPath /dev/null\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/bypass-guard.sh"
 test_hook "bypass-guard 普通命令" 0 \
   "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls -la\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/bypass-guard.sh"
@@ -83,9 +95,9 @@ test_hook "bypass-guard 普通命令" 0 \
 # v3.13 A2：补 3 个安全红线 guard 的端到端 exit-2 测试（批1 安装链断裂的核心 guard）
 test_hook "immutable-guard CONSTITUTION" 2 \
   "printf '%s' '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"docs/ai-cto/CONSTITUTION.md\",\"old_string\":\"x\",\"new_string\":\"y\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/immutable-guard.sh"
-test_hook "destructive-action-guard rm -rf /" 2 \
+test_blocked "destructive-action-guard rm -rf /" \
   "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm -rf /\"},\"cwd\":\"$CWD\"}' | bash .claude/hooks/destructive-action-guard.sh"
-test_hook "mcp-guard delete_project" 2 \
+test_blocked "mcp-guard delete_project" \
   "printf '%s' '{\"tool_name\":\"mcp__x__delete_project\",\"tool_input\":{},\"cwd\":\"$CWD\"}' | bash .claude/hooks/mcp-guard.sh"
 test_hook "mcp-guard 只读 list 放行" 0 \
   "printf '%s' '{\"tool_name\":\"mcp__x__list_projects\",\"tool_input\":{},\"cwd\":\"$CWD\"}' | bash .claude/hooks/mcp-guard.sh"

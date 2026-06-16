@@ -32,7 +32,7 @@ if echo "$HOOK_BASH_CMD" | grep -qE -- "$BYPASS_PATTERNS"; then
 
   audit_log "bypass-blocked" "cmd=$HOOK_BASH_CMD"
 
-  block_with_reason "🛑 BLOCKED: 检测到 hook/pre-commit 绕过尝试
+  deny_with_reason "🛑 BLOCKED: 检测到 hook/pre-commit 绕过尝试
 
 命令：\`$HOOK_BASH_CMD\`
 

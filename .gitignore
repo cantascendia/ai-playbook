@@ -40,3 +40,7 @@ build/
 # v3.9 飞轮 cost cap（按月 reset）— 不入 git
 docs/ai-cto/.evolve-cost-month.json
 docs/ai-cto/.codex-quota-cooldown
+
+# v3.14 ledger 运行时产物（collect/distill 生成，非源码）
+ledger/incidents.jsonl
+ledger/drafts/

@@ -99,38 +99,28 @@
 
 ## 斜杠命令
 
+> v3.14 命令 23→18 合并：cross-review→`review --cross`、relink-all→`link --all`、refresh→`resume --refresh`、vibe-check+harness-audit→`audit --vibe|--harness`。分发：minimal 8 / full 11 核心 + 6 advanced opt-in（见 cto-init §3b / handbook §49）。完整计数 `docs/ai-cto/COUNTS.md`。
+
 **初始化与会话**
-- `/cto-init [项目路径]` — **一键初始化**目标项目的完整 CTO 系统
-- `/cto-link [可选路径]` — 关联本机的 ai-playbook 仓库（跨机器路径自动发现，§29.8）
-- `/cto-relink-all [扫描目录]` — 批量迁移多个项目到 fallback 模板（§29.8）
+- `/cto-init [项目路径] [--profile=minimal|full] [--with-codex|--with-antigravity|--with-advanced]` — **一键初始化**目标项目
+- `/cto-link [路径|--all|--upgrade]` — 关联本机 ai-playbook（`--all` = 批量迁移多项目，原 relink-all）
 - `/cto-start` — 新项目第零轮启动
-- `/cto-resume` — 恢复会话继续工作
-- `/cto-refresh` — 刷新手册恢复行为规范
+- `/cto-resume [--refresh]` — 恢复会话（`--refresh` = 重读手册对齐，原 cto-refresh）
 
 **Spec-Driven 与宪法**
 - `/cto-spec [specify|plan|tasks]` — 三段式 Spec-Driven 开发（§18）
 - `/cto-constitution [init|review|audit]` — 项目宪法管理（§37）
 
-**审核与质量**（6 个 audit 类命令的决策树）
-- `/cto-review [文件/分支]` — 交叉审核**具体改动**（§19，多模型独立审一遍）
-- `/cto-vibe-check` — 扫描**红线违规**（§33，commit/marker/forbidden 路径）
-- `/cto-harness-audit` — 评分**harness 设计本身**（§34 八条原则 + health score）
+**审核与质量**
+- `/cto-review [文件/分支] [--cross]` — 交叉审核**具体改动**（§19）；`--cross` = §48 跨模型 codex 审（原 cross-review）
+- `/cto-audit [--vibe|--harness]` — 统一审计入口：默认 playbook 自身一致性；`--vibe` §33 红线扫描；`--harness` §34 八原则评分（原 vibe-check + harness-audit）
 - `/cto-eval [init|audit|add|run]` — **Eval 集**操作（§35 golden trajectory）
-- `/cto-audit` — **playbook 自身**质检（交叉引用 / 章节计数 / 命令清单一致性）
-- `/cto-replay [session-id]` 🆕 — **重放 trajectory**（§44 调试 / 审计 / 规划重演）
-- `/cto-canary [percent]` 🆕 — **Canary 部署**（§45 feature flag + 自动 rollback）
-- `/cto-cross-review` 🆕 — **跨模型 review**（§48 → Codex gpt-5.5 八维评审）
 - `/cto-release` — 发布前**最终门禁**（§24 八维 + 性能 + 合规 + Constitution）
 
-> 何时用哪个：审具体改动 → review；审项目卫生 → vibe-check；审 harness → harness-audit；审 eval 集 → eval audit；审 playbook 自身 → audit；发布把关 → release
+> 何时用哪个：审具体改动 → review；跨模型审 → review --cross；项目卫生/红线/harness → audit[--vibe|--harness]；eval 集 → eval；发布把关 → release
 
-**设计与图像**
-- `/cto-design` — UI 设计流程（§26）
-- `/cto-image [用途]` — 图像生成委派分流（§26.5：Codex gpt-image-2 / Antigravity Nano Banana Pro）
-
-**生态与维护**
-- `/cto-skills` — Skill 生态管理（§21）
-- `/cto-models` — 模型列表更新
+**Advanced（opt-in，低频）**
+- `/cto-design` UI 设计（§26）· `/cto-image` 图像委派（§26.5）· `/cto-replay` trajectory 重放（§44）· `/cto-canary` 部署（§45）· `/cto-skills` skill 管理（§21）· `/cto-models` 模型表更新
 
 ## 八维审核
 

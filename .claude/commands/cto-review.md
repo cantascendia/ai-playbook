@@ -38,3 +38,13 @@ disable-model-invocation: false
 ## 审核目标
 
 $ARGUMENTS
+
+---
+
+## `--cross` 模式（v3.14 合并自 cto-cross-review）
+
+> 原 `/cto-cross-review` 命令已合并于此。`/cto-review --cross [sha|HEAD]` = 触发 §48 跨模型 review。
+
+- 调 `.agents/skills/codex-bridge/run.sh <sha>`（codex 订阅 auth，gpt-5.5 八维评审），结果写 `docs/ai-cto/REVIEW-QUEUE.md` + PR comment。
+- 平时由 Stop hook autopilot 自动跑；本 flag 用于手动补审历史 commit 或 Stop hook 漏触发时。
+- 完整机制见 handbook §48。

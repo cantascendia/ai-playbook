@@ -56,7 +56,7 @@ if echo "$SCAN_CMD" | grep -qiE -- "$COMBINED_DESTRUCTIVE"; then
 
   audit_log "destructive-action-blocked" "cmd=$(echo "$HOOK_BASH_CMD" | head -c 200)"
 
-  block_with_reason "🛑 v3.10.1 DESTRUCTIVE ACTION BLOCKED
+  deny_with_reason "🛑 v3.10.1 DESTRUCTIVE ACTION BLOCKED
 
 命令：\`$(echo "$HOOK_BASH_CMD" | head -c 300)\`
 
