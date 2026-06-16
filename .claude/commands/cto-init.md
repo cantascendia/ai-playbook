@@ -23,8 +23,8 @@ disable-model-invocation: false
 
 | 档位 | 给谁 | 装什么 |
 |---|---|---|
-| **minimal** | 刚起步 / 小项目 / 只想要安全护栏 | **全部 hooks**（红线层，强制）+ CLAUDE.md + settings.json + 核心 8 命令（start/resume/spec/review/release/vibe-check/doctor/constitution）+ 5 个 enforcement skills + scripts SSOT |
-| **full**（默认，向后兼容） | 深度使用 / 需要飞轮·设计·发布全套 | minimal 的一切 + 全部 advanced 命令（canary/replay/image/design/models/cross-review/evolve/skills/harness-audit/audit/link）|
+| **minimal** | 刚起步 / 小项目 / 只想要安全护栏 | **全部 hooks**（红线层，强制）+ CLAUDE.md + settings.json + 核心 8 命令（start/resume/spec/review/release/audit/doctor/constitution）+ 5 个 enforcement skills + scripts SSOT |
+| **full**（默认，向后兼容） | 深度使用 / 需要飞轮·设计·发布全套 | minimal 的一切 + 全部 advanced 命令（canary/replay/image/design/models/evolve/skills/link）|
 
 **铁律（任何档位都不可省）**：`.claude/hooks/` **整目录复制**——10 个红线 guard 一个都不能漏（见下 §3d）。
 缺省 `--profile`：默认 `full`（不破坏现有安装流）。新/小项目**推荐显式 `--profile=minimal`**。

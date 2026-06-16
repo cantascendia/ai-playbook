@@ -41,7 +41,7 @@ test -d .claude/agent-logs/ || echo "未启用 trajectory 日志，请先在 set
 ### 3. 渲染时间轴
 
 ```
-🕒 16:00:00  session_start  model=opus-4-7
+🕒 16:00:00  session_start  model=opus-4-8
 🕒 16:00:03  👤 user: "添加用户头像上传功能"
 🕒 16:00:05  🔧 Read .docs/ai-cto/SPEC.md
 🕒 16:00:06  🔧 Glob src/**/avatar*
