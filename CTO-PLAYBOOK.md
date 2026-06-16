@@ -88,27 +88,25 @@
 
 ---
 
-## 斜杠命令（15 个）
+## 斜杠命令
+
+> v3.14 命令 23→18 合并：cross-review→`review --cross`、relink-all→`link --all`、refresh→`resume --refresh`、vibe-check+harness-audit→`audit --vibe|--harness`。下表列决策入口/常用命令；完整 18 个（含 `/cto-doctor`、`/cto-evolve` 飞轮命令）计数见 `docs/ai-cto/COUNTS.md`（SSOT）。
 
 | 命令 | 用途 | 章节 |
 |---|---|---|
 | `/cto-init [路径]` | **一键初始化**目标项目完整 CTO 系统 | §29 |
-| `/cto-link [可选路径]` | 关联本机 ai-playbook（跨机器路径自适应）| §29.8 |
-| `/cto-relink-all [扫描目录]` | 批量迁移多项目到 fallback 模板 | §29.8 |
+| `/cto-link [路径\|--all\|--upgrade]` | 关联本机 ai-playbook（跨机器路径自适应；`--all` = 批量迁移多项目，原 relink-all）| §29.8 |
 | `/cto-start` | 新项目第零轮启动 | §10 |
 | `/cto-resume [--refresh]` | 恢复会话继续工作（`--refresh` = 重读手册对齐，原 cto-refresh） | §17.6 |
 | `/cto-spec [specify\|plan\|tasks]` | 三段式 Spec-Driven 开发 | §18 |
 | `/cto-constitution [init\|review\|audit]` | 项目宪法管理 | §37 |
-| `/cto-review [目标]` | 交叉审核关键改动 | §19 |
-| `/cto-vibe-check` | Vibe Coding 红线审计 | §33 |
-| `/cto-harness-audit` | Harness 设计自审（8 条原则）| §34 |
+| `/cto-review [文件/分支] [--cross]` | 交叉审核关键改动（`--cross` = §48 跨模型 codex 审，原 cross-review）| §19 |
 | `/cto-eval [init\|audit\|add\|run]` | Eval-Driven Development | §35 |
-| `/cto-audit` | Playbook 自审质检 | — |
+| `/cto-audit [--vibe\|--harness]` | Playbook 自审质检；`--vibe` §33 红线 / `--harness` §34 八原则（原 vibe-check + harness-audit）| — |
 | `/cto-design [描述]` | UI 设计流程 | §26 |
 | `/cto-image [用途]` | 图像生成委派分流（Codex gpt-image-2 / Antigravity Nano Banana Pro） | §26.5 |
 | `/cto-replay [session-id]` 🆕 | 重放 trajectory 日志 | §44 |
 | `/cto-canary [percent]` 🆕 | Canary 部署计划生成 | §45 |
-| `/cto-cross-review` 🆕 | 跨模型 review（Claude→Codex gpt-5.5 八维评审） | §48 |
 | `/cto-skills` | Skill 生态管理 | §21 |
 | `/cto-models [变更]` | 模型列表更新 | — |
 | `/cto-release [版本]` | 发布前全面检查 | §24 |
