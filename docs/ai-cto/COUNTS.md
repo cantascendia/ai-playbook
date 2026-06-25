@@ -3,7 +3,9 @@
 > 飞轮第 7 轮 redundancy-hunter 发现：命令数在 6+ 处不一致（17/18/21/10/23）。
 > 本文件是**唯一计数权威源**。README / CLAUDE.md / STATUS / handbook 引用本表，不硬写数字。
 > 改组件数量时**只**更新本文件。
-> ⚠️ **诚实声明（2026-05-30 SOTA team 审计修正）**：`scripts/check-counts.sh` **尚未实现**（违反铁律 #2 的旧承诺已撤回）。在它落地前，本表靠人工核实，无自动 enforcer → 计数仍会漂移。实现它是 v3.13 P0（提案 R1）。
+> ✅ **校正（2026-06-25 audit 对抗验证发现）**：`scripts/check-counts.sh` **已实现并生效**（v3.13 R1 交付）。
+> 此前本行旧文案误称"尚未实现"——对抗验证者抽查时实跑 `EXIT 0`、TIER1 全绿（18/5/10/11/31 全对、0 软警告）坐实。
+> 现已有自动 enforcer 兜底计数漂移。
 
 最后核实：2026-05-29（飞轮第 7-8 轮 team 迭代）
 
@@ -26,7 +28,9 @@
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v3.12 (当前) | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从"空壳"变真执行；首跑即抓到 v3.11 _json_get 把 `\n` 转空格破坏 forbidden-paths 多行比对的安全回归 |
+| v3.15 (当前) | **79** | **78** | 2026-06-25 harness+reliability 重审 + 对抗验证回填（high conf，无膨胀）；扣分=changelog 断档/pre-commit 未装/SLO 冻结 v3.9.1/季度演练过期 |
+| v3.13–v3.14 | —（见 v3.15） | —（见 v3.15） | 历史快照未单独测，当前累计态即 v3.15 |
+| v3.12 | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从"空壳"变真执行；首跑即抓到 v3.11 _json_get 把 `\n` 转空格破坏 forbidden-paths 多行比对的安全回归 |
 | v3.11 | TBD | TBD | 飞轮第 7-8 轮 team 迭代 |
 | v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
 | v3.9.3 | 94 | 72→86 | subproject 检测 |

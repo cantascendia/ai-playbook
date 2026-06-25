@@ -35,14 +35,15 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 质量评分
 
-> v3.11 起 Health/ARE 未重跑评分（COUNTS.md 版本表标 TBD）。下方为有据可查的历史值，
-> v3.13–v3.15 待 harness-auditor / reliability-auditor 重审后回填，**不臆造分数**。
+> 2026-06-25 回填：harness-auditor + reliability-auditor 并行重审 + 对抗验证（high confidence，无膨胀，
+> 两份 grounded=true，verifier 逐条核实 14 项 evidence）。v3.15 测得 **Health 79 / ARE 78**。
+> v3.13/v3.14 历史快照未单独测，当前累计态即 v3.15 分数。**不臆造分数**（铁律 #3）。
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v3.15 (当前) | TBD | TBD | Claude 模型阵容对齐（Opus 4.8 默认 + Fable 5 opt-in）|
-| v3.14 (bold-audit) | TBD | TBD | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
-| v3.13 | TBD | TBD | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
+| v3.15 (当前) | **79** | **78** | Claude 模型阵容对齐；扣分=changelog 断档 + pre-commit 未装 + 7 skill 无 paths + SLO 冻结 v3.9.1 + 季度演练 Q2 过期未跑 |
+| v3.14 (bold-audit) | —（见 v3.15） | —（见 v3.15） | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
+| v3.13 | —（见 v3.15） | —（见 v3.15） | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
 | v3.12 | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从空壳变真执行 |
 | v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
 | v3.9.3 | 94 | 72→86 | subproject 检测 |
@@ -103,10 +104,15 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 - [x] `.github/workflows/eval.yml` → **已存在**（与 canary/codex-review/llm-judge/self-audit-weekly 共 5 个 workflow）
 - [x] check-counts.sh SSOT enforcer → v3.13 落地（2026-06-25 实测 TIER1 全绿、EXIT 0）
 
-### P1（当前真实未决）
-- [ ] STATUS「质量评分」表 v3.13–v3.15 仍 TBD — 需重跑 harness-auditor / reliability-auditor 回填（不臆造）
-- [ ] CLAUDE.md 4 个 audit 命令（review/audit --vibe/--harness）决策树文档化（已知问题里的功能交叠）
-- [ ] 4 条 hooks 文案收缩为 rule 引用（避免双源漂移，harness-auditor 标⚠️）
+### P1（2026-06-25 audit grounded，按 ROI 排序）
+- [x] ~~STATUS/COUNTS 质量评分 TBD 回填~~ → 完成（Health 79 / ARE 78，本轮）
+- [ ] **HARNESS-CHANGELOG 断档 45 天**（v3.10–v3.15 共 27 提交无条目）— audit #1 ROI（5 分钟/条，解锁下游可靠性分析）。本轮先补 v3.15 audit 条目，v3.10–v3.14 待补
+- [ ] **pre-commit hook 未安装**（`.git/hooks/` 仅 .sample，`install-pre-commit.sh` 未跑）— 铁律 #12 本地绕过面，仅 CI PR gate 兜底
+- [ ] **SLO.md 冻结 v3.9.1** + `evals/slo-checks/` 不存在 — mcp-guard/deny_with_reason/ledger 等 v3.10+ 组件零 SLO 覆盖；mcp-guard 静默失效无指标可测
+- [ ] **季度 fallback 演练 Q2 2026 过期未跑**（QUARTERLY-DRILLS 4 场景全 TBD，仅 2026-05-11 dry-run）
+- [ ] 7 skill 无 `paths:` trigger（无自动唤起，沦为手动）
+- [ ] 4 条 hooks 文案 + bypass-guard BYPASS_PATTERNS 收缩为单源（双源漂移，harness-auditor ⚠️）
+- [ ] CLAUDE.md audit 类命令（review / audit --vibe / --harness）决策树文档化（功能交叠）
 
 ### P2
 - [ ] 清理远程 16 个已合并 feature 分支（`git push origin --delete <branch>`）

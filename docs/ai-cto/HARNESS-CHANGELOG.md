@@ -13,6 +13,25 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-06-25] v3.15 — health/ARE 重审回填（45 天断档首笔补账）
+
+**为什么**：会话恢复后实测发现 STATUS/COUNTS 的 v3.11–v3.15 Health/ARE 全 TBD（v3.9.3 的 94 已 9 个月陈旧），且本 changelog 自 2026-05-11 v3.9.1 后断档 45 天 / 27 提交未记录——是手册 §34.3 + §43 定义的可观测性盲区。
+
+**改动**：
+- 工作流并行跑 harness-auditor（§34 八原则）+ reliability-auditor（§43 四维）→ 对抗验证者抽查 14 项 evidence（防膨胀/防臆造，铁律 #3）
+- 回填 STATUS.md「质量评分」表 + COUNTS.md 版本表：v3.15 = **Health 79 / ARE 78**（high confidence，两份 grounded=true，无膨胀）
+- 修 COUNTS.md:6 误述：`check-counts.sh` 旧文案说"尚未实现"，实测已交付且 EXIT 0
+
+**评分依据**：
+- Health 79：5 pass（context engineering / lazy loading / token-eff / multi-agent separation / durable state）+ 3 warn（self-contained：7 skill 无 paths trigger；minimal-intervention：4 hooks 双源漂移；fail-fast：pre-commit 未安装）
+- ARE 78：四维全 warn — SLO.md 冻结 v3.9.1（v3.10+ 组件零覆盖）、`evals/slo-checks/` 不存在、季度演练 Q2 过期未跑、`.evolve-cost-month.json` 缺失（cost 累计无状态可读）
+
+**新登记 P1（grounded）**：HARNESS-CHANGELOG v3.10–v3.14 仍需补；pre-commit hook 待 `install-pre-commit.sh`；SLO.md 待对齐 v3.15；季度演练待实跑。
+
+**影响范围**：所有「项目自审 / 发布门禁 / 可靠性回归」任务模式 — 解除了 9 个月评分陈旧 + changelog 断档对下游分析的阻断。
+
+---
+
 ## [2026-05-11] v3.9.1 — Windows 反斜杠路径剥离 bug 修复（飞轮首次产出）
 
 **飞轮发现**：v3.9 首次跑 pattern-detector 多 sub-agent 并行（pattern-detector + harness-auditor + vibe-checker + reliability-auditor），实测发现：
