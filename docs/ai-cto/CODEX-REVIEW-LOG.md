@@ -38,3 +38,8 @@ pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be 
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=existing-check | found=0
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/8#issuecomment-4421936932 
 2026-05-12T00:04:57+09:00 | sha=4216324 | mode=pr-comment-posted | pr=#8
+2026-06-25T11:40:33+09:00 | sha=f35afaa | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T11:45:29+09:00 | sha=f35afaa | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T11:57:13+09:00 | sha=d168144 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T12:12:06+09:00 | sha=c2b6bfe | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T12:13:38+09:00 | sha=c2b6bfe | mode=skipped-non-business | reason=docs_or_config_only_no_security
