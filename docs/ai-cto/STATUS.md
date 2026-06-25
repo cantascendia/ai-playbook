@@ -3,7 +3,8 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-06-16 v3.15 — Claude 模型阵容对齐当代（Opus 4.8 默认 + Fable 5 opt-in）
+最后更新：2026-06-25 — 会话恢复 + 下半部 v3.4 陈账刷新（活跃分支/待办/已部署/已知问题对齐现实）
+上一版：2026-06-16 v3.15 — Claude 模型阵容对齐当代（Opus 4.8 默认 + Fable 5 opt-in）
 
 ---
 
@@ -26,9 +27,9 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 11 skills(.claude) / 31 evals**（全部含 `verification_command`，`scripts/run-evals.sh` 跑 31 PASS / 0 SKIP）
 + 22 test-plans（trajectory 类，移出 evals/ 计数诚实化）。
 
-> ⚠️ 本文件 v3.6→v3.14 多轮未滚动更新（pre-existing 债，v3.15 本次刷新补上头部四段）；
-> 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。下半部「进行中/待办/已部署/已知问题/假设清单」
-> 多数仍停在 v3.4 语境，留作下一轮 STATUS 全量刷新。
+> ⚠️ 本文件 v3.6→v3.14 多轮未滚动更新（pre-existing 债，v3.15 补头部四段）；
+> 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。
+> 2026-06-25 本轮已对齐下半部「活跃分支/待办/已部署/已知问题」到现实；「假设清单」仍待 release 时 re-verify。
 
 ---
 
@@ -53,8 +54,9 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 活跃分支
 
-- `main` — 最新 `d53f3fc`（v3.14 bold-audit, PR #29 已合）
-- `chore/v3.15-opus48-claude-code-latest` — 当前工作分支：v3.15 模型阵容对齐 + 审计后续 + STATUS 刷新；**PR #31 待人 merge**
+- `main` — 最新 `b463a77`（v3.15 模型阵容对齐, **PR #31 已合**）
+- `chore/status-refresh-2026-06-25` — 当前工作分支：会话恢复后的 STATUS 下半部陈账刷新
+- 远程残留已合并 feature 分支 16 个（含 `chore/v3.15-opus48-claude-code-latest` 等）— 可批量清理（见待办 P2）
 
 ---
 
@@ -92,18 +94,22 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 待办（按优先级）
 
-### P0
-- [ ] 修复 5 处过期 §1-§28/§29 章节声明（consistency audit 发现）
-- [ ] §33.1 "91.5%" / Karpathy 数据补 source 或改保守措辞（vibe-checker 发现）
-- [ ] 提交 v3.4 commit + push
+> 2026-06-25 刷新：v3.4 era 的 P0/P1 已被 v3.5→v3.15 多轮吸收完成，逐条核销见下。
 
-### P1
-- [ ] 添加 .github/workflows/eval.yml（铁律 #12 真正落地，harness-auditor +5）
-- [ ] 补全 4 个 eval（009-012）
-- [ ] CLAUDE.md 4 个 audit 命令决策树
-- [ ] 4 条 hooks 文案收缩为 rule 引用（避免双源漂移）
+### 已核销（原 v3.4 待办）
+- [x] 5 处过期章节声明 → v3.4 修复（已在「已知问题/Resolved」记录）
+- [x] §33 "91.5%" 数据 → v3.15 改保守措辞 + 标 vendor 报告（见「假设清单」）
+- [x] 提交 + push → 自 v3.4 起 48 个 v3.5+ 提交，远古完成
+- [x] `.github/workflows/eval.yml` → **已存在**（与 canary/codex-review/llm-judge/self-audit-weekly 共 5 个 workflow）
+- [x] check-counts.sh SSOT enforcer → v3.13 落地（2026-06-25 实测 TIER1 全绿、EXIT 0）
+
+### P1（当前真实未决）
+- [ ] STATUS「质量评分」表 v3.13–v3.15 仍 TBD — 需重跑 harness-auditor / reliability-auditor 回填（不臆造）
+- [ ] CLAUDE.md 4 个 audit 命令（review/audit --vibe/--harness）决策树文档化（已知问题里的功能交叠）
+- [ ] 4 条 hooks 文案收缩为 rule 引用（避免双源漂移，harness-auditor 标⚠️）
 
 ### P2
+- [ ] 清理远程 16 个已合并 feature 分支（`git push origin --delete <branch>`）
 - [ ] Plugin 化（待业界稳定后再考虑）
 - [ ] AAIF AGENTS.md 标准化提案
 
@@ -111,18 +117,21 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 已部署配置文件
 
-- ✅ CLAUDE.md (140 行 / 6.6 KB)
-- ✅ playbook/handbook.md (§1-§42 / 3378 行)
-- ✅ .claude/settings.json（含 6 类 hooks + outputStyle + statusLine + enabledMcpjsonServers）
-- ✅ .claude/commands/ × 18
-- ✅ .claude/agents/ × 3
-- ✅ .claude/skills/ × 5（与 .agents/skills/ 双位置）
-- ✅ .claude/rules/ × 3
-- ✅ .claude/output-styles/cto.md
-- ✅ .claude/statusline.sh
-- ✅ .mcp.json（lazy 配置）
-- ✅ templates/{CLAUDE,AGENTS,GEMINI}.md
-- ✅ evals/golden-trajectories/ × 8（v3.4 起 12）
+> 计数以 `COUNTS.md` 为 SSOT；2026-06-25 实测文件系统与 SSOT 完全一致（check-counts EXIT 0）。
+
+- ✅ CLAUDE.md（项目铁律 + 路由 + 命令清单）
+- ✅ playbook/handbook.md（§1-§50 连续无缺号）
+- ✅ .claude/settings.json（hooks + outputStyle cto + statusLine + enabledMcpjsonServers）
+- ✅ .claude/commands/ × **18**（minimal 8 / full 11 核心 / +6 advanced opt-in）
+- ✅ .claude/agents/ × **5**（eval-runner / harness-auditor / pattern-detector / reliability-auditor / vibe-checker）
+- ✅ .claude/hooks/ × **10** + lib/common.sh
+- ✅ .claude/skills/ × **11**（.agents/skills/ × 6 跨平台镜像）
+- ✅ .claude/rules/ × 3 + learned/ × **7**
+- ✅ .claude/output-styles/cto.md + .claude/statusline.sh
+- ✅ .mcp.json（lazy 配置）+ templates/{CLAUDE,AGENTS,GEMINI}.md
+- ✅ evals/golden-trajectories/ × **31**（023-053，全含 verification_command）+ docs/test-plans/ × 22
+- ✅ .github/workflows/ × 5（eval / canary / codex-review / llm-judge / self-audit-weekly）
+- ✅ ledger/ × 4 脚本（跨项目事故账本闭环）
 
 ---
 
@@ -130,13 +139,15 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ### Open
 - 4 条 hooks 文案与 rules 内容重复（双源漂移风险，harness-auditor 标⚠️）
-- 18 commands 中 4 个 audit 类（review/vibe-check/harness-audit/audit）有功能交叠（待决策树文档化）
-- 缺 GitHub Actions eval gate（铁律 #12 仅靠手工跑）
+- audit 类命令（review / audit --vibe / audit --harness）有功能交叠（待 CLAUDE.md 决策树文档化）
+- 质量评分 v3.13–v3.15 未重跑（COUNTS/STATUS 标 TBD），需 harness-auditor / reliability-auditor 回填
 
 ### Resolved
 - ✅ HARNESS-CHANGELOG 缺失 → v3.4 创建
 - ✅ STATUS.md 缺失（dogfooding 缺口） → v3.4 创建
 - ✅ 5 处过期章节声明 → v3.4 修复
+- ✅ 缺 GitHub Actions eval gate → 已建 `.github/workflows/eval.yml`（铁律 #12 CI 落地）
+- ✅ 计数 6+ 处不一致 → v3.13 check-counts.sh SSOT enforcer（2026-06-25 实测 EXIT 0）
 
 ---
 
@@ -160,6 +171,13 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 📅 最后同步确认
 
-轮次 v3.4，2026-04-29，并行调度 harness-auditor / vibe-checker / consistency-audit 三个 sub-agent，读取了 .claude/{commands,agents,settings.json,rules,skills,output-styles,statusline.sh} + handbook.md + CLAUDE.md + 6 个 commits 的 git log。
+**2026-06-25 会话恢复**：从 GitHub `cantascendia/ai-playbook` 同步到本地（新 Windows 克隆，保留本地 `.claude`）。
+读取 docs/ai-cto/{CONSTITUTION,STATUS,COUNTS}.md + git log；实测验证：
+- main `b463a77`（PR #31 已合），working tree 干净
+- 组件计数文件系统 vs COUNTS.md SSOT **完全一致**（18 cmd / 5 agent / 10 hook / 11 skill / 31 eval / 22 test-plan / 7 learned-rule）
+- `check-counts.sh` EXIT 0（TIER1 全绿，0 软警告）+ `run-evals.sh` **31 PASS / 0 FAIL** — Windows 环境可复现
+- 据此核销 v3.4 era 陈账（详见「待办/已核销」），刷新活跃分支/已部署/已知问题
+
+此前 v3.4，2026-04-29，并行调度 harness-auditor / vibe-checker / consistency-audit 三 sub-agent 读取全 harness 组件。
 
 > Note: 历史 7 行 "sub-agent finished" hook 污染已清理（v3.6.3）。SubagentStop hook 改写到 `.claude/agent-logs/${DAY}.jsonl`，本文件不再被自动 mutate。
