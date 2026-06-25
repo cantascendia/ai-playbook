@@ -106,12 +106,13 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ### P1（2026-06-25 audit grounded，按 ROI 排序）
 - [x] ~~STATUS/COUNTS 质量评分 TBD 回填~~ → 完成（Health 79 / ARE 78，本轮）
-- [ ] **HARNESS-CHANGELOG 断档 45 天**（v3.10–v3.15 共 27 提交无条目）— audit #1 ROI（5 分钟/条，解锁下游可靠性分析）。本轮先补 v3.15 audit 条目，v3.10–v3.14 待补
-- [ ] **pre-commit hook 未安装**（`.git/hooks/` 仅 .sample，`install-pre-commit.sh` 未跑）— 铁律 #12 本地绕过面，仅 CI PR gate 兜底
-- [ ] **SLO.md 冻结 v3.9.1** + `evals/slo-checks/` 不存在 — mcp-guard/deny_with_reason/ledger 等 v3.10+ 组件零 SLO 覆盖；mcp-guard 静默失效无指标可测
-- [ ] **季度 fallback 演练 Q2 2026 过期未跑**（QUARTERLY-DRILLS 4 场景全 TBD，仅 2026-05-11 dry-run）
-- [ ] 7 skill 无 `paths:` trigger（无自动唤起，沦为手动）
-- [ ] 4 条 hooks 文案 + bypass-guard BYPASS_PATTERNS 收缩为单源（双源漂移，harness-auditor ⚠️）
+- [x] ~~HARNESS-CHANGELOG 断档 45 天~~ → 补齐 v3.10–v3.15（从 git 历史重建，标注事后追记）
+- [x] ~~pre-commit hook 未安装~~ → `install-pre-commit.sh` 已跑，本地 eval gate 上线（默认 warn，STRICT 可阻）
+- [x] ~~SLO.md 冻结 v3.9.1~~ → 刷新到 v3.15，补 mcp-guard/deny_with_reason/run-evals/check-counts/ledger 5 组件 SLO
+- [ ] `evals/slo-checks/` 机器可执行 SLO 断言目录仍未建（SLO 当前靠人工 + agent-logs 核）
+- [ ] **季度 fallback 演练 Q2 2026 过期未跑**（QUARTERLY-DRILLS 4 场景全 TBD）— headless 无法真模拟 codex 配额耗尽等，需人/真环境实跑（铁律 #9 不伪完成）
+- [ ] 7 skill 无 `paths:` trigger（改 skill frontmatter，触发 eval-gate，需配 eval → 独立 PR）
+- [ ] 4 条 hooks 文案 + bypass-guard BYPASS_PATTERNS 收缩为单源（改 hooks，需 eval → 独立 PR）
 - [ ] CLAUDE.md audit 类命令（review / audit --vibe / --harness）决策树文档化（功能交叠）
 
 ### P2
