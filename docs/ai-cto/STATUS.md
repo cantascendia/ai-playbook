@@ -3,45 +3,49 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-06-16 v3.15 — Claude 模型阵容对齐当代（Opus 4.8 默认 + Fable 5 opt-in）
+最后更新：2026-07-02 — v4.0 agent-native runtime 启动 + memory-layer 审计刷新（REVIEW-QUEUE 季度轮转 / 陈档归档 / 记忆契约诚实化 / DECISIONS.md 补建）
+上一版：2026-06-25 v3.15 — 会话恢复 + 下半部 v3.4 陈账刷新
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v3.15** — Claude 模型阵容对齐当代：§1.2 模型 SSOT 把默认 Opus 升到 **Opus 4.8**
-（`claude-opus-4-8`，$5/$25，1M ctx，128K out，仅 adaptive thinking），新增 **Fable 5**
-（`claude-fable-5`，Opus 之上最强推理档，$10/$50）为极难推理 opt-in；全仓 Opus 4.6→4.8 sweep
-（路由表 / §38-40 agent-loop 示例 / CLAUDE.md / templates / Antigravity Claude-backend 行 / §44 replay 示例）。
-补 Claude Code 运行形态（CLI / 桌面 App Mac+Win / web / IDE）+ `/fast` + effort xhigh 说明。
-非 Claude 模型（gpt-5.5 / Gemini 3.1 Pro / Nano Banana Pro / gpt-image-2）**保持原样**——
-无 2026-06 权威源（铁律 #3）；PocketOS 历史事故注释中的 "Opus 4.6" 是**真实历史记录**，按铁律 #2 不改。
+ai-playbook **v4.0 (agent-native runtime) — 进行中**。目标：把 enforcement 从「零散 hook 脚本」
+演进为「统一 guard engine + legacy-fallback shim」的 agent-native 运行时。按 **3-PR 序列**推进（对齐铁律 #13
+高风险改动分阶段 + 人工双签）：
+- **PR-A（分发 + 记忆层）**：cto-init 分发链 P0 修复 + 记忆层手术（REVIEW-QUEUE 季度轮转、陈档归档、
+  记忆契约诚实化、DECISIONS.md 补建、COUNTS/STATUS 诚实刷新）。**当前 PR**。
+- **PR-B（guard engine parity port）**：把 10 个独立 hook 的红线逻辑收敛进统一 guard engine，
+  行为与旧 hook **逐条对齐**（parity），旧 hook 降级为 legacy-fallback shim（零回归再切换）。
+- **PR-C（新 enforcement 语义）**：引入旧 hook 没有的新拦截语义 —— 因触及 enforcement 红线本身，
+  **必须人工 double-sign** 后才进 main（铁律 #12/#13）。
 
-此前 **v3.14（bold-audit）** 用多 agent 工作流质疑地基，对抗验证后裁决**混合重构**（不推倒重来）：
-Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项目事故 **ledger** 闭环、
-命令 23→18 合并、INDEX 行号 grep 化、README 去营销。再往前 **v3.13** 把平台范围默认收敛为
-**Claude-only**（Antigravity / Codex 改 opt-in）+ 14 铁律 4 层优先级 + check-counts SSOT enforcer 落地。
+此前 **v3.15** Claude 模型阵容对齐当代（默认 **Opus 4.8** `claude-opus-4-8` + **Fable 5** `claude-fable-5`
+opt-in）。再前 **v3.14（bold-audit）** 对抗验证裁决**混合重构**（Bash/mcp guard `exit 2`→`permissionDecision:deny`
+JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 平台默认收敛 **Claude-only** + 14 铁律 4 层优先级
++ check-counts SSOT enforcer 落地。
 
-组件计数以 `docs/ai-cto/COUNTS.md` 为 SSOT：**18 commands / 5 sub-agents / 10 hooks /
-11 skills(.claude) / 31 evals**（全部含 `verification_command`，`scripts/run-evals.sh` 跑 31 PASS / 0 SKIP）
-+ 22 test-plans（trajectory 类，移出 evals/ 计数诚实化）。
+组件计数以 `docs/ai-cto/COUNTS.md` 为唯一 SSOT（**不在本文件硬写数字** —— 见 COUNTS.md 表）；
+`scripts/check-counts.sh` 已接入 `.github/workflows/eval.yml` CI 自动兜底计数漂移。
 
-> ⚠️ 本文件 v3.6→v3.14 多轮未滚动更新（pre-existing 债，v3.15 本次刷新补上头部四段）；
-> 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）。下半部「进行中/待办/已部署/已知问题/假设清单」
-> 多数仍停在 v3.4 语境，留作下一轮 STATUS 全量刷新。
+> ⚠️ 本文件下半部 v3.6→v3.14 曾长期冻结（pre-existing 债），v3.15/v4.0 两轮已滚动刷新；
+> 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）+ ADR 见 `DECISIONS.md`。
+> v4.0a 质量分数重测排队中（见「质量评分」）。
 
 ---
 
 ## 质量评分
 
-> v3.11 起 Health/ARE 未重跑评分（COUNTS.md 版本表标 TBD）。下方为有据可查的历史值，
-> v3.13–v3.15 待 harness-auditor / reliability-auditor 重审后回填，**不臆造分数**。
+> 2026-06-25 回填：harness-auditor + reliability-auditor 并行重审 + 对抗验证（high confidence，无膨胀，
+> 两份 grounded=true，verifier 逐条核实 14 项 evidence）。v3.15 测得 **Health 79 / ARE 78**。
+> v3.13/v3.14 历史快照未单独测，当前累计态即 v3.15 分数。**不臆造分数**（铁律 #3）。
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v3.15 (当前) | TBD | TBD | Claude 模型阵容对齐（Opus 4.8 默认 + Fable 5 opt-in）|
-| v3.14 (bold-audit) | TBD | TBD | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
-| v3.13 | TBD | TBD | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
+| v4.0a (进行中) | TBD | TBD | **v4.0a 重测排队中** — agent-native runtime PR-A（分发+记忆层）；分数待 PR-A 落定后 harness+reliability 重测 |
+| v3.15 | **79** | **78** | Claude 模型阵容对齐；扣分=changelog 断档 + pre-commit 未装 + 7 skill 无 paths + SLO 冻结 v3.9.1 + 季度演练 Q2 过期未跑 |
+| v3.14 (bold-audit) | —（见 v3.15） | —（见 v3.15） | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
+| v3.13 | —（见 v3.15） | —（见 v3.15） | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
 | v3.12 | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从空壳变真执行 |
 | v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
 | v3.9.3 | 94 | 72→86 | subproject 检测 |
@@ -53,14 +57,24 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 活跃分支
 
-- `main` — 最新 `d53f3fc`（v3.14 bold-audit, PR #29 已合）
-- `chore/v3.15-opus48-claude-code-latest` — 当前工作分支：v3.15 模型阵容对齐 + 审计后续 + STATUS 刷新；**PR #31 待人 merge**
+- `feat/v4.0-agent-native-runtime` — **当前工作分支**：v4.0 agent-native runtime 集成分支，
+  并入并统辖多个 v3.14/v3.15 收尾 PR（#32 / #33 / #34 / #36 已 merge 进本分支）+ 本轮 memory-layer 手术
+- `main` — v3.15 基线（v4.0 分支从此拉出）
+- 远程残留已合并 feature 分支若干（含 v3.15 系列）— 可批量清理（见待办 P2）
 
 ---
 
-## 已完成（v3.13 → v3.15）
+## 已完成（v3.13 → v4.0a）
 
-### v3.15 — Claude 模型阵容对齐当代（branch `de7da50` + 审计后续，PR #31 待 merge）
+### v4.0a — agent-native runtime PR-A：分发 + 记忆层（feat/v4.0-agent-native-runtime，进行中）
+- ✅ **REVIEW-QUEUE 季度轮转**：2026-06-01 前 11 条 review（1074→383 行主文件）轮转到 `archive/REVIEW-QUEUE-2026-Q2.md`（byte-identical，只轮转不删除，Sakana DGM lineage 全保留）；主文件加 archive 指针
+- ✅ **飞轮 lineage 消费者对齐 archive**：cto-evolve.md + pattern-detector.md 扫描范围含 `docs/ai-cto/archive/REVIEW-QUEUE-*.md`
+- ✅ **5 份 zero-live-ref 陈档归档**：EVOLUTION-PROPOSAL(×2) / AMENDMENT-PROPOSAL / SELF-AUDIT-2026-05-10 / QUARTERLY-DRILLS → `archive/`（REDESIGN-2026-06-10-bold-audit 保留原位，仍是治理裁决书）
+- ✅ **记忆契约诚实化**：cto-resume + CLAUDE.md 记忆清单裁到真实存在的 8 文件（删 7 个从未创建的 aspirational 引用），保留「TARGET 项目可经 /cto-start 长出完整集」一行
+- ✅ **DECISIONS.md 补建**：从 EVOLUTION-LOG + bold-audit 裁决书回填 ADR-001~006（此前被 cto-resume/cto-constitution 引用却从未存在）
+- ✅ **COUNTS/STATUS 诚实刷新**：check-counts.sh 已实现且接入 CI（改掉「待实现」旧文案）；STATUS 下半部对齐 v4.0 现实
+
+### v3.15 — Claude 模型阵容对齐当代（branch `de7da50` + 审计后续，PR #31 已合）
 - ✅ §1.2 模型 SSOT（铁律 #3）：默认 **Opus 4.8**（`claude-opus-4-8`）+ **Fable 5**（`claude-fable-5`）opt-in + 真实 model ID
 - ✅ 补 Claude Code 运行形态（CLI / 桌面 App Mac+Win / web / IDE）、`/fast` 模式、effort 默认 xhigh 说明
 - ✅ 全仓 Opus 4.6→4.8 sweep + 多 agent 完备性审计抓到 §44 replay 示例 `opus-4-7`→`opus-4-8` 漏网（cto-replay.md + handbook:3658）
@@ -86,24 +100,37 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 进行中
 
-无（v3.4 dogfooding 是当前唯一进行中的工作）
+- **PR-B（guard engine parity port）**：把 10 个独立 hook 红线逻辑收敛进统一 guard engine，
+  行为逐条对齐旧 hook（parity），旧 hook 降级 legacy-fallback shim（零回归再切换）。
+- **PR-C（新 enforcement 语义）**：引入旧 hook 没有的新拦截语义 —— 触及 enforcement 红线本身，
+  **必须人工 double-sign** 后进 main（forbidden-path，铁律 #12/#13）。
 
 ---
 
 ## 待办（按优先级）
 
-### P0
-- [ ] 修复 5 处过期 §1-§28/§29 章节声明（consistency audit 发现）
-- [ ] §33.1 "91.5%" / Karpathy 数据补 source 或改保守措辞（vibe-checker 发现）
-- [ ] 提交 v3.4 commit + push
+> 2026-07-02 刷新：v3.4 era 的 P0/P1 早已被 v3.5→v3.15 多轮吸收（历史核销见 EVOLUTION-LOG）。
+> 下面是 **2026-07-02 memory-layer 审计**新扫出的项，CI/workflow 类均属 forbidden-path，**需人工双签**（铁律 #12/#13）。
 
-### P1
-- [ ] 添加 .github/workflows/eval.yml（铁律 #12 真正落地，harness-auditor +5）
-- [ ] 补全 4 个 eval（009-012）
-- [ ] CLAUDE.md 4 个 audit 命令决策树
-- [ ] 4 条 hooks 文案收缩为 rule 引用（避免双源漂移）
+### P0（2026-07-02 scan，grounded）
+- [ ] **eval.yml push-gap**（🔴 forbidden-path，需人工双签 + spec-driven）：`.github/workflows/eval.yml` 仅
+  `on: pull_request`，**直接 push 到 main 绕过 eval gate**（铁律 #12 CI 闸有洞）。修 workflow 触及 `.github/workflows/**`
+  = forbidden 路径，须走 SPEC → PLAN → 双签，不得 vibe（`.claude/rules/forbidden-paths.md`）。
+- [ ] **8 个 command 零 eval 覆盖**：现有 golden-trajectory 只覆盖部分命令，8 个 cto-* 命令无对应 eval
+  case（铁律 #12 要求 agent-config 改动配 eval，但存量命令未回填）→ 逐条补 eval（独立 PR，本身触发 eval-gate）。
+
+### P1（2026-07-02 scan + 2026-06-25 audit 结转）
+- [ ] **llm-judge.yml forbidden-regex 漂移**（🟠 forbidden-path，需人工双签）：`.github/workflows/llm-judge.yml:24`
+  的 `(auth|payment|secrets|migration|crypto)/` 与 `.claude/rules/forbidden-paths.md` 的路径清单不同步
+  （rules 含 billing/keys/migrations/infra/terraform/ansible/.github/workflows），须单源化。改 workflow = forbidden 路径，人工双签。
+- [ ] `evals/slo-checks/` 机器可执行 SLO 断言目录仍未建（SLO 当前靠人工 + agent-logs 核）
+- [ ] **季度 fallback 演练 Q2 2026 过期未跑**（`archive/QUARTERLY-DRILLS.md` 4 场景全 TBD）— headless 无法真模拟 codex 配额耗尽等，需人/真环境实跑（铁律 #9 不伪完成）
+- [ ] 7 skill 无 `paths:` trigger（改 skill frontmatter，触发 eval-gate，需配 eval → 独立 PR）
+- [ ] 4 条 hooks 文案 + bypass-guard BYPASS_PATTERNS 收缩为单源（改 hooks，需 eval → 独立 PR）
+- [ ] CLAUDE.md audit 类命令（review / audit --vibe / --harness）决策树文档化（功能交叠）
 
 ### P2
+- [ ] 清理远程已合并 feature 分支（`git push origin --delete <branch>`）
 - [ ] Plugin 化（待业界稳定后再考虑）
 - [ ] AAIF AGENTS.md 标准化提案
 
@@ -111,32 +138,41 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 已部署配置文件
 
-- ✅ CLAUDE.md (140 行 / 6.6 KB)
-- ✅ playbook/handbook.md (§1-§42 / 3378 行)
-- ✅ .claude/settings.json（含 6 类 hooks + outputStyle + statusLine + enabledMcpjsonServers）
-- ✅ .claude/commands/ × 18
-- ✅ .claude/agents/ × 3
-- ✅ .claude/skills/ × 5（与 .agents/skills/ 双位置）
-- ✅ .claude/rules/ × 3
-- ✅ .claude/output-styles/cto.md
-- ✅ .claude/statusline.sh
-- ✅ .mcp.json（lazy 配置）
-- ✅ templates/{CLAUDE,AGENTS,GEMINI}.md
-- ✅ evals/golden-trajectories/ × 8（v3.4 起 12）
+> 组件计数一律以 `docs/ai-cto/COUNTS.md` 为唯一 SSOT（**本节不硬写数字** —— 见 COUNTS.md 表）；
+> `scripts/check-counts.sh`（CI 已接入）自动比对文件系统 vs SSOT，漂移即 `exit 1`。
+
+- ✅ CLAUDE.md（项目铁律 + 路由 + 命令清单）
+- ✅ playbook/handbook.md（§1-§50 连续无缺号）
+- ✅ .claude/settings.json（hooks + outputStyle cto + statusLine + enabledMcpjsonServers）
+- ✅ .claude/commands/（cto-* 命令集，分发档 minimal / full / advanced —— 计数见 COUNTS.md）
+- ✅ .claude/agents/（sub-agents —— 计数见 COUNTS.md）
+- ✅ .claude/hooks/ + lib/common.sh（计数见 COUNTS.md）
+- ✅ .claude/skills/（.claude 原生 + .agents/skills/ 跨平台镜像 —— 计数见 COUNTS.md）
+- ✅ .claude/rules/ + learned/（计数见 COUNTS.md）
+- ✅ .claude/output-styles/cto.md + .claude/statusline.sh
+- ✅ .mcp.json（lazy 配置）+ templates/{CLAUDE,AGENTS,GEMINI}.md + templates/settings.json
+- ✅ evals/golden-trajectories/ + docs/test-plans/（计数见 COUNTS.md，全含 verification_command）
+- ✅ .github/workflows/（eval / canary / codex-review / llm-judge / self-audit-weekly）
+- ✅ ledger/（跨项目事故账本闭环 —— 计数见 COUNTS.md）
 
 ---
 
 ## 已知问题
 
 ### Open
+- **eval.yml push-gap**：CI eval gate 只在 PR 触发，直接 push main 绕过（P0，forbidden-path，需人工双签）
+- **8 个 command 零 eval 覆盖**：存量命令未回填 golden-trajectory（P0）
+- **llm-judge.yml forbidden-regex 与 forbidden-paths.md 漂移**：路径清单不同步（P1，forbidden-path，需人工双签）
 - 4 条 hooks 文案与 rules 内容重复（双源漂移风险，harness-auditor 标⚠️）
-- 18 commands 中 4 个 audit 类（review/vibe-check/harness-audit/audit）有功能交叠（待决策树文档化）
-- 缺 GitHub Actions eval gate（铁律 #12 仅靠手工跑）
+- audit 类命令（review / audit --vibe / audit --harness）有功能交叠（待 CLAUDE.md 决策树文档化）
+- v4.0a 质量分数（Health/ARE）未重跑（标 TBD），排队待 PR-A 落定后 harness / reliability 回填
 
 ### Resolved
 - ✅ HARNESS-CHANGELOG 缺失 → v3.4 创建
 - ✅ STATUS.md 缺失（dogfooding 缺口） → v3.4 创建
 - ✅ 5 处过期章节声明 → v3.4 修复
+- ✅ 缺 GitHub Actions eval gate → 已建 `.github/workflows/eval.yml`（铁律 #12 CI 落地）
+- ✅ 计数 6+ 处不一致 → v3.13 check-counts.sh SSOT enforcer（2026-06-25 实测 EXIT 0）
 
 ---
 
@@ -160,6 +196,13 @@ Bash/mcp guard 拦截从 `exit 2` 切到 `permissionDecision:deny` JSON、跨项
 
 ## 📅 最后同步确认
 
-轮次 v3.4，2026-04-29，并行调度 harness-auditor / vibe-checker / consistency-audit 三个 sub-agent，读取了 .claude/{commands,agents,settings.json,rules,skills,output-styles,statusline.sh} + handbook.md + CLAUDE.md + 6 个 commits 的 git log。
+**2026-06-25 会话恢复**：从 GitHub `cantascendia/ai-playbook` 同步到本地（新 Windows 克隆，保留本地 `.claude`）。
+读取 docs/ai-cto/{CONSTITUTION,STATUS,COUNTS}.md + git log；实测验证：
+- main `b463a77`（PR #31 已合），working tree 干净
+- 组件计数文件系统 vs COUNTS.md SSOT **完全一致**（18 cmd / 5 agent / 10 hook / 11 skill / 31 eval / 22 test-plan / 7 learned-rule）
+- `check-counts.sh` EXIT 0（TIER1 全绿，0 软警告）+ `run-evals.sh` **31 PASS / 0 FAIL** — Windows 环境可复现
+- 据此核销 v3.4 era 陈账（详见「待办/已核销」），刷新活跃分支/已部署/已知问题
+
+此前 v3.4，2026-04-29，并行调度 harness-auditor / vibe-checker / consistency-audit 三 sub-agent 读取全 harness 组件。
 
 > Note: 历史 7 行 "sub-agent finished" hook 污染已清理（v3.6.3）。SubagentStop hook 改写到 `.claude/agent-logs/${DAY}.jsonl`，本文件不再被自动 mutate。

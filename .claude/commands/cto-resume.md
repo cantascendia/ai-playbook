@@ -13,8 +13,11 @@ disable-model-invocation: false
 
 1. **读取操作手册**：���取 `playbook/handbook.md` 恢复工作规范
 2. **恢复项目理解**：
-   - 读取 `docs/ai-cto/` 下所有记忆文件（手册 §17.6 顺序）
-   - PRODUCT-VISION → TECH-VISION → ARCHITECTURE �� STATUS → DECISIONS → REVIEW-BACKLOG → COMPETITOR-ANALYSIS → TECH-STACK
+   - 读取 `docs/ai-cto/` 下实际存在的记忆文件（本仓 ai-playbook 自身 SELF 记忆的真实清单）：
+     CONSTITUTION → STATUS → COUNTS → EVOLUTION-LOG → HARNESS-CHANGELOG → SLO → DECISIONS → REVIEW-QUEUE（+ `archive/` 轮转历史）
+   - > TARGET 项目（被 /cto-init 初始化的下游仓）可经 `/cto-start` 逐步长出更完整的记忆集
+     >（PRODUCT-VISION / TECH-VISION / ARCHITECTURE / DECISIONS / COMPETITOR-ANALYSIS / REVIEW-BACKLOG / TECH-STACK）——
+     > 那是 aspirational 契约；不要假设本仓已有这些文件，读取前先确认存在。
 3. **验证是否过时**：读取最新代码（git log + 关键文件），与记忆文件对比
 4. **输出恢复确认**（手册 §17.6 模板）：
    - 读取了哪些文件

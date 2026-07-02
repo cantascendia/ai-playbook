@@ -16,7 +16,7 @@ disable-model-invocation: false
 **业界对照**：
 - AlphaEvolve evaluator-grounded — 我们用 evals/golden-trajectories 当 fitness
 - Cursor Bugbot 44k learned rules — 我们用 .claude/rules/learned/
-- Sakana DGM lineage archive — 我们 REVIEW-QUEUE 全部保留
+- Sakana DGM lineage archive — 我们 REVIEW-QUEUE 全部保留（含季度轮转的 `docs/ai-cto/archive/REVIEW-QUEUE-*.md`，只轮转不删除）
 - Voyager 技能库 — 我们 SKILL-CANDIDATES.md（不自动入库）
 - Reflexion + MAR 多 critic — pattern-detector 输出由 codex 二次审
 

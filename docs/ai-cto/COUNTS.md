@@ -3,9 +3,12 @@
 > 飞轮第 7 轮 redundancy-hunter 发现：命令数在 6+ 处不一致（17/18/21/10/23）。
 > 本文件是**唯一计数权威源**。README / CLAUDE.md / STATUS / handbook 引用本表，不硬写数字。
 > 改组件数量时**只**更新本文件。
-> ⚠️ **诚实声明（2026-05-30 SOTA team 审计修正）**：`scripts/check-counts.sh` **尚未实现**（违反铁律 #2 的旧承诺已撤回）。在它落地前，本表靠人工核实，无自动 enforcer → 计数仍会漂移。实现它是 v3.13 P0（提案 R1）。
+> ✅ **`scripts/check-counts.sh` 已实现并接入 CI**（v3.13 R1 交付，green）。
+> 它比对本表数字 vs 文件系统真实计数 + grep 散落数字一致性，不符即 `exit 1`。
+> 已 wired 进 `.github/workflows/eval.yml`（`chmod +x scripts/check-counts.sh && bash scripts/check-counts.sh`），
+> 每次触及 COUNTS/命令/子代理/hooks/技能/eval 集的 push/PR 自动跑，作为计数漂移的自动 enforcer 兜底。
 
-最后核实：2026-05-29（飞轮第 7-8 轮 team 迭代）
+最后核实：2026-07-02（v4.0 memory-layer 审计）
 
 | 组件 | 数量 | 位置 |
 |---|---|---|
@@ -14,7 +17,7 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **31** | `evals/golden-trajectories/*.yaml`（023-053，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 31 PASS/0 SKIP）|
+| evals | **35** | `evals/golden-trajectories/*.yaml`（023-057，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 35 PASS/0 SKIP；v4.0a 增 055 分发/056 装载轮转/057 记忆契约）|
 | ledger（v3.14 B）| **4 脚本** | `ledger/{collect,distill,propagate,run}.mjs` + README — 跨项目事故账本闭环（collect→distill ≥2项目印证→propagate dry-run）；incidents.jsonl/drafts 是 gitignore 运行时产物 |
 | test-plans | **22** | `docs/test-plans/*.yaml`（001-022 trajectory 类规约，无 vc 不自动跑，需人工/Claude 周期验证；v3.14 从 evals/ 移出，计数诚实化）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
@@ -26,12 +29,16 @@
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v3.12 (当前) | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从"空壳"变真执行；首跑即抓到 v3.11 _json_get 把 `\n` 转空格破坏 forbidden-paths 多行比对的安全回归 |
+| v3.15 (当前) | **79** | **78** | 2026-06-25 harness+reliability 重审 + 对抗验证回填（high conf，无膨胀）；扣分=changelog 断档/pre-commit 未装/SLO 冻结 v3.9.1/季度演练过期 |
+| v3.13–v3.14 | —（见 v3.15） | —（见 v3.15） | 历史快照未单独测，当前累计态即 v3.15 |
+| v3.12 | TBD | TBD | 真 eval executor（run-evals.sh）— 铁律 #12 从"空壳"变真执行；首跑即抓到 v3.11 _json_get 把 `\n` 转空格破坏 forbidden-paths 多行比对的安全回归 |
 | v3.11 | TBD | TBD | 飞轮第 7-8 轮 team 迭代 |
 | v3.10.2 | 96 | 86 | destructive gate + 安全回归（已修）|
 | v3.9.3 | 94 | 72→86 | subproject 检测 |
 
 ## 校验
 
-⚠️ **当前无自动校验**。`scripts/check-counts.sh`（自动比对真实文件数 vs 本表 + grep 散落数字一致性，CI gate）**待实现**（v3.13 P0 / 提案 R1）。
-散落的过时数字需逐一改为引用本表：README「21」实 23 / CLAUDE.md「17」实 21 / handbook §41「5-7 hook」实 10 / §42「3 sub-agent」实 5 / eval「12/28」实 36（14 可执行 + 22 trajectory）。
+✅ **自动校验已上线**：`scripts/check-counts.sh` 自动比对真实文件数 vs 本表 + grep 散落数字一致性，
+不符 `exit 1`（v3.13 R1 交付，green）。已接入 `.github/workflows/eval.yml` CI gate —
+每次触及 COUNTS/命令/子代理/hooks/技能/eval 集的 push/PR 都跑一遍，计数漂移当场拦下。
+本地手跑：`bash scripts/check-counts.sh`（TIER1 全绿 = 通过）。

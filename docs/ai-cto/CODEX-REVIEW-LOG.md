@@ -38,3 +38,46 @@ pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be 
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=existing-check | found=0
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/8#issuecomment-4421936932 
 2026-05-12T00:04:57+09:00 | sha=4216324 | mode=pr-comment-posted | pr=#8
+2026-06-16T23:31:28+09:00 | sha=46764f0 | mode=review-triggered | reason=security_relevant_change
+2026-06-16T23:31:28+09:00 | sha=46764f0 | mode=claude-only | reviewer=claude-fallback-opus | bytes=2287
+2026-06-16T23:31:28+09:00 | sha=46764f0 | step=pr-comment-check | pr=#32 | marker=<!-- codex-bridge:46764f0 -->
+2026-06-16T23:31:28+09:00 | sha=46764f0 | step=existing-check | found=0
+2026-06-16T23:31:28+09:00 | sha=46764f0 | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/32#issuecomment-4719904738 
+2026-06-16T23:31:28+09:00 | sha=46764f0 | mode=pr-comment-posted | pr=#32
+2026-06-17T00:17:12+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:19:12+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:20:56+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:20:56+09:00 | sha=b463a77 | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:19:12+09:00 | sha=b463a77 | mode=claude-only | reviewer=claude-fallback-opus | bytes=4587
+branch 'fix/v3.14-live-cmd-refs' set up to track 'origin/fix/v3.14-live-cmd-refs'.
+To https://github.com/cantascendia/ai-playbook.git
+ * [new branch]      fix/v3.14-live-cmd-refs -> fix/v3.14-live-cmd-refs
+Warning: 9 uncommitted changes
+pull request create failed: GraphQL: No commits between main and fix/v3.14-live-cmd-refs (createPullRequest)
+2026-06-17T00:17:12+09:00 | sha=b463a77 | mode=claude-only | reviewer=claude-fallback-opus | bytes=6288
+branch 'fix/v3.14-live-cmd-refs' set up to track 'origin/fix/v3.14-live-cmd-refs'.
+Everything up-to-date
+Warning: 9 uncommitted changes
+pull request create failed: GraphQL: No commits between main and fix/v3.14-live-cmd-refs (createPullRequest)
+2026-06-17T00:26:24+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:26:24+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:30:36+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:30:36+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=claude-only | reviewer=claude-fallback-opus | bytes=5912
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=existing-check | found=0
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/34#issuecomment-4720497225 
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=pr-comment-posted | pr=#34
+2026-06-25T11:40:33+09:00 | sha=f35afaa | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T11:45:29+09:00 | sha=f35afaa | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T11:57:13+09:00 | sha=d168144 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T12:12:06+09:00 | sha=c2b6bfe | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-06-25T12:13:38+09:00 | sha=c2b6bfe | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-07-02T22:01:26+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-07-02T22:01:26+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | mode=claude-only | reviewer=claude-fallback-opus | bytes=4634
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=existing-check | found=1
+2026-07-02T22:41:41+09:00 | sha=3d13ac5 | mode=skipped-non-business | reason=docs_or_config_only_no_security

@@ -1,0 +1,59 @@
+id: 056-session-loader-and-rotation
+description: >
+  v4.0a 记忆层手术 — SessionStart 加载器只喂「最近一条」§48 review（非盲加载 1000 行尾巴），
+  REVIEW-QUEUE 按季度轮转到 archive/（只轮转不删除，Sakana DGM lineage 全保留）。
+priority: P1
+input:
+  - "SessionStart hook 加载 docs/ai-cto/REVIEW-QUEUE.md 最近一条 review"
+  - "2026-06-01 前的历史 review 已轮转到 docs/ai-cto/archive/REVIEW-QUEUE-2026-Q2.md"
+  - "主 REVIEW-QUEUE.md 只保留 2026-06 及以后的条目"
+expected_steps:
+  - templates/settings.json SessionStart 用 grep -n '^## 20' | tail -1 定位最后一条 review
+  - 用 tail -n +$LAST | head -80 只喂最近一条（不再盲加载整文件尾巴）
+  - 旧的 settings.json.v3.7.bak / grep -c '^## ' PENDING 逻辑已彻底移除
+  - archive/REVIEW-QUEUE-2026-Q2.md 存在且含 2026-04/05 历史条目
+  - 主文件不含任何 2026-06 之前的 review 条目
+forbidden_actions:
+  - SessionStart 盲加载整个 REVIEW-QUEUE 尾部（P1 context 浪费根因）
+  - 轮转时删除历史 review（必须只轮转不删除）
+  - 残留 settings.json.v3.7.bak 或旧 grep -c PENDING 逻辑
+acceptance_criteria:
+  - templates/settings.json 含 last-entry loader（grep -n '^## 20' + tail -n +）
+  - templates/settings.json 不含 settings.json.v3.7.bak / grep -c '^## '
+  - archive/REVIEW-QUEUE-2026-Q2.md 存在且 ≥1 条 '^## 2026-0[45]' 条目
+  - 主 REVIEW-QUEUE.md 无早于 2026-06 的条目
+sota_reference:
+  - 'v4.0a memory-layer 审计 2026-07-02：SessionStart force-load 盲尾巴是 P1'
+  - '季度轮转策略（quarterly）；Sakana DGM lineage archive 启发'
+verification_command: |
+  # v4.0a：验证 SessionStart 最近一条 loader + REVIEW-QUEUE 季度轮转。
+  pass=0; fail=0
+
+  # 1. 新 last-entry loader：grep -n '^## 20' 定位最后一条
+  grep -qF "grep -n '^## 20'" templates/settings.json \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: last-entry loader (grep -n '^## 20') 缺失"; }
+
+  # 2. tail -n +$LAST 提取（只喂最近一条，非盲尾巴）
+  grep -qF 'tail -n +' templates/settings.json \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: tail -n + 提取逻辑缺失"; }
+
+  # 3. 不含 settings.json.v3.7.bak
+  if grep -qF 'settings.json.v3.7.bak' templates/settings.json; then
+    fail=$((fail+1)); echo "FAIL: 残留 settings.json.v3.7.bak"; else pass=$((pass+1)); fi
+
+  # 4. 不含旧 broken grep -c '^## ' PENDING 逻辑
+  if grep -qF "grep -c '^## '" templates/settings.json; then
+    fail=$((fail+1)); echo "FAIL: 残留旧 grep -c '^## ' PENDING 逻辑"; else pass=$((pass+1)); fi
+
+  # 5. archive Q2 文件存在且含 2026-04/05 条目
+  if [ -f docs/ai-cto/archive/REVIEW-QUEUE-2026-Q2.md ] \
+     && grep -qE '^## 2026-0[45]' docs/ai-cto/archive/REVIEW-QUEUE-2026-Q2.md; then
+    pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: archive Q2 缺失或无 2026-0[45] 条目"; fi
+
+  # 6. 主 REVIEW-QUEUE 无早于 2026-06 的条目（2000-2025 全年 + 2026-01~05）
+  OLD=$(grep -E '^## (20(0[0-9]|1[0-9]|2[0-5])-|2026-0[1-5]-)' docs/ai-cto/REVIEW-QUEUE.md | wc -l)
+  [ "$OLD" = "0" ] \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 主文件仍有 $OLD 条早于 2026-06 的 review"; }
+
+  echo "pass=$pass fail=$fail (expect 6/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

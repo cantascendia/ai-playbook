@@ -93,7 +93,7 @@ git grep -inE "TODO|FIXME|HACK|XXX|@vibe|@spike|@throwaway"
 - 涉及 Forbidden 路径的违规必须升级到主线 agent，不能你单独处置
 - 保持中立：vibe 不是错，违规进入 main 才是错
 - 单次扫描限 50 个最近 commit + 200 个文件，超出时分批
-- 与 `/cto-vibe-check` slash command 的区别：slash 是触发入口（人工决定何时跑），你是程序化深度执行（Task 工具调用）；UserPromptSubmit hook 做关键词预警，你做全量审计
+- 与 `/cto-audit --vibe` slash command 的区别：slash 是触发入口（人工决定何时跑），你是程序化深度执行（Task 工具调用）；UserPromptSubmit hook 做关键词预警，你做全量审计
 
 ## 失败模式
 
