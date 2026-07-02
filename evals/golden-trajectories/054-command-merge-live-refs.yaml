@@ -20,6 +20,8 @@ acceptance_criteria:
   - handbook.md 正文不含任何已删命令的 live 引用
   - 配置正文（commands/agents/output-styles/skills）+ handbook 正文，除 merge-note / 区别说明白名单外，零已删命令 live 引用
   - merge-note 与 sub-agent 区别说明仍在（能力/历史可追溯）
+  # v4.0：sub-agent "与 /cto-xxx 的区别" 注记本身也必须指向合并后现命令，不能只靠白名单放过旧名
+  - .claude/agents/harness-auditor.md 用 /cto-audit --harness、vibe-checker.md 用 /cto-audit --vibe，agents 目录零已删命令名
 sota_reference:
   - 'Cursor Bugbot / Cline .clinerules：把"指向已删能力的 dangling ref"做成可执行 guard，防文档腐烂误导'
   - 'PR #33 eval 050 check #6 扫 catalog 行；本条补位扫配置正文 live 引用（不同模式，互不重叠）'
@@ -50,5 +52,15 @@ verification_command: |
     | grep -vE '原 |合并自|已合并|的区别' || true)
   [ -z "$stray" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 配置正文仍含已删命令 live 引用（非白名单）："; echo "$stray"; }
 
-  echo "pass=$pass fail=$fail (expect 3/0)"
+  # 4. v4.0：.claude/agents/*.md 显式扫描 —— sub-agent "与 /cto-xxx 的区别" 注记必须指向合并后现命令，
+  #    不能靠 check #3 的 "的区别" 白名单放过已删命令名（harness-auditor→/cto-audit --harness、
+  #    vibe-checker→/cto-audit --vibe）。正向断言现命令在 + 反向断言旧命令名不在。
+  ag=0
+  grep -qF '/cto-audit --harness' .claude/agents/harness-auditor.md || { ag=$((ag+1)); echo "  harness-auditor 缺 /cto-audit --harness"; }
+  grep -qF '/cto-audit --vibe' .claude/agents/vibe-checker.md || { ag=$((ag+1)); echo "  vibe-checker 缺 /cto-audit --vibe"; }
+  agstray=$(grep -rnE "/?(${DEL})" .claude/agents --include='*.md' 2>/dev/null || true)
+  [ -n "$agstray" ] && { ag=$((ag+1)); echo "  .claude/agents 仍含已删命令名（含 的区别 行也不允许）："; echo "$agstray"; }
+  [ "$ag" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .claude/agents 区别注记未对齐现命令"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

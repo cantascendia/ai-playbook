@@ -12,9 +12,9 @@ disable-model-invocation: false
 ## 审核步骤
 
 1. **读取所有文件**：
-   - CTO-PLAYBOOK.md（入口）
    - playbook/handbook.md（完整手册）
-   - CLAUDE.md（系统提示词）
+   - playbook/INDEX.md（章节索引）
+   - CLAUDE.md（系统提示词 + 入口）
    - templates/CLAUDE.md（项目模板）
    - 所有 .claude/commands/*.md
    - 所有 .agents/skills/*/SKILL.md

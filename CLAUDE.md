@@ -57,15 +57,19 @@
 
 ## 记忆系统
 
-项目状态持久化在 `docs/ai-cto/` 目录：
-- PRODUCT-VISION.md — 产品愿景理解
-- TECH-VISION.md — 技术愿景
-- ARCHITECTURE.md — 架构图 + 演进路线
+本仓（ai-playbook 自身 SELF 记忆）实际持久化在 `docs/ai-cto/` 的文件：
+- CONSTITUTION.md — 项目宪法（不可妥协约束）
 - STATUS.md — 进度、质量评分、待办（最频繁更新）
+- COUNTS.md — 组件计数 SSOT
+- EVOLUTION-LOG.md — append-only 进化记录
+- HARNESS-CHANGELOG.md — harness 变更日志
+- SLO.md — 可靠性目标 + 季度演练
 - DECISIONS.md — ADR 风格决策记录
-- COMPETITOR-ANALYSIS.md — 竞品分析
-- REVIEW-BACKLOG.md — 审核问题列表
-- TECH-STACK.md — 技术选型
+- REVIEW-QUEUE.md — 跨模型 review 队列（历史按季度轮转到 `archive/`）
+
+> TARGET 项目（被 `/cto-init` 初始化的下游仓）可经 `/cto-start` 逐步长出更完整的记忆集
+> （PRODUCT-VISION / TECH-VISION / ARCHITECTURE / COMPETITOR-ANALYSIS / REVIEW-BACKLOG / TECH-STACK）——
+> 那是面向目标项目的 aspirational 契约，不代表本仓已有这些文件。
 
 新会话恢复时优先读取 docs/ai-cto/，然后验证是否过时。
 
@@ -74,7 +78,7 @@
 - **Claude Code**: CLAUDE.md + .claude/settings.json + .claude/commands/ + .claude/agents/ + .claude/rules/ + .claude/skills/
 - **Antigravity**: GEMINI.md + .agents/rules/*.md + .agents/skills/
 - **Codex**: AGENTS.md + .agents/skills/ + config.toml
-- **共用 Skills**: `.agents/skills/`（跨平台）+ `.claude/skills/`（Claude Code 原生，两侧通过 hook SHA 同步）
+- **共用 Skills**: `.agents/skills/`（跨平台）+ `.claude/skills/`（Claude Code 原生，通过 scripts/sync-skills.sh 同步 — `.claude/skills` 为 SSOT，`--check` 校验）
 
 ## 路径触发规则（按需加载）
 

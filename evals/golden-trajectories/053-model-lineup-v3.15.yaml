@@ -41,8 +41,9 @@ verification_command: |
   # 4. 活跃路由/SSOT 文档不得把旧代 Opus 当活跃模型；§44 replay 示例用当代默认 opus-4-8
   #    （changelog/memory STATUS+EVOLUTION / 历史事故 guard 注释里描述性提及 4.6→4.8 允许，故只扫路由/SSOT 文档）
   #    dash-form opus-4-7 回潮防护：v3.15 多 agent 完备性审计发现 cto-replay.md + handbook 示例漏网
+  # v4.0a：CTO-PLAYBOOK.md 已退役归档（docs/ai-cto/archive/），移出活跃路由文档扫描列表
   bad=0
-  for f in playbook/handbook.md CLAUDE.md templates/CLAUDE.md CTO-PLAYBOOK.md; do
+  for f in playbook/handbook.md CLAUDE.md templates/CLAUDE.md; do
     grep -q 'Opus 4\.6' "$f" 2>/dev/null && { bad=$((bad+1)); echo "  $f 残留 Opus 4.6（活跃路由文档）"; }
   done
   { grep -q 'model=opus-4-8' .claude/commands/cto-replay.md && grep -q '"model":"opus-4-8"' "$HB"; } \
