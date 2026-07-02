@@ -13,6 +13,24 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-02] v4.0a — 分发 P0 修复 + 记忆层手术（PR-A，Fable 5 限时轮）
+
+- 改了什么：`templates/settings.json` 新建（修复 SessionStart 装载器：最近一条 review 替代盲 tail-100、
+  hooks-presence 替代 v3.7.bak 死哨兵）+ cto-init 补 settings/statusline/output-style/agents/rules 复制；
+  REVIEW-QUEUE 季度轮转至 `docs/ai-cto/archive/`；COUNTS 自相矛盾修复；STATUS 全量刷新；
+  记忆契约裁剪至真实文件 + DECISIONS.md（ADR）落地；CTO-PLAYBOOK.md / AUTOPILOT-KICKOFF 退役归档；
+  harness-auditor/vibe-checker 陈旧命令引用修复；saved workflow `cto-scan.js` + `cto-probe.js`
+- 为什么：2026-07-02 七代理扫描定位 2×P0（全新安装 enforcement 全哑 / SessionStart 每会话盲注入
+  68KB 陈旧 review）+ 记忆契约 7 个幻影文件（反模式 #3 幻觉源）；裁决书
+  `REDESIGN-PROPOSAL-2026-07-02-v4-agent-native.md`
+- Eval 跑分前/后：32 PASS 基线 → 目标 35+（新增 055/056/057，037/050/054 扩展）
+- 影响范围：所有 /cto-init 分发目标（27 项目）的首装正确性；每个会话的启动上下文体积；会话恢复流
+- 备注：self 仓 `.claude/settings.json` 本会话未动（harness 自改保护，正确行为）— 人从
+  templates/settings.json 同步两条 SessionStart command 即可；PR-B（guard engine）/ PR-C（新红线
+  语义，需人签）见裁决书
+
+---
+
 ## [2026-06-25] v3.15 — health/ARE 重审回填（45 天断档首笔补账）
 
 **为什么**：会话恢复后实测发现 STATUS/COUNTS 的 v3.11–v3.15 Health/ARE 全 TBD（v3.9.3 的 94 已 9 个月陈旧），且本 changelog 自 2026-05-11 v3.9.1 后断档 45 天 / 27 提交未记录——是手册 §34.3 + §43 定义的可观测性盲区。

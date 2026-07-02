@@ -1,6 +1,6 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§48）
+# CTO-PLAYBOOK — 完整操作手册（§1-§50）
 
-> 本文件是 CTO-PLAYBOOK 操作手册的完整版。快速回忆区和目录见入口文件 `CTO-PLAYBOOK.md`。
+> 本文件是 CTO-PLAYBOOK 操作手册的完整版。入口与快速回忆区见仓库根 `CLAUDE.md`，章节定位用 `playbook/INDEX.md`（grep 方式，见其头部说明）。
 
 ---
 
@@ -3177,7 +3177,7 @@ AI Pair（2025+）：
 
 ## 41. Hooks 驱动的自动化
 
-> 14 条铁律 + 21 个 `/cto-*` 命令认知负担过重。Claude Code 的 **Hooks 系统** 让大部分检查"动作发生时即时执行"，无需用户记得手动跑命令。
+> 14 条铁律 + 十余个 `/cto-*` 命令（计数 SSOT 见 docs/ai-cto/COUNTS.md）认知负担过重。Claude Code 的 **Hooks 系统** 让大部分检查"动作发生时即时执行"，无需用户记得手动跑命令。
 
 ### 41.0 重大教训（v3.8 起生效）
 
