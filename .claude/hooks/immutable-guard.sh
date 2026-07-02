@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# v4.0: Node guard engine 优先；node 缺失或 CTO_GUARD_ENGINE=legacy → 下方 legacy 实现
+# （v3.15 冻结，零红线真空 — v3.14 verdict Phase-1 硬条件）。引擎：engine/guard.mjs
+GUARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "${CTO_GUARD_ENGINE:-engine}" != "legacy" ] && command -v node >/dev/null 2>&1 && [ -f "$GUARD_DIR/engine/guard.mjs" ]; then
+  exec node "$GUARD_DIR/engine/guard.mjs" immutable-guard
+fi
+# ══ legacy fallback（v3.15 原实现，冻结不再演进）══
 # v3.9 红线层：拦截 AI 改 Constitution / 14 铁律 / SSOT
 # OWASP Agentic Top 10 (2025-12) Rogue Agent + AIVSS v0.8 self-modification = risk amplifier
 # Anthropic Constitutional AI: constitution 不可妥协

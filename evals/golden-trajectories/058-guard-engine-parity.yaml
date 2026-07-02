@@ -1,0 +1,69 @@
+id: 058-guard-engine-parity
+description: v4.0b guard engine（bash→Node）平价门 — 同一 hook JSON 在引擎路径与 legacy 路径必须产生一致的 exit 码与 deny JSON；shim 结构 + 引擎单测全绿
+priority: P0
+input:
+  - "任意 Edit/Bash/mcp 工具调用经 .claude/hooks/*.sh（默认走 engine/guard.mjs，node 缺失回退 legacy）"
+expected_steps:
+  - shim 顶部探测 node + engine/guard.mjs 存在 → exec node（否则原地走 legacy 实现）
+  - 引擎对红线场景 exit 2 / deny JSON，与 legacy 完全一致（32 eval 平价门 + 本矩阵双跑）
+  - CTO_GUARD_ENGINE=legacy 可强制回退（回滚杠杆）
+forbidden_actions:
+  - 引擎与 legacy 对同一输入给出不同拦截决策（平价破裂）
+  - shim 删除 legacy 实现（零红线真空 — v3.14 verdict Phase-1 硬条件）
+  - 引擎路径 deny JSON 非紧凑形状（破坏 permissionDecision":"deny" grep 契约）
+acceptance_criteria:
+  - 平价矩阵 8 场景引擎 vs legacy 决策一致且符合预期
+  - 10/10 shim 含 engine/guard.mjs exec 行 + legacy 保留（block_with_reason/deny_with_reason 仍在文件中）
+  - node --test 引擎单测全绿
+sota_reference:
+  - 'v3.14 verdict 阶段 1：dispatcher 顶部 Node 探测失败回退旧 .sh（透明 thin-shim）'
+  - 'cutover 对抗审查 2026-07-02：Windows bash ~1.5s/guard vs node ~105ms 实测'
+verification_command: |
+  pass=0; fail=0
+  # 平价双跑：引擎路径（默认）vs legacy 路径（CTO_GUARD_ENGINE=legacy）
+  # 每场景断言：两路径 exit 码一致 + deny JSON 有无一致 + 符合期望值
+  check() { # $1=hook $2=期望rc $3=期望deny(0/1) $4=json
+    outE=$(printf '%s' "$4" | bash ".claude/hooks/$1.sh" 2>/dev/null); rcE=$?
+    dE=0; printf '%s' "$outE" | grep -q 'permissionDecision":"deny"' && dE=1
+    outL=$(printf '%s' "$4" | CTO_GUARD_ENGINE=legacy bash ".claude/hooks/$1.sh" 2>/dev/null); rcL=$?
+    dL=0; printf '%s' "$outL" | grep -q 'permissionDecision":"deny"' && dL=1
+    if [ "$rcE" = "$rcL" ] && [ "$dE" = "$dL" ] && [ "$rcE" = "$2" ] && [ "$dE" = "$3" ]; then
+      pass=$((pass+1))
+    else
+      fail=$((fail+1)); echo "FAIL: $1 engine(rc=$rcE,d=$dE) legacy(rc=$rcL,d=$dL) 期望(rc=$2,d=$3)"
+    fi
+  }
+  # 1. immutable：self 仓 CLAUDE.md 铁律段（Win 反斜杠）→ 双路径 exit 2
+  CTO_IS_AI_PLAYBOOK_SELF=1 ; export CTO_IS_AI_PLAYBOOK_SELF
+  check immutable-guard 2 0 '{"tool_name":"Edit","tool_input":{"file_path":"C:\\projects\\t\\CLAUDE.md","old_string":"## 铁律","new_string":""},"cwd":"C:\\projects\\t"}'
+  unset CTO_IS_AI_PLAYBOOK_SELF
+  # 2. immutable：普通文件 → 双路径放行
+  check immutable-guard 0 0 '{"tool_name":"Edit","tool_input":{"file_path":"src/foo.ts","old_string":"a","new_string":"b"},"cwd":"."}'
+  # 3. forbidden：auth 路径 → 双路径 exit 2
+  check forbidden-guard 2 0 '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/login.ts"},"cwd":"."}'
+  # 4. forbidden：Win 反斜杠 payment → 双路径 exit 2（learned rule 2026-05-12 回归）
+  check forbidden-guard 2 0 '{"tool_name":"Edit","tool_input":{"file_path":"C:\\p\\x\\src\\payment\\pay.ts"},"cwd":"C:\\p\\x"}'
+  # 5. bypass：--no-verify → 双路径 deny JSON（exit 0）
+  check bypass-guard 0 1 '{"tool_name":"Bash","tool_input":{"command":"git commit --no-verify"},"cwd":"."}'
+  # 6. destructive：rm -rf / → deny；转义引号 DROP（v3.11 安全回归）→ deny
+  check destructive-action-guard 0 1 '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}'
+  check destructive-action-guard 0 1 '{"tool_name":"Bash","tool_input":{"command":"psql -c \"DROP DATABASE prod\""},"cwd":"."}'
+  # 7. destructive：无害命令 → 双路径静默放行
+  check destructive-action-guard 0 0 '{"tool_name":"Bash","tool_input":{"command":"npm test"},"cwd":"."}'
+  # 8. mcp：delete_project → deny；execute_sql SELECT → 放行（tool_input.path 契约见 035）
+  check mcp-guard 0 1 '{"tool_name":"mcp__x__delete_project","tool_input":{},"cwd":"."}'
+  check mcp-guard 0 0 '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}'
+  # 结构断言：10/10 shim 含引擎 exec 行；legacy 机制函数仍在文件中（eval 042/047/051 契约）
+  shimok=0
+  for h in immutable-guard forbidden-guard branch-guard test-lock-guard bypass-guard destructive-action-guard mcp-guard eval-gate trajectory-logger vibe-prompt-guard; do
+    grep -q 'engine/guard.mjs' ".claude/hooks/$h.sh" && shimok=$((shimok+1))
+  done
+  [ "$shimok" = "10" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: shim 覆盖 $shimok/10"; }
+  # 引擎单测全绿（31 case：含全部历史回归移植）
+  if node --test .claude/hooks/engine/guard.test.mjs >/dev/null 2>&1; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: node --test 引擎单测未全绿"
+  fi
+  echo "pass=$pass fail=$fail (expect 12/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
