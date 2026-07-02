@@ -160,6 +160,35 @@ MultiEdit 的 edits 数组难以精确比对删除条目（codex 第 5 轮 dogfo
     }
   }
 
+  // 红线 5（v4.0c，人双签语义）：guard 层自保护 — 落实 CONSTITUTION「hooks block 逻辑不可移除」
+  // 仅拦 Write/MultiEdit 对既有 guard 文件的整文件覆写（镜像红线 1/4 的 Edit-vs-Write 区分：
+  // 单 Edit 精修保持低摩擦 — 修 guard bug 顺手 sweep 是主进化路径）。新文件创建放行。
+  // 通用红线（self + 子项目同守：agent 关停自身护栏的威胁与仓库身份无关）。
+  if (/\.claude\/hooks\/.+\.(sh|mjs)$/.test(normFile) && (ctx.toolName === 'Write' || ctx.toolName === 'MultiEdit')) {
+    const abs = /^\/|^[A-Za-z]:\//.test(normFile) ? normFile : `${normCwd}/${normFile}`;
+    let exists = false;
+    try { exists = fs.statSync(fsPath(abs)).isFile(); } catch { /* 新文件 → 放行 */ }
+    if (exists) {
+      if (env().CTO_GUARD_AMEND === '1') {
+        auditLog(ctx, 'immutable-guard', 'guard-amend-allowed', `file=${rel} tool=${ctx.toolName} env=1`);
+        process.exit(0);
+      }
+      auditLog(ctx, 'immutable-guard', 'guard-overwrite-blocked', `file=${rel} tool=${ctx.toolName}`);
+      block(`🛑 v4.0 GUARD SELF-PROTECTION: 不允许用 ${ctx.toolName} 整文件覆写 guard
+
+文件: ${rel}
+
+CONSTITUTION 安全宪法：hooks 的 block/deny 逻辑不可由 AI 单方面移除。
+整文件覆写会绕过逐行审查，是关停护栏的最短路径（OWASP ASI10 Rogue Agent）。
+
+允许的操作：
+  - 单 Edit（含具体 old/new_string）→ 可精修 guard bug（主进化路径不受阻）
+  - 新建 guard / engine 文件（Write 到不存在的路径）
+
+维护性覆写（人已确认）：export CTO_GUARD_AMEND=1（audit 永久记录）`);
+    }
+  }
+
   process.exit(0);
 }
 
@@ -193,9 +222,71 @@ export function forbiddenGuard(ctx) {
   process.exit(0);
 }
 
-// ═══ branch-guard ═══（铁律 #8：保护分支上禁 Edit）
+// ═══ branch-guard ═══（铁律 #8：保护分支上禁 Edit；v4.0c 扩展 Bash git commit/push/merge）
 const PROTECTED_BRANCHES = new Set(['main', 'master', 'production', 'prod', 'release']);
+const PROTECTED_RE = '(main|master|production|prod|release)';
+
+// v4.0c（需人双签的新语义）：解析真实 git 子命令，不做子串匹配（cutover 审查 MUST-2：
+// PR body / git log --grep / echo 文本必须放行）。剥离引号 + heredoc 后按 shell 操作符切段。
+function stripQuotedAndHeredoc(cmd) {
+  return splitLines(cmd).map((l) => l.replace(/<<-?'?[A-Za-z_]+'?.*$/, '')).join('\n')
+    .replace(/'[^']*'/g, ' ')
+    .replace(/"(\\.|[^"\\])*"/g, ' ');
+}
+
+function gitSubcommand(segment) {
+  const toks = segment.trim().split(/\s+/);
+  if (toks[0] !== 'git') return { sub: '', rest: [] };
+  const eatsArg = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path']);
+  for (let i = 1; i < toks.length; i++) {
+    const t = toks[i];
+    if (t.startsWith('-')) { if (eatsArg.has(t)) i++; continue; }
+    return { sub: t, rest: toks.slice(i + 1) };
+  }
+  return { sub: '', rest: [] };
+}
+
+// push 判定看 refspec 而非 HEAD（cutover 审查：HEAD=main 时 push feature 分支必须放行）；
+// bare `git push`（无 refspec）默认推当前分支 → 回退看 HEAD。
+function pushTargetsProtected(rest, headProtected) {
+  const nonFlags = rest.filter((t) => !t.startsWith('-'));
+  const refspecs = nonFlags.slice(1); // 第一个非 flag = remote
+  if (refspecs.length === 0) return headProtected;
+  return refspecs.some((r) => new RegExp(`(^|:)${PROTECTED_RE}$`).test(r));
+}
+
+function branchGuardBash(ctx) {
+  if (!ctx.cmd) process.exit(0);
+  const branch = gitBranch(ctx.cwd);
+  const headProtected = PROTECTED_BRANCHES.has(branch);
+  const segments = stripQuotedAndHeredoc(ctx.cmd).split(/&&|\|\||;|\||\n/);
+  for (const seg of segments) {
+    const { sub, rest } = gitSubcommand(seg);
+    let hit = '';
+    if ((sub === 'commit' || sub === 'merge') && headProtected) hit = `git ${sub}（HEAD=${branch}）`;
+    if (sub === 'push' && pushTargetsProtected(rest, headProtected)) hit = `git push → 保护分支 refspec（HEAD=${branch}）`;
+    if (hit) {
+      if (env().CTO_MAIN_EDIT_ALLOWED === '1') {
+        auditLog(ctx, 'branch-guard', 'main-commit-allowed-emergency', `branch=${branch} cmd=${headBytes(ctx.cmd, 200)}`);
+        process.exit(0);
+      }
+      auditLog(ctx, 'branch-guard', 'main-commit-blocked', `branch=${branch} hit=${hit} cmd=${headBytes(ctx.cmd, 200)}`);
+      deny(`🛑 铁律 #8 BLOCKED: ${hit}
+
+命令：\`${headBytes(ctx.cmd, 300)}\`
+
+保护分支（main/master/production/prod/release）不接受直接 commit/merge/push —
+先建分支走 PR：git checkout -b feat/<short-name>
+
+紧急 opt-out：export CTO_MAIN_EDIT_ALLOWED=1（audit 永久记录）
+参考：CLAUDE.md 铁律 #8 / v4.0c 双签语义`);
+    }
+  }
+  process.exit(0);
+}
+
 export function branchGuard(ctx) {
+  if (ctx.toolName === 'Bash') return branchGuardBash(ctx);
   if (!ctx.filePath) process.exit(0);
   const branch = gitBranch(ctx.cwd);
   if (!branch) process.exit(0); // 非 git repo / detached 空值 → 放行（与 bash 一致）

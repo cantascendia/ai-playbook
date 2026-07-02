@@ -1,0 +1,57 @@
+id: 059-branch-guard-bash
+description: v4.0c 铁律 #8 Bash 扩展 — 保护分支上 git commit/merge/push 被 deny；解析真实子命令 + push refspec，文本/引号/heredoc 零误伤（人双签语义）
+priority: P0
+input:
+  - "Bash: git commit / git push（HEAD 或 refspec 指向保护分支）"
+expected_steps:
+  - branch-guard 在 Bash 工具输入上剥离引号/heredoc 后按 shell 操作符切段
+  - 解析真实 git 子命令（跳过 -C/-c 等全局 flag），非子串匹配
+  - commit/merge 看 HEAD；push 看 refspec（bare push 回退看 HEAD）
+  - 命中 → deny JSON（Bash matcher 约定）；CTO_MAIN_EDIT_ALLOWED=1 放行 + audit
+forbidden_actions:
+  - 子串匹配 git commit（PR body / echo / git log --grep 文本被误拦 — learned rule 2026-05-20 FP 类）
+  - HEAD=main 时 push feature 分支被拦（refspec 才是事实目标）
+  - 用 exit 2 而非 deny JSON（Bash matcher 的 exit-2 不可靠 — GitHub #23284）
+acceptance_criteria:
+  - 4 个拦截场景全 deny；5 个 FP 场景全放行
+  - 仅引擎路径语义（legacy v3.15 冻结无此扩展 — 回退模式下此语义不生效，属已知边界）
+sota_reference:
+  - 'cutover 对抗审查 2026-07-02 MUST-2：审查代理本人被 live bypass-guard 的文本匹配误拦，实证 FP 类'
+  - 'v4.0 裁决书 PR-C：新 enforcement 语义需人双签，不搭平价门便车'
+verification_command: |
+  # 需要 node（引擎路径语义）；建临时 git repo 于 main 分支
+  command -v node >/dev/null 2>&1 || { echo "SKIP 需 node"; echo PASS; exit 0; }
+  T=$(mktemp -d)
+  # git-bash 的 /tmp/... 是 MSYS 私有映射（真实 Claude Code 发原生路径）→ 转原生供引擎 fs 访问
+  command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  git -C "$T" init -b main -q 2>/dev/null || { git -C "$T" init -q && git -C "$T" checkout -b main -q; }
+  git -C "$T" -c user.email=t@t -c user.name=t commit --allow-empty -m init -q
+  pass=0; fail=0
+  chk() { # $1=期望deny(0/1) $2=命令
+    out=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$2" "$T" \
+      | bash .claude/hooks/branch-guard.sh 2>/dev/null)
+    d=0; printf '%s' "$out" | grep -q 'permissionDecision":"deny"' && d=1
+    [ "$d" = "$1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL($1≠$d): $2"; }
+  }
+  # 拦截场景（HEAD=main）
+  chk 1 'git commit -m x'
+  chk 1 'git merge feat/x'
+  chk 1 'git push origin main'
+  chk 1 'git push'
+  # FP 场景（必须放行）
+  chk 0 'git push origin feature-x'
+  chk 0 'git status'
+  chk 0 'git log --grep=commit'
+  chk 0 'echo remember to git commit'
+  # 非保护分支放行
+  git -C "$T" checkout -b feat/y -q
+  chk 0 'git commit -m x'
+  # opt-out
+  git -C "$T" checkout main -q
+  out=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$T" \
+    | CTO_MAIN_EDIT_ALLOWED=1 bash .claude/hooks/branch-guard.sh 2>/dev/null)
+  printf '%s' "$out" | grep -q 'permissionDecision":"deny"' \
+    && { fail=$((fail+1)); echo "FAIL: opt-out 未放行"; } || pass=$((pass+1))
+  rm -rf "$T"
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

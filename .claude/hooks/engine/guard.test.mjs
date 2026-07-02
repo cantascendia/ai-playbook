@@ -258,6 +258,63 @@ test('immutable: MSYS 风格 cwd（git-bash pwd）下 self 自动检测生效（
   assert.equal(r.status, 2);
 });
 
+// ═══ v4.0c 新语义（PR-C，人双签门槛）═══
+
+function mainRepo() {
+  const dir = tmpProject();
+  spawnSync('git', ['init', '-b', 'main'], { cwd: dir });
+  spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-m', 'init'], { cwd: dir });
+  return dir;
+}
+
+test('branch-Bash: main 上 git commit/merge → deny；feature 分支 → 放行', () => {
+  const dir = mainRepo();
+  const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir });
+  assert.ok(run('branch-guard', j('git commit -m x')).stdout.includes(DENY_MARK));
+  assert.ok(run('branch-guard', j('git merge feat/x')).stdout.includes(DENY_MARK));
+  spawnSync('git', ['checkout', '-b', 'feat/y'], { cwd: dir });
+  assert.equal(run('branch-guard', j('git commit -m x')).stdout, '');
+});
+
+test('branch-Bash: push refspec 判定（HEAD=main 推 feature 必须放行 — FP 矩阵核心）', () => {
+  const dir = mainRepo();
+  const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir });
+  assert.ok(run('branch-guard', j('git push origin main')).stdout.includes(DENY_MARK));
+  assert.ok(run('branch-guard', j('git push -u origin HEAD:master')).stdout.includes(DENY_MARK));
+  assert.ok(run('branch-guard', j('git push')).stdout.includes(DENY_MARK)); // bare push，HEAD=main
+  assert.equal(run('branch-guard', j('git push origin feature-x')).stdout, ''); // 关键 FP 案例
+  assert.equal(run('branch-guard', j('git push -u origin feat/v4.0c-guard-semantics')).stdout, '');
+});
+
+test('branch-Bash: 文本/引号/heredoc/非执行 git 子命令全部放行（learned rule 2026-05-20）', () => {
+  const dir = mainRepo();
+  const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir });
+  for (const cmd of [
+    'gh pr create --body "please git commit often"',
+    "git log --grep='commit to main'",
+    'echo "remember to git commit"',
+    "cat > notes.md <<'EOF' git push origin main",
+    'git status',
+  ]) {
+    assert.equal(run('branch-guard', j(cmd)).stdout, '', cmd);
+  }
+  // opt-out
+  const r = run('branch-guard', j('git commit -m x'), { CTO_MAIN_EDIT_ALLOWED: '1' });
+  assert.equal(r.stdout, '');
+});
+
+test('self-protection: Write 覆写既有 guard → exit 2；单 Edit / 新文件 / AMEND → 放行', () => {
+  const dir = tmpProject();
+  fs.mkdirSync(path.join(dir, '.claude', 'hooks'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.claude', 'hooks', 'forbidden-guard.sh'), '#!/bin/bash\nexit 0\n');
+  const wj = (file) => ({ tool_name: 'Write', tool_input: { file_path: `${dir.replaceAll('\\', '/')}/${file}`, content: 'x' }, cwd: dir });
+  assert.equal(run('immutable-guard', wj('.claude/hooks/forbidden-guard.sh')).status, 2);
+  assert.equal(run('immutable-guard', wj('.claude/hooks/forbidden-guard.sh'), { CTO_GUARD_AMEND: '1' }).status, 0);
+  assert.equal(run('immutable-guard', wj('.claude/hooks/engine/new-helper.mjs')).status, 0); // 新文件放行
+  const ej = { tool_name: 'Edit', tool_input: { file_path: `${dir.replaceAll('\\', '/')}/.claude/hooks/forbidden-guard.sh`, old_string: 'exit 0', new_string: 'exit 0 # fix' }, cwd: dir };
+  assert.equal(run('immutable-guard', ej).status, 0); // 单 Edit 精修不受阻
+});
+
 // ═══ 引擎级契约 ═══
 
 test('engine: 未知 hook 名 fail-open + 告警；无效 JSON → 各 guard 放行（bash 同语义）', () => {
