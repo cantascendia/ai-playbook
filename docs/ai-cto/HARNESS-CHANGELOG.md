@@ -13,6 +13,23 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-02] v4.0c — 新 enforcement 语义：铁律 #8 Bash 扩展 + guard 自保护（PR-C，🔴 待人双签）
+
+- 改了什么：engine 侧两条新红线 —— ① branch-guard 扩展 Bash：解析真实 git 子命令
+  （剥引号/heredoc + 跳全局 flag，非子串匹配），commit/merge 看 HEAD、push 看 refspec，
+  命中保护分支 → deny JSON；② immutable-guard 红线 5：Write/MultiEdit 整文件覆写既有
+  `.claude/hooks/**.{sh,mjs}` → exit 2（单 Edit / 新文件放行，`CTO_GUARD_AMEND=1` 维护解锁）。
+  templates/settings.json Bash matcher 加 branch-guard；eval 059/060 + 4 条单测（FP 矩阵）
+- 为什么：扫描 P0 —— CONSTITUTION「hooks block 逻辑不可移除」是纸面声明零 enforcement；
+  铁律 #8 只拦 Edit，`git commit/push` 直上 main 无人管
+- 边界（诚实声明）：legacy 回退路径无新语义（v3.15 冻结）；单 Edit 链仍可逐步削弱 guard —
+  拦的是最短路径，完整防护靠 PR review + eval 平价门
+- Eval 跑分前/后：36 → **38 PASS / 0 FAIL**；单测 32 → 36
+- 影响范围：保护分支上的 git 操作；guard 文件的覆写操作。**merge 前提：人双签 +
+  self 仓 settings.json Bash matcher 手动加 branch-guard（agent 不改自身启动配置）**
+
+---
+
 ## [2026-07-02] v4.0b — Guard Engine：bash → Node 语义等价移植（PR-B）
 
 - 改了什么：10 个 `.claude/hooks/*.sh` → engine shim + legacy 回退（node 缺失或
