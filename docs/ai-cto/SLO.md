@@ -1,6 +1,8 @@
-# SLO — ai-playbook 自身 (v3.9.1)
+# SLO — ai-playbook 自身 (v3.15，2026-06-25 刷新)
 
 > Agent Reliability Engineering (§43) — 每个核心组件的 success_rate / latency / cost / fallback 四字段。
+> ⚠️ v3.10–v3.15 新增组件 SLO 见下「v3.10+ 组件」节（reliability-auditor 2026-06-25 审计标 P1：此前 SLO.md 冻结 v3.9.1 零覆盖新组件）。
+> 仍欠：`evals/slo-checks/` 目录（把 SLO 转为机器可执行断言）尚未建——SLO 当前靠人工 + agent-logs 核。
 
 ## v3.9 飞轮三组件
 
@@ -63,12 +65,50 @@
 | comment 同步 | ≥ 95% |
 | 后台 disown 兼容 | Windows / Linux / macOS 全 ok |
 
+## v3.10+ 组件（2026-06-25 reliability-auditor 补）
+
+### mcp-guard.sh（v3.11 — MCP 工具红线层）
+
+| 指标 | 目标 | 测量 |
+|---|---|---|
+| Block accuracy | 100%（execute_sql DROP / delete_* / filesystem write 红线文件 0 漏）| eval 034/035 + agent-logs `mcp-destructive-blocked` event |
+| 只读工具放行 | 100%（SELECT / list_/get_/search_ 不误拦）| eval 034 false-positive 子集 |
+| 覆盖面 | matcher `mcp__.*` 全 MCP server | settings.json:83-89 |
+
+### deny_with_reason 机制（v3.14 — guard 拦截语义）
+
+| 指标 | 目标 | 测量 |
+|---|---|---|
+| 拦截可靠性 | 用 `permissionDecision:deny` JSON 替 `exit 2`（对冲 GitHub #23284）| eval 051-deny-json-mechanism |
+| 覆盖 guard | bypass / destructive / mcp 全切换 | common.sh:96-113 |
+
+### run-evals.sh executor（v3.12 — 铁律 #12 真执行）
+
+| 指标 | 目标 | 测量 |
+|---|---|---|
+| Eval pass rate | 100%（31 PASS / 0 FAIL）| `bash scripts/run-evals.sh` exit 0 |
+| 真执行（非 count yaml）| 每 yaml 的 verification_command 子 shell 真跑 | eval 036-eval-executor meta-eval |
+
+### check-counts.sh enforcer（v3.13 — 计数 SSOT）
+
+| 指标 | 目标 | 测量 |
+|---|---|---|
+| 计数一致性 | TIER1 文件系统 vs COUNTS.md 0 偏差 | `bash scripts/check-counts.sh` exit 0 |
+| 散落数字漂移 | TIER2 软警告 0 | 同上输出 |
+
+### ledger（v3.14 — 跨项目事故账本）
+
+| 指标 | 目标 | 测量 |
+|---|---|---|
+| 传播门槛 | ≥ 2 项目印证才 propagate（advisory-only，dry-run）| `ledger/distill.mjs` 逻辑 |
+
 ## 全局
 
 | 指标 | 目标 |
 |---|---|
-| harness health score | ≥ 90 / 100 |
-| eval 集 pass rate | ≥ 90%（28 条 golden trajectory） |
+| harness health score | ≥ 90 / 100（v3.15 实测 79，低于目标 — 见 STATUS P1 欠账）|
+| ARE score | ≥ 85 / 100（v3.15 实测 78 — 四维全 warn，见下）|
+| eval 集 pass rate | ≥ 90%（31 条 golden trajectory，实测 31/31 = 100%）|
 | Cost 月度 | < $30（codex + Claude API + GH Actions）|
 
 ## 季度演练（QUARTERLY-DRILLS.md）
@@ -78,3 +118,4 @@
 ## 修改记录
 
 - 2026-05-11 v3.9.1：首次创建（reliability-auditor 飞轮发现 ARE 72/100，SLO.md 缺失为 P0）
+- 2026-06-25 v3.15：补 v3.10+ 组件（mcp-guard / deny_with_reason / run-evals / check-counts / ledger）；修 eval 计数 28→31；全局加 ARE 目标行。reliability-auditor 实测 ARE 78（四维全 warn）。**仍欠**：`evals/slo-checks/` 机器断言 + 季度演练实跑（Q2 过期）。
