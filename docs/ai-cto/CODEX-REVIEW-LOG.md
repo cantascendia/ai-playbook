@@ -38,3 +38,34 @@ pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be 
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=existing-check | found=0
 2026-05-12T00:04:57+09:00 | sha=4216324 | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/8#issuecomment-4421936932 
 2026-05-12T00:04:57+09:00 | sha=4216324 | mode=pr-comment-posted | pr=#8
+2026-06-17T00:17:12+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:19:12+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:20:56+09:00 | sha=b463a77 | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:20:56+09:00 | sha=b463a77 | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:19:12+09:00 | sha=b463a77 | mode=claude-only | reviewer=claude-fallback-opus | bytes=4587
+branch 'fix/v3.14-live-cmd-refs' set up to track 'origin/fix/v3.14-live-cmd-refs'.
+To https://github.com/cantascendia/ai-playbook.git
+ * [new branch]      fix/v3.14-live-cmd-refs -> fix/v3.14-live-cmd-refs
+Warning: 9 uncommitted changes
+pull request create failed: GraphQL: No commits between main and fix/v3.14-live-cmd-refs (createPullRequest)
+2026-06-17T00:17:12+09:00 | sha=b463a77 | mode=claude-only | reviewer=claude-fallback-opus | bytes=6288
+branch 'fix/v3.14-live-cmd-refs' set up to track 'origin/fix/v3.14-live-cmd-refs'.
+Everything up-to-date
+Warning: 9 uncommitted changes
+pull request create failed: GraphQL: No commits between main and fix/v3.14-live-cmd-refs (createPullRequest)
+2026-06-17T00:26:24+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:26:24+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:30:36+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-06-17T00:30:36+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=claude-only | reviewer=claude-fallback-opus | bytes=5912
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=existing-check | found=0
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/34#issuecomment-4720497225 
+2026-06-17T00:28:19+09:00 | sha=ba74d2a | mode=pr-comment-posted | pr=#34
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-07-02T22:01:26+09:00 | sha=ba74d2a | mode=review-triggered | reason=security_relevant_change
+2026-07-02T22:01:26+09:00 | sha=ba74d2a | mode=codex-failed+claude-failed | reviewer=none
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | mode=claude-only | reviewer=claude-fallback-opus | bytes=4634
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
+2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=existing-check | found=1
