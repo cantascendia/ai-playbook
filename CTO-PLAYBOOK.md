@@ -96,8 +96,7 @@
 | `/cto-link [可选路径]` | 关联本机 ai-playbook（跨机器路径自适应）| §29.8 |
 | `/cto-relink-all [扫描目录]` | 批量迁移多项目到 fallback 模板 | §29.8 |
 | `/cto-start` | 新项目第零轮启动 | §10 |
-| `/cto-resume` | 恢复会话继续工作 | §17.6 |
-| `/cto-refresh` | 刷新手册恢复行为规范 | — |
+| `/cto-resume [--refresh]` | 恢复会话继续工作（`--refresh` = 重读手册对齐，原 cto-refresh） | §17.6 |
 | `/cto-spec [specify\|plan\|tasks]` | 三段式 Spec-Driven 开发 | §18 |
 | `/cto-constitution [init\|review\|audit]` | 项目宪法管理 | §37 |
 | `/cto-review [目标]` | 交叉审核关键改动 | §19 |
