@@ -80,3 +80,4 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-02T21:59:39+09:00 | sha=ba74d2a | mode=claude-only | reviewer=claude-fallback-opus | bytes=4634
 2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
 2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=existing-check | found=1
+2026-07-02T22:41:41+09:00 | sha=3d13ac5 | mode=skipped-non-business | reason=docs_or_config_only_no_security

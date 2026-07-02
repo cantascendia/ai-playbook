@@ -113,7 +113,7 @@
 
 ## 季度演练（QUARTERLY-DRILLS.md）
 
-详见 `docs/ai-cto/QUARTERLY-DRILLS.md`。
+详见 `docs/ai-cto/archive/QUARTERLY-DRILLS.md`（v4.0 已轮转至 archive/）。
 
 ## 修改记录
 

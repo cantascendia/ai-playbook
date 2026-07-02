@@ -1,0 +1,56 @@
+id: 057-memory-contract
+description: >
+  v4.0a 记忆契约诚实化 — cto-resume / CLAUDE.md 列的记忆文件必须真实存在（此前 8 文件中 7 个从未创建）；
+  DECISIONS.md 补建（含 ADR-006 v4.0 agent-native runtime）；主 REVIEW-QUEUE 有 archive 指针。
+priority: P1
+input:
+  - "cto-resume.md 恢复会话时读取的记忆清单"
+  - "CLAUDE.md ## 记忆系统 section 列的文件"
+  - "DECISIONS.md 被 cto-resume / cto-constitution 引用"
+expected_steps:
+  - cto-resume 记忆清单裁到真实存在的 8 文件（CONSTITUTION/STATUS/COUNTS/EVOLUTION-LOG/HARNESS-CHANGELOG/SLO/DECISIONS/REVIEW-QUEUE）
+  - 删除 PRODUCT-VISION→TECH-VISION→... 的旧盲读链（7 个从未创建的 aspirational 文件）
+  - DECISIONS.md 补建，含 ADR-001~006（ADR-006 = v4.0 agent-native runtime 3-PR 序列）
+  - 主 REVIEW-QUEUE.md 顶部有 archive/ 指针
+forbidden_actions:
+  - 记忆清单列出不存在的文件（诚实契约破坏，读取即报错/幻觉放大）
+  - DECISIONS.md 被引用却不存在
+  - 删掉「TARGET 项目可经 /cto-start 长出完整集」的 aspirational 说明
+acceptance_criteria:
+  - cto-resume 列的 8 文件在 docs/ai-cto/ 全部真实存在
+  - cto-resume 不再有 PRODUCT-VISION→TECH-VISION 旧盲读链
+  - DECISIONS.md 含 ADR-006
+  - 主 REVIEW-QUEUE.md 含 archive/ 指针
+sota_reference:
+  - 'v4.0a memory-layer 审计 2026-07-02：8 文件契约 7 个不存在 = P1 诚实性缺陷'
+  - '§32.5 反模式 #3 Hallucination Amplification 防护：契约必须与现实一致'
+verification_command: |
+  # v4.0a：验证记忆契约诚实化 —— cto-resume 列的记忆文件真实存在 + DECISIONS 补建。
+  pass=0; fail=0
+
+  # 1-8. cto-resume.md 契约的 8 个记忆文件必须真实存在
+  for f in CONSTITUTION STATUS COUNTS EVOLUTION-LOG HARNESS-CHANGELOG SLO DECISIONS REVIEW-QUEUE; do
+    if [ -f "docs/ai-cto/$f.md" ]; then
+      pass=$((pass+1))
+    else
+      fail=$((fail+1)); echo "FAIL: 契约文件 docs/ai-cto/$f.md 不存在"
+    fi
+  done
+
+  # 9. DECISIONS.md 含 ADR-006（v4.0 agent-native runtime）
+  grep -qF 'ADR-006' docs/ai-cto/DECISIONS.md \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: DECISIONS.md 缺 ADR-006"; }
+
+  # 10. 主 REVIEW-QUEUE 有 archive/ 指针
+  grep -qF 'archive/' docs/ai-cto/REVIEW-QUEUE.md \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 主 REVIEW-QUEUE 无 archive/ 指针"; }
+
+  # 11. cto-resume 不再有旧 8 文件盲读链（PRODUCT-VISION→TECH-VISION 那条）
+  if grep -qF 'PRODUCT-VISION → TECH-VISION' .claude/commands/cto-resume.md; then
+    fail=$((fail+1)); echo "FAIL: cto-resume 仍列旧盲读链（含不存在文件）"
+  else
+    pass=$((pass+1))
+  fi
+
+  echo "pass=$pass fail=$fail (expect 11/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
