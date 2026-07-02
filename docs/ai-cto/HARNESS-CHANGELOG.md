@@ -13,6 +13,24 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-02] v4.0b — Guard Engine：bash → Node 语义等价移植（PR-B）
+
+- 改了什么：10 个 `.claude/hooks/*.sh` → engine shim + legacy 回退（node 缺失或
+  `CTO_GUARD_ENGINE=legacy` 原地走 v3.15 冻结实现，零红线真空）；引擎
+  `engine/{guard,lib,guards}.mjs` + 32 条 node:test 单测（移植 v3.9.1 Win 路径 / v3.11 转义引号 /
+  v3.12 字面量 \n / v3.10.2 echo carve-out / v3.11.1 MCP path 字段 / eval 042 脱敏全部历史回归）；
+  `.gitattributes` 加 `*.sh` `*.mjs` `*.js` eol=lf；eval 058 平价门（同输入双路径 diff）
+- 为什么：`_json_get` sed fallback 已记录 2 次安全回归 + 3 条 Windows 路径 learned rule =
+  结构性 bug 类；实测 bash 单 hook ~1.5s vs node ~105ms（每次 Edit 省 ~5.6s）；JSON.parse
+  结构性根除解析器问题。v3.14 verdict 阶段 1 授权范围（语义等价，严禁重设计）
+- Eval 跑分前/后：35 PASS → **36 PASS / 0 FAIL**（32 条旧 eval 全部在引擎路径重验）；
+  平价门首轮抓到 MSYS 路径（/c/...）self-检测缺口并修复 + 新增单测
+- 影响范围：所有 guard 拦截路径的执行引擎；行为契约（exit 码 / deny JSON 字节形状 /
+  audit 事件名 / env opt-out / hooks-overrides / 042/046/047/051 源码断言）全部保持
+- 备注：新 enforcement 语义（branch-guard-Bash / guard 自保护）**不在本 PR**（PR-C，需人双签）
+
+---
+
 ## [2026-07-02] v4.0a — 分发 P0 修复 + 记忆层手术（PR-A，Fable 5 限时轮）
 
 - 改了什么：`templates/settings.json` 新建（修复 SessionStart 装载器：最近一条 review 替代盲 tail-100、

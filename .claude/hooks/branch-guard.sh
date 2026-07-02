@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# v4.0: Node guard engine 优先；node 缺失或 CTO_GUARD_ENGINE=legacy → 下方 legacy 实现
+# （v3.15 冻结，零红线真空 — v3.14 verdict Phase-1 硬条件）。引擎：engine/guard.mjs
+GUARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "${CTO_GUARD_ENGINE:-engine}" != "legacy" ] && command -v node >/dev/null 2>&1 && [ -f "$GUARD_DIR/engine/guard.mjs" ]; then
+  exec node "$GUARD_DIR/engine/guard.mjs" branch-guard
+fi
+# ══ legacy fallback（v3.15 原实现，冻结不再演进）══
 # 铁律 #8：先创建 Git 分支再动手 — PreToolUse(Edit|Write|MultiEdit)
 # main / master branch 上直接 Edit → exit 2 阻止
 # Opt-out: CTO_MAIN_EDIT_ALLOWED=1（仅 hotfix 紧急场景）
