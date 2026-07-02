@@ -60,6 +60,10 @@ export CTO_MAIN_EDIT_ALLOWED=1  # 解锁 main branch 直 Edit
 
 本项目可选启用 v3.9 飞轮 — Cursor Bugbot + Sakana DGM + AlphaEvolve 启发：
 
+> ℹ️ **档位说明**：飞轮组件（`.claude/agents/` sub-agent + `.claude/rules/learned/`）随 **`--profile=full`** 安装。
+> 若本项目按 `--profile=minimal` 装（只有红线护栏），下列 agents / learned-rules 目录不在 —
+> 补装飞轮：`/cto-init <本项目路径> --profile=full`。
+
 **核心机制**：
 - `.claude/hooks/immutable-guard.sh` — 守 Constitution / 14 铁律 / forbidden SSOT 不被 AI 改
 - `.claude/agents/pattern-detector.md` — 扫历史数据找反复失败 pattern

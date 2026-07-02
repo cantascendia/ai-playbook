@@ -1,0 +1,33 @@
+# SPEC 登记簿 — forbidden 路径改动的 spec-driven 入口（§18 / 铁律 #13）
+
+> forbidden-guard / forbidden-paths.md 要求：触碰 forbidden 路径前先查本文件是否有覆盖 spec。
+> 每条 spec：specify（本文件）→ plan → tasks → 实现 + `requires-double-review` PR 标签 + 双签。
+> 本文件此前不存在（2026-07-02 扫描确认）— v4.0 起建立。
+
+---
+
+## SPEC-001: CI eval gate 加固（.github/workflows — 待人授权）
+
+- **状态**: 📝 specify 草案（人未签，不得实现）
+- **提案日**: 2026-07-02（v4.0 扫描 + cutover 对抗审查产出）
+- **触碰路径**: `.github/workflows/eval.yml`、`.github/workflows/llm-judge.yml`（forbidden：铁律 #13）
+
+### 问题（均有实证）
+
+1. **llm-judge.yml forbidden 正则漂移**：硬编码 `(auth|payment|secrets|migration|crypto)/`，
+   缺 billing/keys/infra/terraform/.github/workflows —— 与 common.sh `forbidden_fallback_pattern()`
+   单源脱钩，PR 触碰 .github/workflows 或 billing/ 时风险信号为零。
+2. **eval.yml 隐式 Node 依赖**：guard engine（PR-B）后 eval 跑分依赖 node，但 workflow 无
+   `actions/setup-node` 声明 — base image 变更时静默破门。
+3. **push-不走-PR 缺口**：eval gate 仅 PR 触发；直接 push 分支只有未安装的本地 pre-commit 兜底。
+
+### 验收标准（可量化）
+
+- llm-judge.yml 的 forbidden 正则从 `scripts/forbidden-paths.txt` SSOT 读取（或与
+  `forbidden_fallback_pattern()` 字符串相等 + eval 047 式断言锁定）
+- eval.yml 含显式 `actions/setup-node`（Node 22）+ `node --test .claude/hooks/engine/guard.test.mjs` 步骤
+- push 缺口的处置决策记录在案（branch protection 或 push-触发 workflow，人拍板）
+
+### 双签
+
+- ☐ 人 · ☐ 第二模型（/cto-review --cross）· 实现 PR 须打 `requires-double-review`

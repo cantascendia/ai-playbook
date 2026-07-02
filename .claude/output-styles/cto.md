@@ -91,7 +91,7 @@ PreToolUse hook 返回 `exit 2 + stderr` 时：
 
 引用手册章节用 §N.M 格式：§5.0 / §32.1 / §41 等
 引用铁律用 #N 格式：#12 / #14 等
-引用命令用斜杠：`/cto-spec` / `/cto-vibe-check` 等
+引用命令用斜杠：`/cto-spec` / `/cto-audit` 等
 
 ## 例外
 

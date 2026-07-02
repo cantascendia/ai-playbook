@@ -144,3 +144,18 @@ Month | Patterns Detected | Patterns Applied | Cost (codex token cents) | Notes
 cto-evolve.md 加"当前成熟度"块 + status 仪表盘显示激活阈值进度。
 
 > 本条记录飞轮自己的诚实降级——这恰是飞轮设计哲学（Constitution-anchored + 防 eval-gaming）作用在飞轮自身的体现。
+
+### 2026-07-02 — v4.0 Agent-Native Runtime（Fable 5 主脑限时轮）
+
+- **状态**: 实施中（PR-A/B 本轮，PR-C 待人双签）
+- **触发源**: 用户授权 Fable 5（限时至 7/7）"大胆创新甚至重构"，复杂推理主脑 + Opus 4.8 编队分工
+- **方法**: 7 代理全仓扫描（doctor 实跑 ground truth）→ 3 代理 hook 行为规格提取 → 2 对抗审查
+  （scope: proceed-with-changes 拆 3 PR；cutover: 抓到 042/047/051 源码 grep 陷阱 + Windows bash
+  1.5s/guard 实测）→ 裁决书 `REDESIGN-PROPOSAL-2026-07-02-v4-agent-native.md`
+- **关键发现**: 2×P0（enforcement 可自我篡改 / cto-init 从不复制 settings.json）+ 铁律 #8 Bash 漏洞
+  + SessionStart 盲注入 68KB + 记忆契约 7 个幻影文件；「缺 CI eval gate」旧假设被证伪（eval.yml 已存在）
+- **产出**: PR-A 分发+记忆手术；PR-B guard engine（bash→Node，legacy-in-file 回退，31 node:test
+  单测 + 32 golden eval 平价门）；PR-C 新红线语义草案（branch-guard-Bash + guard 自保护，需人签）；
+  宪法修正案草案（三平台条款对齐 v3.13 现实）；saved workflow `cto-scan.js`（scriptPath 实证可跑）
+- **对抗验证记录**: cutover 审查代理在审查过程中被本仓 live bypass-guard 拦截（heredoc 文本含
+  bypass token）— guard 有效性的意外实证，同时坐实 learned rule 2026-05-20 的 FP 类仍在

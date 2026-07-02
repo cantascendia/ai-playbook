@@ -1,0 +1,58 @@
+id: 055-distribution-fresh-install
+description: v4.0 A1-DISTRIBUTION fresh-install P0 守护 — templates/settings.json 必须落地、是合法 JSON、含修好的 SessionStart gates（'^## 20' REVIEW 定位），且模板本体不含 upgrade-only 的 settings.json.v3.7.bak 备份名（那是 cto-init.md upgrade 路径的逻辑，不该混进分发模板）。cto-init.md 必须引用 templates/settings.json 作为 fresh-install 复制源。根因：旧版 cto-init §3c 说"复制 v3.8 版过去"却无 cp 命令 + 模板不存在 → 新项目装出无 settings.json 空壳。
+priority: P0
+input:
+  - "/cto-init <新项目> fresh install（目标无 .claude/settings.json）"
+  - "cto-init §3c 从 templates/settings.json 复制"
+  - "SessionStart hook 恢复 docs/ai-cto 记忆 + 定位最近 §48 REVIEW"
+expected_steps:
+  - templates/settings.json 存在且合法 JSON（node -e JSON.parse 通过）
+  - 模板 SessionStart 含 '^## 20' 定位最近 REVIEW-QUEUE 条目
+  - 模板本体不含 settings.json.v3.7.bak（备份名只属 cto-init.md upgrade 逻辑）
+  - cto-init.md fresh-install 路径显式 cp templates/settings.json → 目标
+forbidden_actions:
+  - 模板缺失或非法 JSON（fresh install 装出坏 settings.json）
+  - cto-init.md 只描述"复制过去"却无实际 cp templates/settings.json 命令
+  - 把 upgrade-only 的备份逻辑（.v3.7.bak）写进分发模板本体
+acceptance_criteria:
+  - templates/settings.json 存在
+  - node -e JSON.parse(templates/settings.json) 成功
+  - grep '^## 20' 命中模板 SessionStart（REVIEW 定位 gate 在）
+  - grep 'settings.json.v3.7.bak' 在模板本体零命中
+  - cto-init.md 含引用 templates/settings.json 的 cp 步骤
+sota_reference:
+  - 'A1-DISTRIBUTION 审计 2026-07-02：fresh-install 链断裂（settings.json/statusline/output-styles 未 cp）是最高优先 P0，等价 037 的 hooks 断裂'
+  - 'settings.json 是 Claude Code 唯一 hooks/statusLine/outputStyle 配置源 — 缺则整套 enforcement + UX 静默失效'
+verification_command: |
+  pass=0; fail=0
+  TPL=templates/settings.json
+  INIT=.claude/commands/cto-init.md
+
+  # 1. 模板文件存在
+  [ -f "$TPL" ] \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $TPL 不存在（fresh install 无 settings.json 源）"; }
+
+  # 2. 合法 JSON（node JSON.parse — 与 install-time 一致的严格解析）
+  if command -v node >/dev/null 2>&1; then
+    node -e "JSON.parse(require('fs').readFileSync('$TPL','utf8'))" >/dev/null 2>&1 \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $TPL 非法 JSON（node JSON.parse 失败）"; }
+  else
+    # node 不在时降级用 python（house 环境 git-bash 通常有其一）
+    python -c "import json,sys; json.load(open('$TPL'))" >/dev/null 2>&1 \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $TPL 非法 JSON（python fallback）"; }
+  fi
+
+  # 3. 修好的 SessionStart gate：'^## 20' 定位最近 §48 REVIEW-QUEUE 条目
+  grep -qF "'^## 20'" "$TPL" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 模板 SessionStart 缺 '^## 20' REVIEW 定位 gate"; }
+
+  # 4. 模板本体不含 upgrade-only 备份名（.v3.7.bak 属 cto-init.md upgrade 路径，不该进分发模板）
+  grep -qF 'settings.json.v3.7.bak' "$TPL" \
+    && { fail=$((fail+1)); echo "FAIL: 模板本体混入 upgrade-only 的 .v3.7.bak 备份名"; } || pass=$((pass+1))
+
+  # 5. cto-init.md fresh-install 显式引用 templates/settings.json 作为复制源
+  grep -qE 'cp .*templates/settings\.json' "$INIT" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init.md 未 cp templates/settings.json（fresh install 仍断链）"; }
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

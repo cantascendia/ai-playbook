@@ -1,0 +1,66 @@
+id: 054-command-merge-live-refs
+description: v3.14 命令合并后，散落在 agent/skill/command/output-style 配置正文 + handbook 正文里、会误导用户去跑已删命令的功能性 live 引用必须清零（已删命令 → 现命令：relink-all→link --all / cross-review→review --cross / vibe-check→audit --vibe / harness-audit→audit --harness / refresh→resume --refresh）。区别于 eval 050（只扫 CTO-PLAYBOOK.md catalog 表行）：本条扫配置文件正文 live 引用。
+priority: P1
+input:
+  - "AI 在 codex-bridge SKILL.md 读到 description 说 /cto-cross-review 手动触发"
+  - "用户照 cto-link.md 迁移引导去跑 /cto-relink-all"
+  - "AI 引用 output-style 关键词示例里的 /cto-vibe-check"
+expected_steps:
+  - 4 个明确位置改为现命令（cto-link.md 迁移引导 / eval-runner.md 升级提示 / codex-bridge SKILL.md 描述+流程+表 / output-style 命令示例）
+  - handbook 正文功能性 live 引用（迁移代码块 / hook 替代说明 / UX 对比表 / 决策矩阵 / codex 配额恢复指引 / cto-link setup 步骤）改为现命令
+  - merge-note（原 xxx / 合并自 / 已合并入）、sub-agent "与 /cto-xxx 的区别" 说明、changelog、proposal、REVIEW-QUEUE 历史保持不动
+forbidden_actions:
+  - 误删 merge-note / sub-agent 区别说明（合法历史，删了丢上下文）
+  - 改动 CTO-PLAYBOOK.md catalog 表（归 eval 050 / PR #33）或 docs/ai-cto changelog/proposal/review-queue（历史记录）
+  - 把替换写成不存在的命令名（铁律 #3）
+acceptance_criteria:
+  - codex-bridge SKILL.md 用 /cto-review --cross，不含 /cto-cross-review
+  - cto-link.md 迁移引导 + eval-runner.md 升级提示用 /cto-link --all
+  - output-style 命令示例不含 /cto-vibe-check
+  - handbook.md 正文不含任何已删命令的 live 引用
+  - 配置正文（commands/agents/output-styles/skills）+ handbook 正文，除 merge-note / 区别说明白名单外，零已删命令 live 引用
+  - merge-note 与 sub-agent 区别说明仍在（能力/历史可追溯）
+  # v4.0：sub-agent "与 /cto-xxx 的区别" 注记本身也必须指向合并后现命令，不能只靠白名单放过旧名
+  - .claude/agents/harness-auditor.md 用 /cto-audit --harness、vibe-checker.md 用 /cto-audit --vibe，agents 目录零已删命令名
+sota_reference:
+  - 'Cursor Bugbot / Cline .clinerules：把"指向已删能力的 dangling ref"做成可执行 guard，防文档腐烂误导'
+  - 'PR #33 eval 050 check #6 扫 catalog 行；本条补位扫配置正文 live 引用（不同模式，互不重叠）'
+verification_command: |
+  pass=0; fail=0
+  DEL='cto-relink-all|cto-cross-review|cto-vibe-check|cto-harness-audit|cto-refresh'
+
+  # 1. 4 个明确位置已改为现命令（正向 + 反向断言）
+  m=0
+  grep -qE '/cto-review --cross' .agents/skills/codex-bridge/SKILL.md || { m=$((m+1)); echo "  codex-bridge 缺 /cto-review --cross"; }
+  grep -qE '/cto-cross-review' .agents/skills/codex-bridge/SKILL.md && { m=$((m+1)); echo "  codex-bridge 仍含 /cto-cross-review"; }
+  grep -qE '/cto-link --all' .claude/commands/cto-link.md || { m=$((m+1)); echo "  cto-link.md 缺 /cto-link --all"; }
+  grep -qE '/cto-link --all --upgrade' .claude/agents/eval-runner.md || { m=$((m+1)); echo "  eval-runner 缺 /cto-link --all --upgrade"; }
+  grep -qE '/cto-vibe-check' .claude/output-styles/cto.md && { m=$((m+1)); echo "  output-style 仍含 /cto-vibe-check"; }
+  [ "$m" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $m 处明确位置未对齐现命令"; }
+
+  # 2. handbook 正文零已删命令 live 引用（merge-note 不在 handbook，无需白名单）
+  hb=$(grep -nE "/?(${DEL})" playbook/handbook.md 2>/dev/null || true)
+  [ -z "$hb" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook.md 正文仍含已删命令 live 引用："; echo "$hb"; }
+
+  # 3. 配置正文整体扫描：commands/agents/output-styles/skills + handbook
+  #    范围排除 CTO-PLAYBOOK.md catalog 表（归 eval 050）与 docs/ai-cto 历史（changelog/proposal/review-queue/status）。
+  #    白名单：原 / 合并自 / 已合并 / 的区别 —— merge-note 与 sub-agent "与 /cto-xxx 的区别" 合法保留。
+  stray=$(grep -rnE "/?(${DEL})" \
+    .claude/commands .claude/agents .claude/output-styles \
+    .agents/skills .claude/skills playbook/handbook.md \
+    --include='*.md' 2>/dev/null \
+    | grep -vE '原 |合并自|已合并|的区别' || true)
+  [ -z "$stray" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 配置正文仍含已删命令 live 引用（非白名单）："; echo "$stray"; }
+
+  # 4. v4.0：.claude/agents/*.md 显式扫描 —— sub-agent "与 /cto-xxx 的区别" 注记必须指向合并后现命令，
+  #    不能靠 check #3 的 "的区别" 白名单放过已删命令名（harness-auditor→/cto-audit --harness、
+  #    vibe-checker→/cto-audit --vibe）。正向断言现命令在 + 反向断言旧命令名不在。
+  ag=0
+  grep -qF '/cto-audit --harness' .claude/agents/harness-auditor.md || { ag=$((ag+1)); echo "  harness-auditor 缺 /cto-audit --harness"; }
+  grep -qF '/cto-audit --vibe' .claude/agents/vibe-checker.md || { ag=$((ag+1)); echo "  vibe-checker 缺 /cto-audit --vibe"; }
+  agstray=$(grep -rnE "/?(${DEL})" .claude/agents --include='*.md' 2>/dev/null || true)
+  [ -n "$agstray" ] && { ag=$((ag+1)); echo "  .claude/agents 仍含已删命令名（含 的区别 行也不允许）："; echo "$agstray"; }
+  [ "$ag" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .claude/agents 区别注记未对齐现命令"; }
+
+  echo "pass=$pass fail=$fail (expect 4/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

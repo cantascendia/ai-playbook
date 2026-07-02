@@ -13,6 +13,83 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-02] v4.0a — 分发 P0 修复 + 记忆层手术（PR-A，Fable 5 限时轮）
+
+- 改了什么：`templates/settings.json` 新建（修复 SessionStart 装载器：最近一条 review 替代盲 tail-100、
+  hooks-presence 替代 v3.7.bak 死哨兵）+ cto-init 补 settings/statusline/output-style/agents/rules 复制；
+  REVIEW-QUEUE 季度轮转至 `docs/ai-cto/archive/`；COUNTS 自相矛盾修复；STATUS 全量刷新；
+  记忆契约裁剪至真实文件 + DECISIONS.md（ADR）落地；CTO-PLAYBOOK.md / AUTOPILOT-KICKOFF 退役归档；
+  harness-auditor/vibe-checker 陈旧命令引用修复；saved workflow `cto-scan.js` + `cto-probe.js`
+- 为什么：2026-07-02 七代理扫描定位 2×P0（全新安装 enforcement 全哑 / SessionStart 每会话盲注入
+  68KB 陈旧 review）+ 记忆契约 7 个幻影文件（反模式 #3 幻觉源）；裁决书
+  `REDESIGN-PROPOSAL-2026-07-02-v4-agent-native.md`
+- Eval 跑分前/后：32 PASS 基线 → 目标 35+（新增 055/056/057，037/050/054 扩展）
+- 影响范围：所有 /cto-init 分发目标（27 项目）的首装正确性；每个会话的启动上下文体积；会话恢复流
+- 备注：self 仓 `.claude/settings.json` 本会话未动（harness 自改保护，正确行为）— 人从
+  templates/settings.json 同步两条 SessionStart command 即可；PR-B（guard engine）/ PR-C（新红线
+  语义，需人签）见裁决书
+
+---
+
+## [2026-06-25] v3.15 — health/ARE 重审回填（45 天断档首笔补账）
+
+**为什么**：会话恢复后实测发现 STATUS/COUNTS 的 v3.11–v3.15 Health/ARE 全 TBD（v3.9.3 的 94 已 9 个月陈旧），且本 changelog 自 2026-05-11 v3.9.1 后断档 45 天 / 27 提交未记录——是手册 §34.3 + §43 定义的可观测性盲区。
+
+**改动**：
+- 工作流并行跑 harness-auditor（§34 八原则）+ reliability-auditor（§43 四维）→ 对抗验证者抽查 14 项 evidence（防膨胀/防臆造，铁律 #3）
+- 回填 STATUS.md「质量评分」表 + COUNTS.md 版本表：v3.15 = **Health 79 / ARE 78**（high confidence，两份 grounded=true，无膨胀）
+- 修 COUNTS.md:6 误述：`check-counts.sh` 旧文案说"尚未实现"，实测已交付且 EXIT 0
+
+**评分依据**：
+- Health 79：5 pass（context engineering / lazy loading / token-eff / multi-agent separation / durable state）+ 3 warn（self-contained：7 skill 无 paths trigger；minimal-intervention：4 hooks 双源漂移；fail-fast：pre-commit 未安装）
+- ARE 78：四维全 warn — SLO.md 冻结 v3.9.1（v3.10+ 组件零覆盖）、`evals/slo-checks/` 不存在、季度演练 Q2 过期未跑、`.evolve-cost-month.json` 缺失（cost 累计无状态可读）
+
+**新登记 P1（grounded）**：HARNESS-CHANGELOG v3.10–v3.14 仍需补；pre-commit hook 待 `install-pre-commit.sh`；SLO.md 待对齐 v3.15；季度演练待实跑。
+
+**影响范围**：所有「项目自审 / 发布门禁 / 可靠性回归」任务模式 — 解除了 9 个月评分陈旧 + changelog 断档对下游分析的阻断。
+
+---
+
+> 以下 v3.10–v3.14 为 2026-06-25 断档补账（从 git 历史 + EVOLUTION-LOG 重建，事后追记，非当时实时记录）。
+
+## [2026-06-16] v3.14 — bold-audit：质疑地基 + 定向重构（PR #29）
+
+- 改了什么：Bash/mcp guard `exit 2`→`permissionDecision:deny` JSON（common.sh deny_with_reason）；命令 23→18 合并（cross-review→review --cross / relink-all→link --all / refresh→resume --refresh / vibe-check+harness-audit→audit）；INDEX 硬编码行号→运行时 grep；新增 `ledger/{collect,distill,propagate,run}.mjs` 跨项目事故账本；22 trajectory eval 移 docs/test-plans/
+- 为什么：多 agent 工作流质疑地基，对抗验证后裁决「混合重构（不推倒重来）」；对冲 GitHub #23284（exit 2 不可靠）
+- 影响范围：所有 guard 拦截语义 + 命令调用面 + 跨项目经验传播
+
+## [2026-05-30] v3.13 — 平台收敛 + 治理强化（PR #20–#26，批 1-4）
+
+- 改了什么：平台范围默认 Claude-only（AG/Codex 改 opt-in）；14 铁律 4 层优先级（L1 安全>L2 治理>L3 质量>L4 效率）+ 理由层；`scripts/check-counts.sh` SSOT enforcer 落地（提案 R1）；destructive-SQL + forbidden fallback 正则单源到 common.sh；分层分发 minimal/full/advanced；飞轮诚实降级为「人在环 detect 辅助」（R4，见 EVOLUTION-LOG 2026-05-30）
+- 为什么：SOTA team v2 审计发现安装链断裂 + 计数 6+ 处漂移 + 飞轮 applied=0 却宣称自治
+- 影响范围：跨平台范围 / 铁律冲突裁决 / 计数一致性 / 飞轮成熟度声明
+
+## [2026-05-30] v3.12 — 真 eval executor（铁律 #12 从空壳变真执行，PR #19）
+
+- 改了什么：新增 `scripts/run-evals.sh` 真 executor（awk 提取 verification_command 真跑 + judge）；`036-eval-executor` meta-eval；eval-runner.md 删「不实际跑」
+- 为什么：旧 eval-runner 不跑 Claude + CI 只 count yaml = §32.5 反模式 #6 eval-gaming
+- 影响范围：铁律 #12 enforcement — 首跑即抓到 v3.11 `_json_get` 的 `\n`→空格破坏 forbidden 多行比对的安全回归（详见 EVOLUTION-LOG 2026-05-30 v3.12）
+
+## [2026-05-29] v3.11 / v3.11.1 — MCP guardrail（飞轮第 7-8 轮，PR #17/#18）
+
+- 改了什么：新增 `mcp-guard.sh`（settings.json `matcher: mcp__.*`）覆盖 MCP 工具（execute_sql DROP / delete_branch / filesystem write 红线文件）；test-lock/eval-gate Windows 路径修复 + normalize_paths 抽 common.sh；修 v3.10.2 destructive-guard 安全回归 + _json_get 转义引号根因
+- 为什么：destructive/file-path guard 只 match Bash/内置 Edit|Write，MCP（execute_sql / filesystem write_file）完全绕过整个红线体系（飞轮第 8 轮最致命发现，见 learned rules 2026-05-29）
+- 影响范围：所有 MCP server 启用场景的 enforcement 覆盖面
+
+## [2026-05-29] v3.10.1 / v3.10.2 — destructive-action gate（OWASP ASI01，PR #15/#16）
+
+- 改了什么：新增 `destructive-action-guard.sh`（rm -rf / DROP TABLE / git push --force 等）；cost-cap 计量；Stop hook opt-in；v3.10.2 剥离 heredoc/引号内容防 false positive
+- 为什么：防 agent 灾难性破坏操作（OWASP Agentic ASI01）；v3.10.1 拦了自己写 PR body 的 DROP TABLE 文本（飞轮第 6 轮自食其果，见 learned rules 2026-05-20）
+- 影响范围：所有 Bash destructive 命令路径
+
+## [2026-05-19] v3.10 — autopilot kickoff template（PR #13）
+
+- 改了什么：新项目「开机提示词」模板（autopilot kickoff prompt）
+- 为什么：降低新项目接入 CTO 系统的冷启动成本
+- 影响范围：cto-init / 新项目首轮
+
+---
+
 ## [2026-05-11] v3.9.1 — Windows 反斜杠路径剥离 bug 修复（飞轮首次产出）
 
 **飞轮发现**：v3.9 首次跑 pattern-detector 多 sub-agent 并行（pattern-detector + harness-auditor + vibe-checker + reliability-auditor），实测发现：

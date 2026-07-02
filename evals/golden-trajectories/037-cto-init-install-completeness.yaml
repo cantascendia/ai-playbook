@@ -19,6 +19,8 @@ acceptance_criteria:
   - cto-init.md 自检段提及全部 5 个安全红线 guard
   - cp -r 整目录实测 = 10 个 .sh，含 immutable/forbidden/branch/destructive-action/mcp-guard
   - cto-init.md 不再出现"复制 7 个 guard"式硬编码清单
+  # v4.0 fresh-install：settings.json/statusline/output-styles/agents/rules 复制步骤齐（承诺=交付）
+  - cto-init.md 含 settings.json + statusline.sh + output-styles/cto.md + agents + rules + learned-rules 骨架的显式复制步骤
 sota_reference:
   - 'SOTA team v2 审计 2026-05-30：安装链断裂 = 唯一真 P0（提案 O2/R2）'
   - 'learned rule 2026-05-12：共同模式发现一处必须全 sweep（手工清单必漂移）'
@@ -68,5 +70,17 @@ verification_command: |
   { grep -qE 'with-codex' "$INIT2" && grep -qE 'with-antigravity' "$INIT2" && grep -qE '默认只.*Claude Code|默认不装' "$INIT2"; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 无 AG/Codex opt-in 平台范围"; }
 
-  echo "pass=$pass fail=$fail (expect 6/0)"
+  # 7. v4.0 fresh-install P0/P1：cto-init 必须显式 cp settings.json / statusline / output-styles + 复制 agents & rules
+  #    根因：旧版只说"复制 v3.8 版过去"无 cp 命令；settings.json 引用 statusline+outputStyle 但两者没 cp；
+  #    templates/CLAUDE.md 宣传飞轮但 agents/rules 都没 cp。这里正向断言 4 类复制步骤都在 cto-init.md。
+  fi7=0
+  grep -qE 'cp .*templates/settings\.json.*\.claude/settings\.json' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 settings.json cp（fresh-install）"; }
+  grep -qE 'cp .*\.claude/statusline\.sh' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 statusline.sh cp"; }
+  grep -qE 'cp .*output-styles/cto\.md' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 output-styles/cto.md cp"; }
+  grep -qE 'cp -r .*\.claude/agents' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 .claude/agents 复制（full 飞轮）"; }
+  grep -qE 'cp .*\.claude/rules/' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 .claude/rules 复制"; }
+  grep -qE 'rules/learned/README\.md' "$INIT2" || { fi7=$((fi7+1)); echo "  缺 learned-rules 骨架复制"; }
+  [ "$fi7" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-init 漏 $fi7 类 fresh-install 复制步骤"; }
+
+  echo "pass=$pass fail=$fail (expect 7/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

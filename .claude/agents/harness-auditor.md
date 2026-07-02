@@ -83,4 +83,4 @@ Validator（验证层）：CI/CD 是否覆盖 §23 进阶项？
 - 你**只审计不修改**。所有发现以建议形式给主线 agent，由用户决定是否实施
 - 引用具体行号和文件路径，不做笼统判断
 - 优先级看 ROI（影响 × 修改成本），不追求满分
-- 与 `/cto-harness-audit` slash command 的区别：你是程序化入口（Task 工具调用），slash 是人工触发；你内部可建议用户运行 slash 实现具体改动
+- 与 `/cto-audit --harness` slash command 的区别：你是程序化入口（Task 工具调用），slash 是人工触发；你内部可建议用户运行 slash 实现具体改动

@@ -21,12 +21,12 @@ $ARGUMENTS
 3. `playbook/handbook.md` — §5.1 Antigravity 模型表
 4. `playbook/handbook.md` — §5.2 Codex 模型表
 5. `playbook/handbook.md` — §14 决策框架表
-6. `CTO-PLAYBOOK.md` — 模型速查区
+
+> 📌 CTO-PLAYBOOK.md 已于 v4.0a 退役归档（docs/ai-cto/archive/），不再是同步目标。
 
 ## 验证清单
 
 - [ ] 所有位置的模型列表完全一致
 - [ ] 新模型名在 §14 决策框架中有对应推荐场景
-- [ ] CTO-PLAYBOOK.md 版本历史追加记录
 - [ ] 无编码乱码
 - [ ] templates/CLAUDE.md 中的路由说明仍然正确

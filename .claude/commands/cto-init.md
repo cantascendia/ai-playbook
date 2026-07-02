@@ -96,12 +96,40 @@ done
 > 默认不装 advanced（多数项目用不到 canary/replay/image/design/skills/models）。需要时 `--with-advanced` 或单独 cp。
 
 #### 3c. .claude/settings.json（v3.8 Claude Code 配置）
-- 如果目标项目没有 `.claude/settings.json`，复制 v3.8 版过去
+
+> 🔴 **fresh-install P0 修复**：旧版只说"复制 v3.8 版过去"但**没有 cp 命令**，且当时 `templates/settings.json`
+> 不存在 → 新项目装出**无 settings.json** 的空壳（hooks / statusLine / outputStyle 全失效）。
+> 修复：`templates/settings.json` 已落地（含修好的 SessionStart gates），fresh install **显式 cp**。
+
+**fresh install（目标无 `.claude/settings.json`）**：直接从模板复制
+```bash
+mkdir -p "$TARGET/.claude"
+cp "$PLAYBOOK/templates/settings.json" "$TARGET/.claude/settings.json"
+```
+> `$PLAYBOOK` = 当前 ai-playbook 仓库根（§2 检测到的路径）。模板已含正确的 SessionStart / PreToolUse
+> （`mcp__.*` matcher）/ PostToolUse eval-gate，无需再手动拼。
+
+**upgrade（目标已有旧版）**：保留既有备份逻辑
 - 如果已有 v3.7 版（含 `$CLAUDE_TOOL_INPUT`）：
-  1. 检测：`grep -q CLAUDE_TOOL_INPUT .claude/settings.json` → 是 → 提示"v3.7 silent hooks，需升级"
-  2. 备份：`cp .claude/settings.json .claude/settings.json.v3.7.bak`
-  3. 替换为 v3.8 版（调外置脚本 + stdin JSON）
+  1. 检测：`grep -q CLAUDE_TOOL_INPUT "$TARGET/.claude/settings.json"` → 是 → 提示"v3.7 silent hooks，需升级"
+  2. 备份：`cp "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.json.v3.7.bak"`
+  3. 替换为模板版：`cp "$PLAYBOOK/templates/settings.json" "$TARGET/.claude/settings.json"`（调外置脚本 + stdin JSON）
 - 如果已有 v3.8 版（含 `.claude/hooks/`）→ 跳过
+
+#### 3c-2. .claude/statusline.sh + .claude/output-styles/cto.md（settings.json 依赖 — 全档强制）
+
+> 🔴 **fresh-install P0 修复**：`settings.json` 引用 `.claude/statusline.sh`（statusLine.command）+
+> `outputStyle: "cto"`（→ `.claude/output-styles/cto.md`），但旧版 cto-init **两者都没 cp** →
+> 装完 statusLine 报"脚本不存在"、outputStyle "cto" 找不到 → 静默降级。两文件所有档位都要复制。
+
+```bash
+# statusLine 脚本（settings.json statusLine.command 引用）
+cp "$PLAYBOOK/.claude/statusline.sh" "$TARGET/.claude/statusline.sh"
+chmod +x "$TARGET/.claude/statusline.sh" 2>/dev/null || true
+# outputStyle "cto"（settings.json outputStyle 引用）
+mkdir -p "$TARGET/.claude/output-styles"
+cp "$PLAYBOOK/.claude/output-styles/cto.md" "$TARGET/.claude/output-styles/cto.md"
+```
 
 #### 3d. .claude/hooks/（红线层 — 全档强制，**整目录复制**）
 
@@ -136,6 +164,34 @@ cp -r .claude/skills "$TARGET/.claude/skills"
 ```
 应含（核对用，复制靠 cp -r）：`forbidden-policy/` `test-lock-rules/` `eval-gate-policy/`
 `constitution-loader/` `handbook-search/`（+ 其他 .claude/skills/ 下的 SKILL.md）。
+
+#### 3f-2. .claude/agents/ + .claude/rules/（飞轮 & learned-rules 支撑 — 按档位）
+
+> 🔴 **fresh-install P1 修复**：`templates/CLAUDE.md` 宣传飞轮（pattern-detector agent、
+> `.claude/rules/learned/` Bugbot learned rules），但旧版 cto-init **既不 cp `.claude/agents/`
+> 也不 cp `.claude/rules/`** → 承诺与交付不一致：新项目 CLAUDE.md 写着飞轮可用，实则 agent /
+> learned-rules 目录都不在。两侧一起修：
+>
+> - **minimal**：只装 `.claude/rules/*.md`（3 个核心 rule — eval-gate/forbidden-paths/test-lock，
+>   是红线 skill 的规则正文），**不**装 agents / learned（minimal 不含飞轮）。
+> - **full**：额外装 `.claude/agents/`（5 个 sub-agent）+ `.claude/rules/learned/README.md`（飞轮教训归档骨架）。
+
+```bash
+# 全档：3 个核心 rule 正文（红线 skill 的规则文档）
+mkdir -p "$TARGET/.claude/rules"
+for r in eval-gate forbidden-paths test-lock; do
+  cp "$PLAYBOOK/.claude/rules/$r.md" "$TARGET/.claude/rules/$r.md"
+done
+
+# full 档：飞轮 sub-agent（整目录）+ learned-rules 骨架
+if [ "$PROFILE" = "full" ]; then
+  cp -r "$PLAYBOOK/.claude/agents" "$TARGET/.claude/agents"
+  mkdir -p "$TARGET/.claude/rules/learned"
+  cp "$PLAYBOOK/.claude/rules/learned/README.md" "$TARGET/.claude/rules/learned/README.md"
+fi
+```
+> minimal 档的 `templates/CLAUDE.md` 飞轮承诺由该模板顶部的诚实声明澄清（见 §3a 备注）——
+> minimal 只装红线，飞轮/agents 需 `--profile=full` 或事后补装。
 
 #### 3e. .agents/skills/ + 跨平台配置（**opt-in，默认不装** — v3.13 Q3）
 
@@ -181,6 +237,26 @@ fi
   4. trajectory log v3.8 schema
   5. settings.json 已升级（不含 `$CLAUDE_TOOL_INPUT`）+ PreToolUse 含 `mcp__.*` matcher
   6. paths-triggered skills 文件存在
+  7. **settings.json 依赖齐**（fresh-install P0 回归守护）：`.claude/statusline.sh` +
+     `.claude/output-styles/cto.md` 都存在（settings.json 引用它们，缺 = statusLine/outputStyle 静默失效）。
+  8. **rules 正文齐**（count-verify，同 hooks 模式）：全档 `.claude/rules/*.md` 数量 = 源 3
+     （eval-gate/forbidden-paths/test-lock）：
+     ```bash
+     RSRC=$(ls "$PLAYBOOK"/.claude/rules/*.md | wc -l)        # 源核心 rule（当前 3）
+     RDST=$(ls "$TARGET"/.claude/rules/*.md 2>/dev/null | wc -l)
+     [ "$RDST" -ge 3 ] || echo "🛑 rules 复制不完整：目标 $RDST < 3（eval-gate/forbidden-paths/test-lock）"
+     ```
+  9. **full 档飞轮齐**（承诺=交付一致性守护）：`--profile=full` 时 `.claude/agents/*.md` 数量 = 源 5
+     （pattern-detector/eval-runner/vibe-checker/harness-auditor/reliability-auditor）+
+     `.claude/rules/learned/README.md` 存在。minimal 档跳过本项（飞轮不装是预期）：
+     ```bash
+     if [ "$PROFILE" = "full" ]; then
+       ASRC=$(ls "$PLAYBOOK"/.claude/agents/*.md | wc -l)     # 源 sub-agent（当前 5）
+       ADST=$(ls "$TARGET"/.claude/agents/*.md 2>/dev/null | wc -l)
+       [ "$ASRC" = "$ADST" ] || echo "🛑 agents 复制不完整：源 $ASRC ≠ 目标 $ADST"
+       [ -f "$TARGET/.claude/rules/learned/README.md" ] || echo "🛑 飞轮 learned-rules 骨架缺失（templates/CLAUDE.md 承诺飞轮却未装）"
+     fi
+     ```
 - 输出 health score；< 80% 时报告失败项。**5 个安全红线缺任一 → health 直接判 fail，不计分**。
 
 ### 4. 检测项目技术栈
@@ -224,8 +300,11 @@ MCP_COUNT=$(grep -oE '"[a-zA-Z0-9_-]+"' "$TARGET/.mcp.json" 2>/dev/null | wc -l)
 - [x] .claude/hooks/ （[N] 个 .sh，含 5 安全红线 ✓）← 必须等于源数量
 - [x] .claude/commands/ （[N] 个 cto-* 命令）
 - [x] .claude/skills/ （[N] 个 enforcement skill）
-- [x] .claude/settings.json（含 mcp__.* matcher ✓）
-- [full 档] .agents/skills/ （[N] 个跨平台 Skill）
+- [x] .claude/settings.json（从 templates/settings.json，含 mcp__.* matcher ✓）
+- [x] .claude/statusline.sh + .claude/output-styles/cto.md（settings.json 依赖 ✓）
+- [x] .claude/rules/ （[N] 个核心 rule 正文）
+- [full 档] .claude/agents/ （[N] 个飞轮 sub-agent）+ .claude/rules/learned/README.md
+- [full 档] .agents/skills/ （[N] 个跨平台 Skill，仅 --with-codex/--with-antigravity）
 - [x] scripts/ （forbidden-paths.txt / business-paths.txt / safe-grep.sh）
 
 ### 检测到的技术栈
