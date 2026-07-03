@@ -1,0 +1,28 @@
+{
+  "description": "CTO-PLAYBOOK enforcement guards — 通过 ${CLAUDE_PLUGIN_ROOT} 引用 guard 引擎；装入目标项目后守护该项目的 forbidden/immutable/test-lock/bypass/destructive/mcp 红线。项目级 SessionStart 记忆装载 + statusline 仍由 /cto-init 文件复制（plugin 不覆盖）。",
+  "hooks": {
+    "UserPromptSubmit": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/vibe-prompt-guard.sh\"" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit", "hooks": [
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/immutable-guard.sh\"" },
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/forbidden-guard.sh\"" },
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/branch-guard.sh\"" },
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/test-lock-guard.sh\"" }
+      ] },
+      { "matcher": "Bash", "hooks": [
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/bypass-guard.sh\"" },
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/destructive-action-guard.sh\"" },
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/branch-guard.sh\"" }
+      ] },
+      { "matcher": "mcp__.*", "hooks": [
+        { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/mcp-guard.sh\"" }
+      ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Edit|Write|MultiEdit", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/eval-gate.sh\"" } ] },
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/trajectory-logger.sh\"" } ] }
+    ]
+  }
+}

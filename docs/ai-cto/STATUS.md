@@ -3,22 +3,27 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-02 — v4.0 agent-native runtime 启动 + memory-layer 审计刷新（REVIEW-QUEUE 季度轮转 / 陈档归档 / 记忆契约诚实化 / DECISIONS.md 补建）
+最后更新：2026-07-02 — v4.0 agent-native runtime **已落地 main**（PR #38/#39/#40 合并）+ v4.0d 收尾（本仓 settings 激活 + 实验 plugin 通道）
 上一版：2026-06-25 v3.15 — 会话恢复 + 下半部 v3.4 陈账刷新
 
 ---
 
 ## 一句话状态
 
-ai-playbook **v4.0 (agent-native runtime) — 进行中**。目标：把 enforcement 从「零散 hook 脚本」
-演进为「统一 guard engine + legacy-fallback shim」的 agent-native 运行时。按 **3-PR 序列**推进（对齐铁律 #13
-高风险改动分阶段 + 人工双签）：
-- **PR-A（分发 + 记忆层）**：cto-init 分发链 P0 修复 + 记忆层手术（REVIEW-QUEUE 季度轮转、陈档归档、
-  记忆契约诚实化、DECISIONS.md 补建、COUNTS/STATUS 诚实刷新）。**当前 PR**。
-- **PR-B（guard engine parity port）**：把 10 个独立 hook 的红线逻辑收敛进统一 guard engine，
-  行为与旧 hook **逐条对齐**（parity），旧 hook 降级为 legacy-fallback shim（零回归再切换）。
-- **PR-C（新 enforcement 语义）**：引入旧 hook 没有的新拦截语义 —— 因触及 enforcement 红线本身，
-  **必须人工 double-sign** 后才进 main（铁律 #12/#13）。
+ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforcement 从「零散 bash hook」
+演进为「统一 Node guard engine + legacy-fallback shim」运行时。**3-PR 序列全部合并**（Fable 5 限时轮，
+7 代理扫描 → 规格提取 → scope/cutover 双对抗审查 → 分阶段落地）：
+- ✅ **PR-A #38（分发 + 记忆层）**：cto-init 全新安装 P0 修复（settings/statusline/output-style/agents/rules
+  从不复制 → 补齐）+ 记忆层手术（REVIEW-QUEUE 季度轮转、陈档归档、记忆契约诚实化、DECISIONS.md 补建）。
+- ✅ **PR-B #39（guard engine parity port）**：10 bash hook → `engine/*.mjs`（JSON.parse 根除 sed 解析
+  bug 类，Windows 14× 提速），逐条 parity + legacy-fallback shim；32 单测 + eval 058 平价门。
+- ✅ **PR-C #40（新语义，已人双签）**：铁律 #8 扩展 Bash（git commit/push 到保护分支拦截，refspec 解析
+  + FP 矩阵）+ guard 自保护（覆写 guard 文件拦截）。
+- 🔄 **v4.0d 收尾（本 PR）**：本仓 live settings.json 激活 v4.0a/c（自改保护上轮拦下，本轮获授权应用）+
+  `.claude-plugin/` 实验 plugin 分发通道（validate 通过，与 cto-init 并行）。
+
+> 待人 opt-out（guard 正确拒绝 agent 自授权）：CI 加固（SPEC-001，.github/workflows forbidden）+
+> 宪法平台条款修正案（`AMENDMENT-PROPOSAL-2026-07-02-platform-scope.md`，三平台→Claude-native+opt-in）。
 
 此前 **v3.15** Claude 模型阵容对齐当代（默认 **Opus 4.8** `claude-opus-4-8` + **Fable 5** `claude-fable-5`
 opt-in）。再前 **v3.14（bold-audit）** 对抗验证裁决**混合重构**（Bash/mcp guard `exit 2`→`permissionDecision:deny`
