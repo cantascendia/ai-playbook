@@ -28,6 +28,24 @@
 - eval.yml 含显式 `actions/setup-node`（Node 22）+ `node --test .claude/hooks/engine/guard.test.mjs` 步骤
 - push 缺口的处置决策记录在案（branch protection 或 push-触发 workflow，人拍板）
 
+### plan（v4.0e）
+
+- **eval.yml**：checkout 后加 `actions/setup-node@v4`（node 22）显式声明引擎依赖；新增
+  `node --test .claude/hooks/engine/guard.test.mjs` 步骤纳入 gate。完整新内容见
+  `docs/ai-cto/staged/eval.yml`（本机已验 SSOT 正则；YAML 结构由 CI python-yaml 兜底）。
+- **llm-judge.yml**：forbidden 正则从硬编码 `(auth|payment|secrets|migration|crypto)/` 改为
+  单源自 `scripts/forbidden-paths.txt`（构造同 forbidden-guard.sh），修复漂移。完整新内容见
+  `docs/ai-cto/staged/llm-judge.yml`。**本机实测**：新正则正确命中 `.github/workflows/` 与
+  `billing/`（旧漏项）。
+
+### tasks（应用步骤，见 `APPLY-v4.0e.md`）
+
+1. 人授权 + `export CTO_DOUBLE_SIGNED=1`（forbidden opt-out，deliberate shell act）
+2. `cp docs/ai-cto/staged/eval.yml .github/workflows/eval.yml`
+3. `cp docs/ai-cto/staged/llm-judge.yml .github/workflows/llm-judge.yml`
+4. PR 打 `requires-double-review` 标签 + `/cto-review --cross`
+
 ### 双签
 
 - ☐ 人 · ☐ 第二模型（/cto-review --cross）· 实现 PR 须打 `requires-double-review`
+- 用户 2026-07-02 已给「所有权限」授权（= 双签的人签面）；剩余是 shell env opt-out 的 deliberate act（见 APPLY-v4.0e.md）
