@@ -28,6 +28,25 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 # 危险 branch 名单
 case "$BRANCH" in
   main|master|production|prod|release)
+    # v4.0e（修 2026-07-02 误拦）：仅拦当前工作树内文件 —
+    # 保护分支上写仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
+    # 与 engine fileInsideWorktree() 前缀判断字节等价（同 JSON 风格，剥离自洽）。
+    _NF="${HOOK_FILE_PATH//\\//}"
+    _NC="${HOOK_CWD:-.}"; _NC="${_NC//\\//}"
+    _INSIDE=1
+    case "$_NF" in
+      /*|[A-Za-z]:/*)  # 绝对路径 → 必须落在 cwd 前缀内才算仓库内
+        _INSIDE=0
+        case "$_NF" in
+          "$_NC"|"$_NC"/*) _INSIDE=1 ;;
+        esac
+        ;;
+    esac
+    if [ "$_INSIDE" = "0" ]; then
+      audit_log "main-edit-outside-repo-allowed" "branch=$BRANCH file=$HOOK_FILE_PATH"
+      exit 0
+    fi
+
     if [ "${CTO_MAIN_EDIT_ALLOWED:-0}" = "1" ]; then
       audit_log "main-edit-allowed-emergency" "branch=$BRANCH file=$HOOK_FILE_PATH"
       exit 0

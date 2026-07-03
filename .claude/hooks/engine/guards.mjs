@@ -285,12 +285,29 @@ function branchGuardBash(ctx) {
   process.exit(0);
 }
 
+// v4.0e（修 2026-07-02 误拦）：判定目标文件是否落在当前工作树内。
+// 保护分支只保护本仓工作树 — 仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
+// 前缀判断与 legacy branch-guard.sh 的 case-glob 字节等价（file_path 与 cwd 同 JSON 风格，剥离自洽）。
+function fileInsideWorktree(ctx) {
+  const normFile = String(ctx.filePath).replaceAll('\\', '/');
+  const normCwd = String(ctx.cwd || '.').replaceAll('\\', '/');
+  // 相对路径 → 相对 cwd（仓库内）→ 视为仓库内
+  if (!/^\/|^[A-Za-z]:\//.test(normFile)) return true;
+  // 绝对路径 → 必须落在 cwd 前缀内才算仓库内
+  return normFile === normCwd || normFile.startsWith(normCwd + '/');
+}
+
 export function branchGuard(ctx) {
   if (ctx.toolName === 'Bash') return branchGuardBash(ctx);
   if (!ctx.filePath) process.exit(0);
   const branch = gitBranch(ctx.cwd);
   if (!branch) process.exit(0); // 非 git repo / detached 空值 → 放行（与 bash 一致）
   if (PROTECTED_BRANCHES.has(branch)) {
+    // v4.0e：仓库外文件放行（保护分支只拦本仓工作树内的直接 Edit/Write）
+    if (!fileInsideWorktree(ctx)) {
+      auditLog(ctx, 'branch-guard', 'main-edit-outside-repo-allowed', `branch=${branch} file=${ctx.filePath}`);
+      process.exit(0);
+    }
     if (env().CTO_MAIN_EDIT_ALLOWED === '1') {
       auditLog(ctx, 'branch-guard', 'main-edit-allowed-emergency', `branch=${branch} file=${ctx.filePath}`);
       process.exit(0);

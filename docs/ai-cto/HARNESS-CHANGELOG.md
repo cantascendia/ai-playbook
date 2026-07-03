@@ -13,6 +13,25 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-03] v4.0e — branch-guard 工作树边界修正（铁律 #8 false-positive）
+
+- 改了什么：engine `engine/guards.mjs` 的 `branchGuard`（file-path 路径）+ legacy `branch-guard.sh`
+  回退实现 —— 命中保护分支后新增工作树边界判断：仅当目标文件落在 cwd 前缀内（相对路径恒视为仓库内，
+  绝对路径按 `normFile === normCwd || startsWith(normCwd + '/')`）才 block；仓库外文件放行，
+  audit 记 `main-edit-outside-repo-allowed`。engine + legacy 前缀判断字节等价（同 JSON 风格，剥离自洽）。
+  新增 eval 062（双路径 parity 矩阵）+ 2 条 node:test 单测（仓库外放行 / 仓库内绝对仍拦）；COUNTS evals 39→40
+- 为什么：2026-07-02 实测 —— 在 main 分支的仓库里写**仓库外**文件（如
+  `~/.claude/projects/.../memory/*.md`）被铁律 #8 `BLOCKED` 误拦。branch-guard 原实现命中保护分支后
+  无条件拦所有 Edit/Write，不判断文件是否在仓库工作树内。而 #8 的威胁模型是"保护本仓 main"，
+  仓库外文件与本仓分支无关，属 false positive（同 learned rule 类：guard 判断需带上下文边界）
+- 边界（诚实声明）：边界用 cwd 前缀（≈工作树根）判断，非 `git rev-parse --show-toplevel` ——
+  规避 Windows 路径 normalize footgun（3 条 learned rule 记录的回归类）；代价：cwd 若为仓库子目录，
+  子目录外的同仓文件会放行（Claude Code 会话 cwd 恒为项目根，实际不触发）。相对路径一律视为仓库内（保守）
+- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 38；node:test 全绿 + run-evals 全绿
+- 影响范围：保护分支上对**仓库外**文件的 Edit/Write（现放行）；仓库内 Edit/Write 拦截行为不变
+
+---
+
 ## [2026-07-02] v4.0d — 收尾：激活本仓 live settings.json + 实验性 plugin 分发通道（PR-D）
 
 - 改了什么：① 本仓 `.claude/settings.json` 对齐 templates（v4.0a 的 SessionStart 装载器修复：

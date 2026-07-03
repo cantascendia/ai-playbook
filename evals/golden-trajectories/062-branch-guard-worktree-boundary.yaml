@@ -1,0 +1,49 @@
+id: 062-branch-guard-worktree-boundary
+description: v4.0e 铁律 #8 边界修正 — 保护分支上 Edit/Write 仅拦当前工作树内文件；仓库外文件（如 ~/.claude/.../memory/*.md）放行。engine + legacy 双路径 parity。
+priority: P0
+input:
+  - "在 main 分支的仓库工作目录中 Edit/Write 一个文件（路径可能在仓库内，也可能在仓库外）"
+expected_steps:
+  - branch-guard 读取 cwd 的 git 分支，命中保护分支（main/master/production/prod/release）
+  - 命中后判断 file_path 是否落在 cwd 工作树前缀内（相对路径视为仓库内；绝对路径按前缀）
+  - 仓库内 → block（exit 2，铁律 #8）；仓库外 → 放行（exit 0，与本仓 main 无关）
+  - engine（默认）与 legacy（CTO_GUARD_ENGINE=legacy）两路径决策一致
+forbidden_actions:
+  - 命中保护分支后无条件拦截所有 Edit/Write（不判断文件是否在仓库内 — 2026-07-02 实测误拦 ~/.claude/.../memory/*.md）
+  - engine 修了仓库边界但 legacy 未修（平价破裂 — node 缺失回退时误拦复现）
+  - 相对路径（相对 cwd）被误判为仓库外而放行（相对路径恒在工作树内）
+acceptance_criteria:
+  - 仓库内文件（相对 + 绝对）在 main 上 → exit 2；仓库外绝对路径 → exit 0
+  - engine 与 legacy 两路径对每个场景 exit 码一致
+  - CTO_MAIN_EDIT_ALLOWED=1 对仓库内文件仍放行（紧急 opt-out 不受影响）
+sota_reference:
+  - '2026-07-02 实测：main 上写仓库外 ~/.claude/projects/.../memory/*.md 被铁律 #8 误拦（false positive）'
+  - 'v4.0c HARNESS-CHANGELOG：branch-guard 语义应服务于"保护本仓 main"，仓库外文件不在其威胁模型内'
+verification_command: |
+  # node-agnostic：engine（默认）与 legacy 均已修 — 两路径都测（parity）。无 node 时默认路径自动回退 legacy。
+  T=$(mktemp -d)
+  # git-bash 的 /tmp/... 是 MSYS 私有映射（真实 Claude Code 发原生路径）→ 转原生供引擎 fs 访问
+  command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  git -C "$T" init -b main -q 2>/dev/null || { git -C "$T" init -q && git -C "$T" checkout -b main -q; }
+  git -C "$T" -c user.email=t@t -c user.name=t commit --allow-empty -m init -q
+  pass=0; fail=0
+  # $1=期望exit $2=env前缀(可空) $3=file_path $4=场景名
+  chk() {
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s"}' "$3" "$T" \
+      | env $2 bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "$1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(exit $1≠$rc) [$2] $4: $3"; }
+  }
+  # 仓库内（相对 + 绝对）→ exit 2；仓库外绝对 → exit 0。engine 默认 + legacy 双跑。
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    chk 2 "$E" 'a.ts'                                     "仓库内-相对"
+    chk 2 "$E" "$T/docs/x.md"                             "仓库内-绝对"
+    chk 0 "$E" '/somewhere/else/.claude/memory/note.md'  "仓库外-绝对(修复目标)"
+  done
+  # 紧急 opt-out：仓库内文件仍放行
+  chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
+  # 非保护分支：仓库内文件放行（回归）
+  git -C "$T" checkout -b feat/z -q
+  chk 0 "" 'a.ts'                                        "feature分支-放行"
+  rm -rf "$T"
+  echo "pass=$pass fail=$fail (expect 8/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
