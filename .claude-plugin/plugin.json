@@ -1,0 +1,31 @@
+{
+  "name": "cto-playbook",
+  "displayName": "CTO-PLAYBOOK",
+  "version": "4.0.0",
+  "description": "AI-native CTO 闭环指挥系统 — 红线 enforcement guard 引擎 + 八维审核命令 + spec-driven skills（Claude Code 原生分发）",
+  "author": {
+    "name": "ai-playbook"
+  },
+  "homepage": "https://github.com/cantascendia/ai-playbook",
+  "repository": "https://github.com/cantascendia/ai-playbook",
+  "license": "MIT",
+  "keywords": [
+    "cto",
+    "enforcement",
+    "guard",
+    "spec-driven",
+    "eval",
+    "code-review"
+  ],
+  "commands": "./.claude/commands",
+  "agents": [
+    "./.claude/agents/eval-runner.md",
+    "./.claude/agents/harness-auditor.md",
+    "./.claude/agents/pattern-detector.md",
+    "./.claude/agents/reliability-auditor.md",
+    "./.claude/agents/vibe-checker.md"
+  ],
+  "skills": "./.claude/skills",
+  "outputStyles": "./.claude/output-styles",
+  "hooks": "./.claude-plugin/hooks.json"
+}

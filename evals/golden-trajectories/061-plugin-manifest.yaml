@@ -1,0 +1,56 @@
+id: 061-plugin-manifest
+description: v4.0d 实验性 plugin 分发通道 — .claude-plugin/{plugin,marketplace}.json 结构完整、组件路径存在、hooks 经 ${CLAUDE_PLUGIN_ROOT} 引用 guard 引擎；与 /cto-init 文件复制并行（非替代）
+priority: P1
+input:
+  - "claude plugin install cto-playbook@ai-playbook（或 --plugin-dir 本地开发装载）"
+expected_steps:
+  - .claude-plugin/plugin.json 声明 commands/agents/skills/outputStyles/hooks 组件路径
+  - agents 必须显式文件路径数组（validator 不接受目录 — v4.0d 实测）
+  - hooks.json 用 ${CLAUDE_PLUGIN_ROOT} 引用 .claude/hooks/*.sh（装入目标项目守其红线）
+  - marketplace.json 列出 cto-playbook 插件供团队 enabledPlugins 通道安装
+forbidden_actions:
+  - plugin 清单声明不存在的组件路径（runtime loader 报 load failure）
+  - 把 rules / statusline / docs 记忆种子塞进 plugin（feasibility：装不进，留 cto-init）
+  - plugin 替代 cto-init（二者并行：plugin 分发可执行组件，init 铺项目级 rules/记忆/statusline）
+acceptance_criteria:
+  - plugin.json + marketplace.json 合法 JSON + 必填字段齐
+  - 所有声明的组件路径在仓库中存在
+  - hooks.json 覆盖 6 类 guard 且经 CLAUDE_PLUGIN_ROOT 引用
+sota_reference:
+  - 'Claude Code plugin 系统（mid-2026）：commands/agents/skills/hooks/output-style 可打包；rules/statusline/permissions/项目记忆不可（claude-code-guide 查证）'
+  - 'v4.0 scope 对抗审查：plugin-first 是分发原语现代化，但保持 experimental 与 cto-init 并行'
+verification_command: |
+  command -v node >/dev/null 2>&1 || { echo "SKIP 需 node"; echo PASS; exit 0; }
+  node -e '
+    const fs = require("fs");
+    let pass = 0, fail = 0;
+    const ok = (c, m) => c ? pass++ : (fail++, console.log("FAIL: " + m));
+    // plugin.json
+    const p = JSON.parse(fs.readFileSync(".claude-plugin/plugin.json", "utf8"));
+    ok(p.name === "cto-playbook", "plugin name");
+    ok(typeof p.version === "string", "plugin version");
+    ok(typeof p.description === "string" && p.description.length > 10, "plugin description");
+    // 组件路径存在
+    ok(fs.existsSync(p.commands.replace(/^\.\//, "")), "commands path exists");
+    ok(Array.isArray(p.agents) && p.agents.length >= 5, "agents 显式文件数组 (≥5)");
+    ok(p.agents.every(a => fs.existsSync(a.replace(/^\.\//, ""))), "所有 agent 文件存在");
+    ok(fs.existsSync(p.skills.replace(/^\.\//, "")), "skills path exists");
+    ok(fs.existsSync(p.outputStyles.replace(/^\.\//, "")), "outputStyles path exists");
+    ok(fs.existsSync(p.hooks.replace(/^\.\//, "")), "hooks.json path exists");
+    // hooks.json：6 类 guard + CLAUDE_PLUGIN_ROOT
+    const h = JSON.parse(fs.readFileSync(".claude-plugin/hooks.json", "utf8"));
+    const flat = JSON.stringify(h);
+    ok(flat.includes("CLAUDE_PLUGIN_ROOT"), "hooks 用 CLAUDE_PLUGIN_ROOT");
+    for (const g of ["immutable-guard", "forbidden-guard", "bypass-guard", "destructive-action-guard", "mcp-guard", "test-lock-guard"]) {
+      ok(flat.includes(g + ".sh"), "hooks 含 " + g);
+    }
+    ok(h.hooks.PreToolUse && h.hooks.PostToolUse && h.hooks.UserPromptSubmit, "hooks 覆盖三事件");
+    // 反向：plugin 不塞 rules/statusline（留 cto-init）
+    ok(p.statusLine === undefined && p.statusline === undefined, "plugin 清单不声明 statusline（不可分发，留 init）");
+    ok(p.permissions === undefined, "plugin 不含 permissions（不可分发）");
+    // marketplace.json
+    const m = JSON.parse(fs.readFileSync(".claude-plugin/marketplace.json", "utf8"));
+    ok(Array.isArray(m.plugins) && m.plugins.some(x => x.name === "cto-playbook"), "marketplace 列出 cto-playbook");
+    console.log("pass=" + pass + " fail=" + fail);
+    console.log(fail === 0 ? "PASS" : "FAIL");
+  '

@@ -1,0 +1,15 @@
+{
+  "name": "ai-playbook",
+  "owner": { "name": "cantascendia" },
+  "metadata": {
+    "description": "ai-playbook marketplace — CTO-PLAYBOOK agent-harness 分发（实验性 plugin 通道，与 /cto-init 文件复制并行）"
+  },
+  "plugins": [
+    {
+      "name": "cto-playbook",
+      "source": "./",
+      "description": "AI-native CTO 闭环指挥系统：guard 引擎红线 + 八维审核命令 + spec-driven skills",
+      "version": "4.0.0"
+    }
+  ]
+}

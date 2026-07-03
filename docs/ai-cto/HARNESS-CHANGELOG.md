@@ -13,6 +13,26 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-02] v4.0d — 收尾：激活本仓 live settings.json + 实验性 plugin 分发通道（PR-D）
+
+- 改了什么：① 本仓 `.claude/settings.json` 对齐 templates（v4.0a 的 SessionStart 装载器修复：
+  最近一条 review 替代盲 tail-100 + hooks-presence 替代 v3.7.bak 死哨兵；v4.0c 的 branch-guard 上 Bash
+  matcher）—— 完成 v4.0a/c 在本机的实际激活；② 新增 `.claude-plugin/{plugin,marketplace}.json` +
+  `hooks.json`（`claude plugin validate` 通过），把 commands/agents/skills/output-style/guard-hooks
+  打包为 Claude Code 原生 plugin，guard 经 `${CLAUDE_PLUGIN_ROOT}` 引用；③ README 加 plugin 安装段；
+  eval 061 守护清单结构
+- 为什么：合并后本仓 live settings 仍是旧装载器（自改保护上一会话拦下，本会话获显式授权应用）；
+  plugin 化是分发原语现代化（scope 对抗审查「要么做要么砍」），验证可行后作为**实验通道与 cto-init 并行**
+- 关键发现（实测）：plugin.json `agents` 字段**必须显式文件路径数组**（validator 拒绝目录，`commands`
+  却接受目录 — 不对称）；plugin 装不进 rules/statusline/permissions/项目记忆（feasibility 查证坐实）→
+  这些仍由 cto-init 文件复制
+- Eval 跑分前/后：38 → **39 PASS / 0 FAIL**（新增 061 plugin 清单结构断言，node 校验，CI 可跑）
+- 影响范围：本机会话启动上下文（下次生效）；新增 plugin 分发通道（experimental，不改 cto-init 现状）
+- 边界：CI 加固（SPEC-001，.github/workflows forbidden 路径）+ 宪法平台条款修正案**仍待人 opt-out**——
+  guard 机制正确地拒绝 agent 自授权触碰（即便本轮有全权，forbidden/immutable 需 env-var 级 deliberate act）
+
+---
+
 ## [2026-07-02] v4.0c — 新 enforcement 语义：铁律 #8 Bash 扩展 + guard 自保护（PR-C，🔴 待人双签）
 
 - 改了什么：engine 侧两条新红线 —— ① branch-guard 扩展 Bash：解析真实 git 子命令

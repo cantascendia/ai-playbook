@@ -38,6 +38,22 @@ git clone https://github.com/cantascendia/ai-playbook ~/.claude/playbook
 - **跨机器**：换电脑后 `/cto-link` 自动重新发现 ai-playbook 路径（§29.8）。
 - 装完即跑 `/cto-doctor` 端到端验证红线真生效。
 
+### 或：作为 Claude Code plugin 安装（v4.0 实验通道）
+
+可执行组件（commands / agents / skills / guard hooks / output-style）已打包为原生 plugin
+（`.claude-plugin/plugin.json` + `marketplace.json`，`claude plugin validate` 通过）：
+
+```bash
+claude plugin marketplace add cantascendia/ai-playbook   # 加本仓为 marketplace
+claude plugin install cto-playbook@ai-playbook           # 装可执行组件（含 guard 引擎红线）
+```
+
+团队场景可在项目 `.claude/settings.json` 写 `extraKnownMarketplaces` + `enabledPlugins` 自动分发。
+
+> ⚠️ **plugin 与 `/cto-init` 并行，不替代**。plugin 只分发**可执行**组件；项目级 `.claude/rules/*.md`、
+> statusline、`docs/ai-cto/` 记忆种子、根 `CLAUDE.md` 身份 —— Claude Code plugin 体系装不进，
+> 仍由 `/cto-init` 文件复制铺设。guard hooks 经 `${CLAUDE_PLUGIN_ROOT}` 引用，装入后守护**目标项目**的红线。
+
 ## 验证装对了
 
 ```bash

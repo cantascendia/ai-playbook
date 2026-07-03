@@ -23,11 +23,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -d docs/ai-cto ] && ([ -f docs/ai-cto/CONSTITUTION.md ] || [ -f docs/ai-cto/STATUS.md ]); then echo '🔄 检测到 docs/ai-cto/ 项目记忆，自动恢复上下文...'; test -f docs/ai-cto/CONSTITUTION.md && echo '' && echo '=== CONSTITUTION ===' && head -150 docs/ai-cto/CONSTITUTION.md; test -f docs/ai-cto/STATUS.md && echo '' && echo '=== STATUS ===' && head -150 docs/ai-cto/STATUS.md; if [ -f docs/ai-cto/REVIEW-QUEUE.md ]; then PENDING=$(tail -100 docs/ai-cto/REVIEW-QUEUE.md | grep -c '^## ' 2>/dev/null); [ \"${PENDING:-0}\" -gt 0 ] && echo '' && echo '=== 最近 §48 跨模型 REVIEW（待审视）===' && tail -100 docs/ai-cto/REVIEW-QUEUE.md; fi; echo '' && echo '💡 继续上次工作：直接对话 / 或 /cto-resume 显式刷新进度'; else echo '🆕 未检测到 docs/ai-cto/ 项目记忆。这看起来是首次接入 ai-playbook。'; echo '   建议：运行 /cto-start 启动第零轮（产品愿景 + 八维审核 + 生成记忆文件）'; echo '   或：运行 /cto-init [项目路径] 重新初始化 ai-playbook 配置'; fi"
+            "command": "if [ -d docs/ai-cto ] && ([ -f docs/ai-cto/CONSTITUTION.md ] || [ -f docs/ai-cto/STATUS.md ]); then echo '🔄 检测到 docs/ai-cto/ 项目记忆，自动恢复上下文...'; test -f docs/ai-cto/CONSTITUTION.md && echo '' && echo '=== CONSTITUTION ===' && head -150 docs/ai-cto/CONSTITUTION.md; test -f docs/ai-cto/STATUS.md && echo '' && echo '=== STATUS ===' && head -150 docs/ai-cto/STATUS.md; if [ -f docs/ai-cto/REVIEW-QUEUE.md ]; then LAST=$(grep -n '^## 20' docs/ai-cto/REVIEW-QUEUE.md 2>/dev/null | tail -1 | cut -d: -f1); [ -n \"$LAST\" ] && echo '' && echo '=== 最近一条 §48 跨模型 REVIEW（历史见 docs/ai-cto/archive/）===' && tail -n +\"$LAST\" docs/ai-cto/REVIEW-QUEUE.md | head -80; fi; echo '' && echo '💡 继续上次工作：直接对话 / 或 /cto-resume 显式刷新进度'; else echo '🆕 未检测到 docs/ai-cto/ 项目记忆。这看起来是首次接入 ai-playbook。'; echo '   建议：运行 /cto-start 启动第零轮（产品愿景 + 八维审核 + 生成记忆文件）'; echo '   或：运行 /cto-init [项目路径] 重新初始化 ai-playbook 配置'; fi"
           },
           {
             "type": "command",
-            "command": "if [ -f .claude/settings.json.v3.7.bak ] && [ -d .claude/hooks ]; then echo '⚙️ v3.8 enforcement 已启用。运行 /cto-doctor 验证 hooks 真生效。'; fi"
+            "command": "if [ -d .claude/hooks ] && ls .claude/hooks/*-guard.sh >/dev/null 2>&1; then echo '⚙️ enforcement hooks 已部署。运行 /cto-doctor 验证真生效。'; fi"
           }
         ]
       }
@@ -75,6 +75,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/destructive-action-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/branch-guard.sh"
           }
         ]
       },
