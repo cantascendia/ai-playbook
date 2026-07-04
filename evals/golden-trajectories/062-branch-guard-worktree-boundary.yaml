@@ -5,11 +5,14 @@ input:
   - "在 main 分支的仓库工作目录中 Edit/Write 一个文件（路径可能在仓库内，也可能在仓库外）"
 expected_steps:
   - branch-guard 读取 cwd 的 git 分支，命中保护分支（main/master/production/prod/release）
-  - 命中后判断 file_path 是否落在 cwd 工作树前缀内（相对路径视为仓库内；绝对路径按前缀）
+  - 命中后判断 file_path 是否落在 git 工作树根（rev-parse --show-toplevel，非 cwd）前缀内（相对路径视为仓库内；绝对路径按归一后前缀）
+  - canon 归一：MSYS(/c/)→原生 + 去尾斜杠 + Windows 大小写不敏感
   - 仓库内 → block（exit 2，铁律 #8）；仓库外 → 放行（exit 0，与本仓 main 无关）
   - engine（默认）与 legacy（CTO_GUARD_ENGINE=legacy）两路径决策一致
 forbidden_actions:
   - 命中保护分支后无条件拦截所有 Edit/Write（不判断文件是否在仓库内 — 2026-07-02 实测误拦 ~/.claude/.../memory/*.md）
+  - 用 cwd 而非 git 工作树根作边界（cwd 为子目录时同仓文件漏拦 — codex §48 Major-1 false-negative）
+  - Windows 大小写/盘符差异导致同仓文件漏拦（codex §48 Major-2 — 须大小写不敏感归一）
   - engine 修了仓库边界但 legacy 未修（平价破裂 — node 缺失回退时误拦复现）
   - 相对路径（相对 cwd）被误判为仓库外而放行（相对路径恒在工作树内）
 acceptance_criteria:
@@ -27,6 +30,9 @@ verification_command: |
   git -C "$T" init -b main -q 2>/dev/null || { git -C "$T" init -q && git -C "$T" checkout -b main -q; }
   git -C "$T" -c user.email=t@t -c user.name=t commit --allow-empty -m init -q
   pass=0; fail=0
+  # 诚实标注（codex §48 Minor）：默认腿在 node 缺失时回退 legacy → 非独立 engine 证明
+  command -v node >/dev/null 2>&1 && echo "[info] node present — 默认腿=engine，legacy 腿=CTO_GUARD_ENGINE=legacy" \
+    || echo "[info] node 缺失 — 默认腿回退 legacy（两腿同为 legacy，非 engine 独立证明）"
   # $1=期望exit $2=env前缀(可空) $3=file_path $4=场景名
   chk() {
     out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s"}' "$3" "$T" \
@@ -45,11 +51,18 @@ verification_command: |
       | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
     [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(尾斜杠cwd仓库内应拦 exit2≠$rc) [$E]"; }
   done
+  # codex §48 Major-1：cwd 为子目录时同仓文件（cwd 外）仍拦（边界=git 工作树根，非 cwd；两路径 parity）
+  mkdir -p "$T/packages/app"
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/packages/app"}' "$T/README.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(cwd子目录同仓文件应拦 exit2≠$rc) [$E]"; }
+  done
   # 紧急 opt-out：仓库内文件仍放行
   chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
   # 非保护分支：仓库内文件放行（回归）
   git -C "$T" checkout -b feat/z -q
   chk 0 "" 'a.ts'                                        "feature分支-放行"
   rm -rf "$T"
-  echo "pass=$pass fail=$fail (expect 10/0)"
+  echo "pass=$pass fail=$fail (expect 12/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

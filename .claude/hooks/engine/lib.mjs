@@ -179,6 +179,17 @@ export function gitBranch(cwd) {
   return (r.stdout || '').trim();
 }
 
+// ─── git 工作树根查询（branch-guard 边界判断用）───
+// v4.0e（codex §48 修正）：cwd 可能是仓库子目录，边界须取真工作树根而非 cwd，
+// 否则"同仓但在 cwd 外"的文件在保护分支上被漏拦（安全 false-negative）。
+export function gitToplevel(cwd) {
+  let dir = fsPath((cwd || '.').replaceAll('\\', '/'));
+  try { if (!fs.statSync(dir).isDirectory()) dir = '.'; } catch { dir = '.'; }
+  const r = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, encoding: 'utf8' });
+  if (r.status !== 0 || r.error) return '';
+  return (r.stdout || '').trim();
+}
+
 // ─── 字节截断（bash head -c 等价，按字节非字符）───
 export function headBytes(s, n) {
   return Buffer.from(String(s), 'utf8').subarray(0, n).toString('utf8').replace(/�+$/, '');

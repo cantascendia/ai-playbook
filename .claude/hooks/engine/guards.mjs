@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import {
   normalizePaths, isAiPlaybookSelf, forbiddenPattern, block, deny, remind,
-  auditLog, gitBranch, headBytes, escapeField, localDay, isoLocal, fsPath,
+  auditLog, gitBranch, gitToplevel, headBytes, escapeField, localDay, isoLocal, fsPath,
   FORBIDDEN_FALLBACK_PATTERN, DESTRUCTIVE_SQL_CORE,
 } from './lib.mjs';
 
@@ -285,17 +285,24 @@ function branchGuardBash(ctx) {
   process.exit(0);
 }
 
-// v4.0e（修 2026-07-02 误拦）：判定目标文件是否落在当前工作树内。
+// v4.0e（修 2026-07-02 误拦 + codex §48 加固）：判定目标文件是否落在当前 git 工作树内。
 // 保护分支只保护本仓工作树 — 仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
-// 前缀判断与 legacy branch-guard.sh 的 case-glob 字节等价（file_path 与 cwd 同 JSON 风格，剥离自洽）。
+// 边界取 `git rev-parse --show-toplevel`（真工作树根），非 cwd —— cwd 可能是仓库子目录，
+// 用 cwd 前缀会把"同仓但在 cwd 外"的文件误判为外部 = 保护分支上漏拦（codex §48 Major-1）。
+// canonPath 归一：MSYS(/c/)→原生盘符 + 去尾斜杠 + Windows 大小写不敏感（FS 语义，codex §48 Major-2）。
+// engine 与 legacy branch-guard.sh 的 _canon 同款归一，保 parity。
+function canonPath(p) {
+  let s = fsPath(String(p).replaceAll('\\', '/')).replace(/\/+$/, '');
+  if (process.platform === 'win32') s = s.toLowerCase(); // Windows FS 大小写不敏感
+  return s;
+}
 function fileInsideWorktree(ctx) {
-  const normFile = String(ctx.filePath).replaceAll('\\', '/');
-  // 去尾斜杠：防 cwd 末尾 '/' 时 startsWith(normCwd + '/') 因 '//' 把仓库内文件误判为外部（false-negative 漏拦）
-  const normCwd = String(ctx.cwd || '.').replaceAll('\\', '/').replace(/\/$/, '');
-  // 假设 file_path 与 cwd 同路径风格（同一 JSON 载荷自洽，与 normalizePaths 同约定）；
-  // 不跨 MSYS(/c/..)↔原生(C:/..) 归一 —— 跨风格需两种风格同现于一次调用，Claude Code 不产生，legacy 亦不归一（parity 一致）
-  if (!/^\/|^[A-Za-z]:\//.test(normFile)) return true; // 相对路径 → 相对 cwd（仓库内）
-  return normFile === normCwd || normFile.startsWith(normCwd + '/'); // 绝对路径 → 落在 cwd 前缀内才算仓库内
+  const rawFile = String(ctx.filePath).replaceAll('\\', '/');
+  if (!/^\/|^[A-Za-z]:\//.test(rawFile)) return true; // 相对路径 → 相对 cwd（恒在工作树内）
+  const top = gitToplevel(ctx.cwd);
+  const base = canonPath(top || (ctx.cwd || '.')); // toplevel 取不到 → 回退 cwd（保守）
+  const f = canonPath(rawFile);
+  return f === base || f.startsWith(base + '/');
 }
 
 export function branchGuard(ctx) {

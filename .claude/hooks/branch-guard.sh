@@ -17,6 +17,21 @@ require_jq || exit 0
 read_hook_input
 maybe_run_override "branch-guard"
 
+# v4.0e（codex §48）：路径归一 — 与 engine canonPath 同款（backslash→/、MSYS(/c/)→原生、去尾斜杠、
+# Windows 大小写不敏感）。保 engine/legacy parity。
+_canon() {
+  local p="${1//\\//}"
+  local win=0
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) win=1 ;; esac
+  if [ "$win" = "1" ]; then
+    case "$p" in
+      /[A-Za-z]/*|/[A-Za-z]) local d="${p:1:1}"; p="${d}:${p:2}" ;;  # /c/foo → c:/foo
+    esac
+    p="${p,,}"  # Windows FS 大小写不敏感
+  fi
+  printf '%s' "${p%/}"
+}
+
 # 仅对 file 类工具生效
 [ -z "$HOOK_FILE_PATH" ] && exit 0
 
@@ -28,17 +43,19 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 # 危险 branch 名单
 case "$BRANCH" in
   main|master|production|prod|release)
-    # v4.0e（修 2026-07-02 误拦）：仅拦当前工作树内文件 —
+    # v4.0e（修 2026-07-02 误拦 + codex §48 加固）：仅拦当前 git 工作树内文件 —
     # 保护分支上写仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
-    # 与 engine fileInsideWorktree() 前缀判断字节等价（同 JSON 风格，剥离自洽；不跨 MSYS↔原生归一）。
+    # 边界取 git 工作树根（非 cwd；cwd 可能是子目录 → 同仓文件漏拦）。与 engine fileInsideWorktree() parity。
     _NF="${HOOK_FILE_PATH//\\//}"
-    _NC="${HOOK_CWD:-.}"; _NC="${_NC//\\//}"; _NC="${_NC%/}"  # 去尾斜杠：防 '//' 把仓库内文件误判为外部
     _INSIDE=1
     case "$_NF" in
-      /*|[A-Za-z]:/*)  # 绝对路径 → 必须落在 cwd 前缀内才算仓库内
+      /*|[A-Za-z]:/*)  # 绝对路径 → 需落在工作树根前缀内才算仓库内
+        _TOP=$(git rev-parse --show-toplevel 2>/dev/null)  # 已在 cwd 内（上方 cd）
+        [ -z "$_TOP" ] && _TOP="${HOOK_CWD:-.}"  # 取不到 → 回退 cwd（保守）
+        _CF=$(_canon "$_NF"); _CB=$(_canon "$_TOP")
         _INSIDE=0
-        case "$_NF" in
-          "$_NC"|"$_NC"/*) _INSIDE=1 ;;
+        case "$_CF" in
+          "$_CB"|"$_CB"/*) _INSIDE=1 ;;
         esac
         ;;
     esac

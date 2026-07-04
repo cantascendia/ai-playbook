@@ -135,6 +135,23 @@ test('branch: cwd 带尾斜杠时仓库内文件仍拦（防御性 — 去尾斜
   assert.equal(run('branch-guard', inside).status, 2);
 });
 
+test('branch: cwd 为子目录时同仓文件（cwd 外）仍拦（codex §48 Major-1 — 边界取 git 工作树根）', () => {
+  const dir = mainRepo();
+  const sub = path.join(dir, 'packages', 'app');
+  fs.mkdirSync(sub, { recursive: true });
+  // 文件在仓库根、不在 cwd(子目录) 前缀内 → 用 cwd 前缀会漏拦；边界取工作树根 → 仍拦
+  const inRepoOutsideCwd = { tool_name: 'Write', tool_input: { file_path: `${dir.replaceAll('\\', '/')}/README.md`, content: 'x' }, cwd: sub };
+  assert.equal(run('branch-guard', inRepoOutsideCwd).status, 2);
+});
+
+test('branch: Windows 盘符/大小写差异的同仓文件仍拦（codex §48 Major-2 — 大小写不敏感归一）', { skip: process.platform !== 'win32' }, () => {
+  const dir = mainRepo();
+  // 文件盘符小写、cwd 盘符原样 → 大小写敏感前缀会漏拦；canon 归一后 → 仍拦
+  const lowerDrive = dir.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_m, d) => `${d.toLowerCase()}:`);
+  const inside = { tool_name: 'Write', tool_input: { file_path: `${lowerDrive}/docs/x.md`, content: 'x' }, cwd: dir };
+  assert.equal(run('branch-guard', inside).status, 2);
+});
+
 // ═══ test-lock-guard（advisory，永不 block）═══
 
 test('test-lock: 测试文件 → exit 0 + additionalContext JSON（铁律 #14 advisory）', () => {

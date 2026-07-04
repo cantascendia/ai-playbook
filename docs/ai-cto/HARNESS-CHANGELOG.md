@@ -16,24 +16,25 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 ## [2026-07-03] v4.0e — branch-guard 工作树边界修正（铁律 #8 false-positive）
 
 - 改了什么：engine `engine/guards.mjs` 的 `branchGuard`（file-path 路径）+ legacy `branch-guard.sh`
-  回退实现 —— 命中保护分支后新增工作树边界判断：仅当目标文件落在 cwd 前缀内（相对路径恒视为仓库内，
-  绝对路径按 `normFile === normCwd || startsWith(normCwd + '/')`）才 block；仓库外文件放行，
-  audit 记 `main-edit-outside-repo-allowed`。engine + legacy 前缀判断字节等价（同 JSON 风格，剥离自洽）。
-  新增 eval 062（双路径 parity 矩阵，10 断言）+ 3 条 node:test 单测（仓库外放行 / 仓库内绝对仍拦 /
-  尾斜杠 cwd 仍拦）；COUNTS evals 39→40。独立审查（全新上下文对抗式核 parity）确认 13 类输入 engine/legacy
-  逐字节一致、无安全回归；据其 Minor-1 加固：engine + legacy 同步去 cwd 尾斜杠，防 '//' 把仓库内文件误判为
-  外部（false-negative 漏拦）。跨 MSYS↔原生混合风格（Minor-3）保持同风格自洽假设（不归一，规避 3 条 learned rule 的路径回归类），以注释声明
+  回退实现 —— 命中保护分支后新增**工作树边界**判断：边界取 `git rev-parse --show-toplevel`（真工作树根），
+  相对路径恒视为仓库内、绝对路径经 canon 归一（MSYS `/c/`→原生盘符 + 去尾斜杠 + Windows 大小写不敏感）
+  后按前缀判断；仓库内 → block，仓库外文件放行 + audit `main-edit-outside-repo-allowed`。engine `canonPath`
+  与 legacy `_canon` 同款归一（parity）。`gitToplevel` 新增于 lib.mjs。新增 eval 062（双路径 parity 矩阵，
+  12 断言）+ 5 条 node:test 单测（仓库外放行 / 仓库内绝对仍拦 / 尾斜杠 cwd / cwd 子目录同仓文件 / Windows 大小写）；COUNTS evals 39→40
 - 为什么：2026-07-02 实测 —— 在 main 分支的仓库里写**仓库外**文件（如
   `~/.claude/projects/.../memory/*.md`）被铁律 #8 `BLOCKED` 误拦。branch-guard 原实现命中保护分支后
   无条件拦所有 Edit/Write，不判断文件是否在仓库工作树内。而 #8 的威胁模型是"保护本仓 main"，
   仓库外文件与本仓分支无关，属 false positive（同 learned rule 类：guard 判断需带上下文边界）
-- 边界（诚实声明）：边界用 cwd 前缀（≈工作树根）判断，非 `git rev-parse --show-toplevel` ——
-  规避 Windows 路径 normalize footgun（3 条 learned rule 记录的回归类）；代价：cwd 若为仓库子目录，
-  子目录外的同仓文件会放行（Claude Code 会话 cwd 恒为项目根，实际不触发）。相对路径一律视为仓库内（保守）
-- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 39；node:test 全绿 + run-evals 全绿
+- 双审迭代（诚实记录）：首版用 cwd 前缀（图省事、规避 Windows normalize footgun）。独立 Claude 审查判为
+  "无 Critical/Major，parity 一致"，仅提尾斜杠 Minor（已加固）。**但 §48 codex 跨模型审 verdict=BLOCK**，
+  抓到两个 Major **安全 false-negative**：① cwd 为仓库子目录时，cwd 外的同仓文件在保护分支上漏拦
+  （用户从子目录/monorepo package 跑 claude 可触发）；② Windows 大小写/盘符差异（`c:` vs `C:`）导致同仓
+  文件漏拦。二者均已用 git 工作树根 + canon 归一修复 —— **跨模型审的价值实证：codex 抓到了单模型自审误判为
+  "不触发"的真安全弱点**
+- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 41；node:test 全绿（Windows 大小写测试真机实跑）+ run-evals 全绿
   （注：eval 045 曾在 Windows 本地因工作树陈旧 CRLF 伪失败 —— git blob 两侧 SHA 一致 + CI 绿，
   renormalize 后本地亦 40/40；非仓库漂移，无需改文件）
-- 影响范围：保护分支上对**仓库外**文件的 Edit/Write（现放行）；仓库内 Edit/Write 拦截行为不变
+- 影响范围：保护分支上对**仓库外**文件的 Edit/Write（现放行）；仓库内 Edit/Write 拦截行为不变（含 cwd 子目录 / Windows 大小写场景现正确拦截）
 
 ---
 
