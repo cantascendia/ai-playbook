@@ -43,16 +43,24 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 # 危险 branch 名单
 case "$BRANCH" in
   main|master|production|prod|release)
-    # v4.0e（修 2026-07-02 误拦 + codex §48 加固）：仅拦当前 git 工作树内文件 —
+    # v4.0e（修 2026-07-02 误拦 + codex §48 加固×2）：仅拦当前 git 工作树内文件 —
     # 保护分支上写仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
-    # 边界取 git 工作树根（非 cwd；cwd 可能是子目录 → 同仓文件漏拦）。与 engine fileInsideWorktree() parity。
+    # 工作树根 = 从 cwd 按 git cdup 相对上爬（非 --show-toplevel 的 real 路径 → symlink 别名不漏拦）。
+    # 与 engine fileInsideWorktree() 的 cdup 上爬 + canon parity。
     _NF="${HOOK_FILE_PATH//\\//}"
     _INSIDE=1
     case "$_NF" in
       /*|[A-Za-z]:/*)  # 绝对路径 → 需落在工作树根前缀内才算仓库内
-        _TOP=$(git rev-parse --show-toplevel 2>/dev/null)  # 已在 cwd 内（上方 cd）
-        [ -z "$_TOP" ] && _TOP="${HOOK_CWD:-.}"  # 取不到 → 回退 cwd（保守）
-        _CF=$(_canon "$_NF"); _CB=$(_canon "$_TOP")
+        _CDUP=$(git rev-parse --show-cdup 2>/dev/null)  # 已在 cwd 内（上方 cd）；根目录=空
+        _ROOT="${HOOK_CWD:-.}"; _ROOT="${_ROOT//\\//}"; _ROOT="${_ROOT%/}"
+        _t="$_CDUP"
+        while [ -n "$_t" ]; do  # 每个 '../' 上爬一层（停留在 cwd 空间）
+          case "$_t" in
+            ../*) _ROOT="${_ROOT%/*}"; _t="${_t#../}" ;;
+            *) _t="" ;;
+          esac
+        done
+        _CF=$(_canon "$_NF"); _CB=$(_canon "$_ROOT")
         _INSIDE=0
         case "$_CF" in
           "$_CB"|"$_CB"/*) _INSIDE=1 ;;

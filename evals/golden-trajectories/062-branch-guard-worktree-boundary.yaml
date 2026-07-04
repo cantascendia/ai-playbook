@@ -58,11 +58,23 @@ verification_command: |
       | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
     [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(cwd子目录同仓文件应拦 exit2≠$rc) [$E]"; }
   done
+  # codex §48 Major-2 覆盖：Windows 盘符/大小写差异同仓文件仍拦（仅 MSYS/Windows；Linux FS 大小写敏感 → 跳过）
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*)
+      LC=$(printf '%s' "$T" | sed -E 's#^([A-Za-z]):#\L\1:#')  # 盘符转小写
+      for E in "" "CTO_GUARD_ENGINE=legacy"; do
+        out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/docs/x.md","content":"x"},"cwd":"%s"}' "$LC" "$T" \
+          | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+        [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(Win大小写同仓应拦 exit2≠$rc) [$E]"; }
+      done
+      echo "[info] Windows 大小写断言已跑（+2 → 期望 14/0）" ;;
+    *) echo "[info] 非 Windows — 跳过大小写断言（Linux FS 大小写敏感），期望 12/0" ;;
+  esac
   # 紧急 opt-out：仓库内文件仍放行
   chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
   # 非保护分支：仓库内文件放行（回归）
   git -C "$T" checkout -b feat/z -q
   chk 0 "" 'a.ts'                                        "feature分支-放行"
   rm -rf "$T"
-  echo "pass=$pass fail=$fail (expect 12/0)"
+  echo "pass=$pass fail=$fail (expect 12/0 Linux · 14/0 Windows)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

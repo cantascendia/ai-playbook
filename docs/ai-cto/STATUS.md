@@ -24,10 +24,11 @@ ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforceme
 - 🔄 **v4.0e（PR #43，待审）**：branch-guard 工作树边界修正 —— 铁律 #8 原实现在保护分支上无条件拦
   **所有** Edit/Write，不判断文件是否在仓库工作树内 → 写仓库外文件（如 `~/.claude/.../memory/*.md`）被
   误拦（2026-07-02 实测）。engine `guards.mjs` + legacy `branch-guard.sh` 同步加**工作树边界**判断
-  （边界取 `git rev-parse --show-toplevel` + canon 归一，parity），仓库外放行 + audit；eval 062 双路径矩阵
-  12 断言 + 5 单测（36→41）；COUNTS evals 39→40。**双审迭代**：独立 Claude 审判"无 Major"，但 §48 codex 审
-  verdict=**BLOCK** 抓到 2 个 Major 安全 false-negative（cwd 子目录漏拦 / Windows 大小写漏拦）→ 已用 git 工作树根
-  修复（跨模型审价值实证）。修复后 §48 codex 复审裁决记入 REVIEW-QUEUE.md。
+  （工作树根 = `git rev-parse --show-cdup` 相对上爬 + canon 归一，parity），仓库外放行 + audit；eval 062 双路径矩阵
+  12/14 断言 + 6 单测（36→42）；COUNTS evals 39→40。**双审迭代（§48 价值实证）**：独立 Claude 审判"无 Major"，
+  但 §48 codex 审连续两轮 verdict=**BLOCK**，逐层抓到单模型漏掉的 3 个安全 false-negative（cwd 子目录漏拦 /
+  Windows 大小写漏拦 / symlink 别名漏拦）→ 前两个 canon 归一修、第三个改 cdup 上爬（停留 cwd 空间，免 realpath）。
+  修复后 §48 codex 终审裁决记入 REVIEW-QUEUE.md。
 
 > 待人 opt-out（guard 正确拒绝 agent 自授权）：CI 加固（SPEC-001，.github/workflows forbidden）+
 > 宪法平台条款修正案（`AMENDMENT-PROPOSAL-2026-07-02-platform-scope.md`，三平台→Claude-native+opt-in）。

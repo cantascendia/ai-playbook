@@ -152,6 +152,21 @@ test('branch: Windows 盘符/大小写差异的同仓文件仍拦（codex §48 M
   assert.equal(run('branch-guard', inside).status, 2);
 });
 
+test('branch: symlink 别名工作树内文件仍拦（codex §48 round-3 — cdup 上爬停留 cwd 空间，不引入 real 路径）', () => {
+  const dir = mainRepo();
+  fs.mkdirSync(path.join(dir, 'packages', 'app'), { recursive: true });
+  const link = path.join(os.tmpdir(), `guard-link-${path.basename(dir)}`);
+  try { fs.symlinkSync(dir, link, 'junction'); } // Windows junction 免管理员；失败则跳过
+  catch { try { fs.symlinkSync(dir, link, 'dir'); } catch { return; } }
+  try {
+    // cwd 用 symlink 路径的子目录，file 用 symlink 路径 → show-toplevel 会返回 real 路径致漏拦；cdup 上爬则仍拦
+    const linkSub = `${link.replaceAll('\\', '/')}/packages/app`;
+    const file = `${link.replaceAll('\\', '/')}/README.md`;
+    const r = run('branch-guard', { tool_name: 'Write', tool_input: { file_path: file, content: 'x' }, cwd: linkSub });
+    assert.equal(r.status, 2);
+  } finally { try { fs.rmSync(link, { recursive: true, force: true }); } catch { /* noop */ } }
+});
+
 // ═══ test-lock-guard（advisory，永不 block）═══
 
 test('test-lock: 测试文件 → exit 0 + additionalContext JSON（铁律 #14 advisory）', () => {
