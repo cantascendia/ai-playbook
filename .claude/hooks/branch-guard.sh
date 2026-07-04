@@ -29,7 +29,8 @@ _canon() {
     esac
     p="${p,,}"  # Windows FS 大小写不敏感
   fi
-  printf '%s' "${p%/}"
+  while [ "$p" != "${p%/}" ]; do p="${p%/}"; done  # 剥全部尾斜杠（对齐 engine .replace(/\/+$/,'')）
+  printf '%s' "$p"
 }
 
 # 仅对 file 类工具生效
@@ -52,7 +53,8 @@ case "$BRANCH" in
     case "$_NF" in
       /*|[A-Za-z]:/*)  # 绝对路径 → 需落在工作树根前缀内才算仓库内
         _CDUP=$(git rev-parse --show-cdup 2>/dev/null)  # 已在 cwd 内（上方 cd）；根目录=空
-        _ROOT="${HOOK_CWD:-.}"; _ROOT="${_ROOT//\\//}"; _ROOT="${_ROOT%/}"
+        _ROOT="${HOOK_CWD:-.}"; _ROOT="${_ROOT//\\//}"
+        while [ "$_ROOT" != "${_ROOT%/}" ]; do _ROOT="${_ROOT%/}"; done  # 剥全部尾斜杠再上爬（防误吞 '..' 层级，对齐 engine）
         _t="$_CDUP"
         while [ -n "$_t" ]; do  # 每个 '../' 上爬一层（停留在 cwd 空间）
           case "$_t" in

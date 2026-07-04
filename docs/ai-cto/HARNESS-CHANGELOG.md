@@ -32,9 +32,12 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
   verdict=BLOCK**，逐层抓到单模型自审漏掉的**安全 false-negative**：① cwd 为子目录时 cwd 外同仓文件漏拦
   （从子目录/monorepo package 跑 claude 可触发）；② Windows 大小写/盘符差异（`c:` vs `C:`）同仓文件漏拦；
   ③ symlink/junction 工作树别名 —— cwd 用别名路径而 `--show-toplevel` 返回 real 路径致前缀不匹配漏拦
-  （macOS `/tmp`→`/private/tmp`、Windows junction）。①② 用 canon 归一修；③ 改用 cdup 上爬（停留 cwd 空间，
-  从构造上消除 real/别名不匹配，且无需 realpath → 避开 3 条 learned rule 的跨平台路径脆弱性）
-- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 42；node:test 全绿（Windows 大小写 + symlink junction 测试真机实跑未跳过）+ run-evals 全绿
+  （macOS `/tmp`→`/private/tmp`、Windows junction）；④ legacy bash 多重尾斜杠 —— `${_ROOT%/}` 只剥一个尾斜杠、
+  engine `.replace(/\/+$/,'')` 剥全部 → cwd `…/app//` 时 legacy climb 少爬一层漏拦（engine/legacy 真分歧）。
+  ①② 用 canon 归一修；③ 改用 cdup 上爬（停留 cwd 空间，从构造上消除 real/别名不匹配，无需 realpath → 避开 3 条
+  learned rule 的跨平台路径脆弱性）；④ bash 改为剥全部尾斜杠（`while [ "$p" != "${p%/}" ]`）对齐 engine
+- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 42；node:test 全绿（Windows 大小写 + symlink junction 测试真机实跑未跳过）+ run-evals 全绿；
+  eval 062 增多尾斜杠 + symlink 别名断言（gated），直接复现并守 codex round-3 的 4 个发现
   （注：eval 045 曾在 Windows 本地因工作树陈旧 CRLF 伪失败 —— git blob 两侧 SHA 一致 + CI 绿，
   renormalize 后本地亦 40/40；非仓库漂移，无需改文件）
 - 影响范围：保护分支上对**仓库外**文件的 Edit/Write（现放行）；仓库内 Edit/Write 拦截行为不变（含 cwd 子目录 / Windows 大小写场景现正确拦截）

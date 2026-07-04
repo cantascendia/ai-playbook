@@ -67,14 +67,34 @@ verification_command: |
           | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
         [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(Win大小写同仓应拦 exit2≠$rc) [$E]"; }
       done
-      echo "[info] Windows 大小写断言已跑（+2 → 期望 14/0）" ;;
-    *) echo "[info] 非 Windows — 跳过大小写断言（Linux FS 大小写敏感），期望 12/0" ;;
+      echo "[info] Windows 大小写断言已跑（+2）" ;;
+    *) echo "[info] 非 Windows — 跳过大小写断言（Linux FS 大小写敏感）" ;;
   esac
+  # codex round-3 Major：cwd 多重尾斜杠时 climb 不误吞 '..' 层级（bash 须剥全部尾斜杠，对齐 engine；两路径 parity）
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/packages/app//"}' "$T/README.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(多尾斜杠cwd子目录同仓应拦 exit2≠$rc) [$E]"; }
+  done
+  # codex round-3 覆盖：symlink/junction 别名工作树内文件仍拦（两路径；无法建 symlink 则跳过，+0）
+  LNK="${T}-lnk"
+  if MSYS=winsymlinks:nativestrict ln -s "$T" "$LNK" 2>/dev/null; then
+    for E in "" "CTO_GUARD_ENGINE=legacy"; do
+      out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/README.md","content":"x"},"cwd":"%s/packages/app"}' "$LNK" "$LNK" \
+        | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+      [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(symlink别名同仓应拦 exit2≠$rc) [$E]"; }
+    done
+    rm -f "$LNK" 2>/dev/null || true
+    echo "[info] symlink 断言已跑（+2）"
+  else
+    echo "[info] 无法建 symlink（权限/平台）— 跳过 symlink 断言（+0）"
+  fi
   # 紧急 opt-out：仓库内文件仍放行
   chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
   # 非保护分支：仓库内文件放行（回归）
   git -C "$T" checkout -b feat/z -q
   chk 0 "" 'a.ts'                                        "feature分支-放行"
-  rm -rf "$T"
-  echo "pass=$pass fail=$fail (expect 12/0 Linux · 14/0 Windows)"
+  rm -rf "$T" "${T}-lnk" 2>/dev/null || true
+  # 断言数随平台/权限浮动（基础 14 + Windows 大小写 2 + symlink 2，能建则跑）；判定只看 fail=0
+  echo "pass=$pass fail=$fail (基础 14；+Win大小写/+symlink 视平台，期望 fail=0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
