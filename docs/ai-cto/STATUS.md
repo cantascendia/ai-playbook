@@ -3,7 +3,7 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-03 — v4.0e branch-guard 工作树边界修正（铁律 #8 false-positive，PR #43 待审）
+最后更新：2026-07-04 — v4.0e branch-guard 工作树边界修正 **已 merge 到 main**（PR #43 squash `3940c0f`）
 上一版：2026-07-02 — v4.0 agent-native runtime **已落地 main**（PR #38/#39/#40 合并）+ v4.0d 收尾（本仓 settings 激活 + 实验 plugin 通道）
 
 ---
@@ -21,7 +21,7 @@ ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforceme
   + FP 矩阵）+ guard 自保护（覆写 guard 文件拦截）。
 - 🔄 **v4.0d 收尾**：本仓 live settings.json 激活 v4.0a/c（自改保护上轮拦下，本轮获授权应用）+
   `.claude-plugin/` 实验 plugin 分发通道（validate 通过，与 cto-init 并行）。
-- 🔄 **v4.0e（PR #43，待审）**：branch-guard 工作树边界修正 —— 铁律 #8 原实现在保护分支上无条件拦
+- ✅ **v4.0e（PR #43 已 merge，squash `3940c0f`）**：branch-guard 工作树边界修正 —— 铁律 #8 原实现在保护分支上无条件拦
   **所有** Edit/Write，不判断文件是否在仓库工作树内 → 写仓库外文件（如 `~/.claude/.../memory/*.md`）被
   误拦（2026-07-02 实测）。engine `guards.mjs` + legacy `branch-guard.sh` 同步加**工作树边界**判断
   （工作树根 = `git rev-parse --show-cdup` 相对上爬 + canon 归一，parity），仓库外放行 + audit；eval 062 双路径矩阵
