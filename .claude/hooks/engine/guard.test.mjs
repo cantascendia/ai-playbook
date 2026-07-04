@@ -129,6 +129,12 @@ test('branch: main 上写仓库内文件（绝对路径）→ exit 2（仍拦，
   assert.equal(run('branch-guard', inside).status, 2);
 });
 
+test('branch: cwd 带尾斜杠时仓库内文件仍拦（防御性 — 去尾斜杠归一，防 false-negative 漏拦）', () => {
+  const dir = mainRepo();
+  const inside = { tool_name: 'Write', tool_input: { file_path: `${dir.replaceAll('\\', '/')}/docs/x.md`, content: 'x' }, cwd: `${dir.replaceAll('\\', '/')}/` };
+  assert.equal(run('branch-guard', inside).status, 2);
+});
+
 // ═══ test-lock-guard（advisory，永不 block）═══
 
 test('test-lock: 测试文件 → exit 0 + additionalContext JSON（铁律 #14 advisory）', () => {

@@ -290,11 +290,12 @@ function branchGuardBash(ctx) {
 // 前缀判断与 legacy branch-guard.sh 的 case-glob 字节等价（file_path 与 cwd 同 JSON 风格，剥离自洽）。
 function fileInsideWorktree(ctx) {
   const normFile = String(ctx.filePath).replaceAll('\\', '/');
-  const normCwd = String(ctx.cwd || '.').replaceAll('\\', '/');
-  // 相对路径 → 相对 cwd（仓库内）→ 视为仓库内
-  if (!/^\/|^[A-Za-z]:\//.test(normFile)) return true;
-  // 绝对路径 → 必须落在 cwd 前缀内才算仓库内
-  return normFile === normCwd || normFile.startsWith(normCwd + '/');
+  // 去尾斜杠：防 cwd 末尾 '/' 时 startsWith(normCwd + '/') 因 '//' 把仓库内文件误判为外部（false-negative 漏拦）
+  const normCwd = String(ctx.cwd || '.').replaceAll('\\', '/').replace(/\/$/, '');
+  // 假设 file_path 与 cwd 同路径风格（同一 JSON 载荷自洽，与 normalizePaths 同约定）；
+  // 不跨 MSYS(/c/..)↔原生(C:/..) 归一 —— 跨风格需两种风格同现于一次调用，Claude Code 不产生，legacy 亦不归一（parity 一致）
+  if (!/^\/|^[A-Za-z]:\//.test(normFile)) return true; // 相对路径 → 相对 cwd（仓库内）
+  return normFile === normCwd || normFile.startsWith(normCwd + '/'); // 绝对路径 → 落在 cwd 前缀内才算仓库内
 }
 
 export function branchGuard(ctx) {

@@ -30,9 +30,9 @@ case "$BRANCH" in
   main|master|production|prod|release)
     # v4.0e（修 2026-07-02 误拦）：仅拦当前工作树内文件 —
     # 保护分支上写仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
-    # 与 engine fileInsideWorktree() 前缀判断字节等价（同 JSON 风格，剥离自洽）。
+    # 与 engine fileInsideWorktree() 前缀判断字节等价（同 JSON 风格，剥离自洽；不跨 MSYS↔原生归一）。
     _NF="${HOOK_FILE_PATH//\\//}"
-    _NC="${HOOK_CWD:-.}"; _NC="${_NC//\\//}"
+    _NC="${HOOK_CWD:-.}"; _NC="${_NC//\\//}"; _NC="${_NC%/}"  # 去尾斜杠：防 '//' 把仓库内文件误判为外部
     _INSIDE=1
     case "$_NF" in
       /*|[A-Za-z]:/*)  # 绝对路径 → 必须落在 cwd 前缀内才算仓库内

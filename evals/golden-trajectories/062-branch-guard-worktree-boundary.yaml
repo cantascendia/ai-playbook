@@ -39,11 +39,17 @@ verification_command: |
     chk 2 "$E" "$T/docs/x.md"                             "仓库内-绝对"
     chk 0 "$E" '/somewhere/else/.claude/memory/note.md'  "仓库外-绝对(修复目标)"
   done
+  # 防御性（Minor-1 加固）：cwd 带尾斜杠时仓库内文件仍拦（去尾斜杠归一，两路径 parity）
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/"}' "$T/docs/x.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(尾斜杠cwd仓库内应拦 exit2≠$rc) [$E]"; }
+  done
   # 紧急 opt-out：仓库内文件仍放行
   chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
   # 非保护分支：仓库内文件放行（回归）
   git -C "$T" checkout -b feat/z -q
   chk 0 "" 'a.ts'                                        "feature分支-放行"
   rm -rf "$T"
-  echo "pass=$pass fail=$fail (expect 8/0)"
+  echo "pass=$pass fail=$fail (expect 10/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
