@@ -76,18 +76,21 @@ verification_command: |
       | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
     [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(多尾斜杠cwd子目录同仓应拦 exit2≠$rc) [$E]"; }
   done
-  # codex round-3 覆盖：symlink/junction 别名工作树内文件仍拦（两路径；无法建 symlink 则跳过，+0）
-  LNK="${T}-lnk"
-  if MSYS=winsymlinks:nativestrict ln -s "$T" "$LNK" 2>/dev/null; then
+  # codex round-3 覆盖：symlink/junction 别名工作树内文件仍拦（两路径，含 legacy）。
+  # 优先 ln -s（Linux CI）；退回 Windows junction（mklink /J，免管理员）；均不可则跳过（+0，不 fail）。
+  LNK="${T}-lnk"; _linked=0
+  if MSYS=winsymlinks:nativestrict ln -s "$T" "$LNK" 2>/dev/null; then _linked=1
+  elif command -v cmd >/dev/null 2>&1 && cmd //c mklink //J "$(cygpath -w "$LNK" 2>/dev/null || echo "$LNK")" "$(cygpath -w "$T" 2>/dev/null || echo "$T")" >/dev/null 2>&1; then _linked=1; fi
+  if [ "$_linked" = "1" ]; then
     for E in "" "CTO_GUARD_ENGINE=legacy"; do
       out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/README.md","content":"x"},"cwd":"%s/packages/app"}' "$LNK" "$LNK" \
         | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
-      [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(symlink别名同仓应拦 exit2≠$rc) [$E]"; }
+      [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(symlink/junction别名同仓应拦 exit2≠$rc) [$E]"; }
     done
-    rm -f "$LNK" 2>/dev/null || true
-    echo "[info] symlink 断言已跑（+2）"
+    rm -rf "$LNK" 2>/dev/null || rmdir "$LNK" 2>/dev/null || true
+    echo "[info] symlink/junction 断言已跑（+2，含 legacy）"
   else
-    echo "[info] 无法建 symlink（权限/平台）— 跳过 symlink 断言（+0）"
+    echo "[info] 无法建 symlink/junction（权限/平台）— 跳过（+0，不影响判定）"
   fi
   # 紧急 opt-out：仓库内文件仍放行
   chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"

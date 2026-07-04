@@ -81,3 +81,36 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=pr-comment-check | pr=#34 | marker=<!-- codex-bridge:ba74d2a -->
 2026-07-02T21:59:39+09:00 | sha=ba74d2a | step=existing-check | found=1
 2026-07-02T22:41:41+09:00 | sha=3d13ac5 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-03T22:30:54+09:00 | sha=3321496 | mode=review-triggered | reason=security_relevant_change
+2026-07-03T22:32:11+09:00 | sha=3321496 | mode=review-triggered | reason=security_relevant_change
+2026-07-03T22:33:59+09:00 | sha=3321496 | mode=review-triggered | reason=security_relevant_change
+2026-07-03T22:33:59+09:00 | sha=3321496 | mode=codex-failed+claude-failed | reviewer=none
+2026-07-03T22:32:11+09:00 | sha=3321496 | mode=claude-only | reviewer=claude-fallback-opus | bytes=5981
+2026-07-03T22:32:11+09:00 | sha=3321496 | step=pr-comment-check | pr=#43 | marker=<!-- codex-bridge:3321496 -->
+2026-07-03T22:32:11+09:00 | sha=3321496 | step=existing-check | found=0
+2026-07-03T22:32:11+09:00 | sha=3321496 | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/43#issuecomment-4876854726 
+2026-07-03T22:32:11+09:00 | sha=3321496 | mode=pr-comment-posted | pr=#43
+2026-07-03T22:30:54+09:00 | sha=3321496 | mode=claude-only | reviewer=claude-fallback-opus | bytes=5283
+2026-07-03T22:30:54+09:00 | sha=3321496 | step=pr-comment-check | pr=#43 | marker=<!-- codex-bridge:3321496 -->
+2026-07-03T22:30:54+09:00 | sha=3321496 | step=existing-check | found=1
+2026-07-04T11:53:35+09:00 | sha=b9c2380 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-04T11:59:20+09:00 | sha=47bb8e4 | mode=review-triggered | reason=security_relevant_change
+2026-07-04T11:59:20+09:00 | sha=47bb8e4 | mode=codex-failed+claude-failed | reviewer=none
+2026-07-04T12:21:16+09:00 | sha=47bb8e4 | mode=review-triggered | reason=security_relevant_change
+2026-07-04T12:21:16+09:00 | sha=47bb8e4 | mode=codex-failed+claude-failed | reviewer=none
+2026-07-04T12:35:40+09:00 | sha=da6b48f | mode=review-triggered | reason=security_relevant_change
+2026-07-04T12:35:41+09:00 | sha=da6b48f | mode=codex-failed+claude-failed | reviewer=none
+2026-07-04T12:51:16+09:00 | sha=a41a88e | mode=review-triggered | reason=security_relevant_change
+2026-07-04T12:53:21+09:00 | sha=a41a88e | mode=review-triggered | reason=security_relevant_change
+2026-07-04T12:55:15+09:00 | sha=a41a88e | mode=review-triggered | reason=security_relevant_change
+2026-07-04T12:55:16+09:00 | sha=a41a88e | mode=codex-failed+claude-failed | reviewer=none
+2026-07-04T12:53:21+09:00 | sha=a41a88e | mode=claude-only | reviewer=claude-fallback-opus | bytes=5943
+2026-07-04T12:53:21+09:00 | sha=a41a88e | step=pr-comment-check | pr=#43 | marker=<!-- codex-bridge:a41a88e -->
+2026-07-04T12:53:21+09:00 | sha=a41a88e | step=existing-check | found=0
+2026-07-04T12:53:21+09:00 | sha=a41a88e | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/43#issuecomment-4880556717 
+2026-07-04T12:53:21+09:00 | sha=a41a88e | mode=pr-comment-posted | pr=#43
+2026-07-04T12:51:16+09:00 | sha=a41a88e | mode=claude-only | reviewer=claude-fallback-opus | bytes=6767
+2026-07-04T12:51:16+09:00 | sha=a41a88e | step=pr-comment-check | pr=#43 | marker=<!-- codex-bridge:a41a88e -->
+2026-07-04T12:51:16+09:00 | sha=a41a88e | step=existing-check | found=1
+2026-07-04T13:07:05+09:00 | sha=e014895 | mode=review-triggered | reason=security_relevant_change
+2026-07-04T13:07:05+09:00 | sha=e014895 | mode=codex-failed+claude-failed | reviewer=none

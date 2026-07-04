@@ -26,9 +26,10 @@ ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforceme
   误拦（2026-07-02 实测）。engine `guards.mjs` + legacy `branch-guard.sh` 同步加**工作树边界**判断
   （工作树根 = `git rev-parse --show-cdup` 相对上爬 + canon 归一，parity），仓库外放行 + audit；eval 062 双路径矩阵
   12/14 断言 + 6 单测（36→42）；COUNTS evals 39→40。**双审迭代（§48 价值实证）**：独立 Claude 审判"无 Major"，
-  但 §48 codex 审连续两轮 verdict=**BLOCK**，逐层抓到单模型漏掉的 3 个安全 false-negative（cwd 子目录漏拦 /
-  Windows 大小写漏拦 / symlink 别名漏拦）→ 前两个 canon 归一修、第三个改 cdup 上爬（停留 cwd 空间，免 realpath）。
-  修复后 §48 codex 终审裁决记入 REVIEW-QUEUE.md。
+  但 §48 codex 审 3 轮 verdict=**BLOCK**，逐层抓到单模型漏掉的 4 个安全 false-negative（cwd 子目录 / Windows
+  大小写 / symlink 别名 / legacy 多尾斜杠 parity）→ canon 归一 + cdup 上爬 + bash 剥全部尾斜杠修复。第 4 轮 codex
+  撞 usage limit（安全宪法 #5 优雅降级）→ **独立 Claude parity 终审补位**：逐案端到端跑双实现，判 **PARITY: OK
+  「ship it」**（无残留 false-negative / 无 parity 分歧）。3 轮审计存 REVIEW-QUEUE.md。
 
 > 待人 opt-out（guard 正确拒绝 agent 自授权）：CI 加固（SPEC-001，.github/workflows forbidden）+
 > 宪法平台条款修正案（`AMENDMENT-PROPOSAL-2026-07-02-platform-scope.md`，三平台→Claude-native+opt-in）。
@@ -173,6 +174,10 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
+- **CONSTITUTION 安全宪法 #4「GitHub Branch Protection」是 vaporware**（🟠 治理缺口，2026-07-04 发现）：
+  `gh api repos/cantascendia/ai-playbook/branches/main/protection` 返回 **404 Branch not protected** —— main **实际未开** GitHub 分支保护。
+  宪法声称"main 必须 PR + codex review + 人 merge"，但技术上零强制，纯荣誉制（同 v3.13 修过的"check-counts 声称是 CI gate 但脚本不存在"类）。
+  建议：要么真配 branch protection（gh api PUT + required checks = Run evals），要么修正宪法措辞为"约定非强制"。**改 `.github`/宪法均需人双签**（forbidden / 铁律 #12/#13）。
 - **bypass-guard FP：读 config 与写 config 同拦**（🟡 minor，2026-07-03 v4.0e 过程发现）：`BYPASS_PATTERNS`
   含裸 `core.hooksPath` 字面量 + `git\s+config.*hooksPath`，导致 `git config --get core.hooksPath`（只读检查）
   也被 deny。应给无赋值的 `--get` / 读取场景做 carve-out（改 hooks → 需配 eval，独立 PR）。
