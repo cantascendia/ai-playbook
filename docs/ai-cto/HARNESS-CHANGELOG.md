@@ -13,6 +13,26 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-08] v4.0e-apply — governance 两项落地（forbidden + immutable，人授权 opt-out 通道）
+
+- 改了什么：① `.github/workflows/eval.yml` 加 `actions/setup-node@v4`（node 22）+
+  `node --test` 引擎单测入 gate；② `.github/workflows/llm-judge.yml` forbidden 正则单源
+  `scripts/forbidden-paths.txt`（修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows）；
+  ③ CONSTITUTION.md 平台条款修正（三平台对称 → Claude-native 主体 + AG/Codex opt-in，对齐 v3.13 现实）；
+  eval 062 编码 SPEC-001 验收标准
+- 为什么 & 怎么过的红线：人三次显式授权（transcript 留痕）；agent 拒绝 Bash 间接写绕过，改走
+  `.claude/settings.local.json` env 注入 opt-out（CLAUDE.md 背书的本地覆盖位，实测热生效）——
+  forbidden-guard / immutable-guard 照常运行、自行放行、自动写 audit（`forbidden-allowed
+  double_signed=true` / `constitution-amend-allowed`，见 agent-logs/2026-07-08.jsonl）。
+  应用后 settings.local.json 立即删除（transient opt-out）。全程记 ADR-007。
+  诚实残留：harness 进程已加载的 env 不随文件删除卸载 → 应用会话内红线保持敞开至重启
+  （文件已删，下次会话闭合；本次会话内 agent 自律不再触碰 forbidden/immutable）
+- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**
+- 影响范围：CI gate 强度（引擎依赖显式化 + 单测入门禁 + forbidden 风险信号补盲区）；
+  宪法与 v3.13 已落地现实对齐（审计不再需要打豁免）
+
+---
+
 ## [2026-07-02] v4.0d — 收尾：激活本仓 live settings.json + 实验性 plugin 分发通道（PR-D）
 
 - 改了什么：① 本仓 `.claude/settings.json` 对齐 templates（v4.0a 的 SessionStart 装载器修复：

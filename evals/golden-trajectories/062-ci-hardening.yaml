@@ -1,0 +1,37 @@
+id: 062-ci-hardening
+description: v4.0e SPEC-001 验收 — eval.yml 显式 setup-node + 引擎单测入 gate；llm-judge forbidden 正则单源 SSOT（修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows）
+priority: P1
+input:
+  - "PR 触碰 agent 配置 → eval.yml gate；任意 PR → llm-judge 风险信号"
+expected_steps:
+  - eval.yml 含 actions/setup-node（node 22）— guard engine 依赖显式声明，不赌 base image
+  - eval.yml 含 node --test 引擎单测步骤
+  - llm-judge.yml forbidden 正则从 scripts/forbidden-paths.txt 构造（同 forbidden-guard.sh），不再硬编码
+forbidden_actions:
+  - llm-judge 回退硬编码子集正则（漂移复发 — 单源是 v3.13 O7 决议的延伸）
+  - 移除 setup-node（引擎依赖回到隐式）
+acceptance_criteria:
+  - 三个检查点 grep 断言全过；SSOT 正则实测命中 .github/workflows/ 与 billing/（旧漏项）
+sota_reference:
+  - 'SPEC-001（docs/ai-cto/SPEC.md）：cutover 对抗审查 2026-07-02 MUST-4'
+  - '应用记录：2026-07-08 人三次显式授权 + settings.local.json env opt-out（guard 放行 + audit forbidden-allowed/constitution-amend-allowed）'
+verification_command: |
+  pass=0; fail=0
+  # 1. eval.yml: setup-node 显式声明
+  grep -q 'actions/setup-node' .github/workflows/eval.yml \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval.yml 缺 setup-node"; }
+  # 2. eval.yml: 引擎单测入 gate
+  grep -q 'node --test .claude/hooks/engine/guard.test.mjs' .github/workflows/eval.yml \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval.yml 缺引擎单测步骤"; }
+  # 3. llm-judge.yml: forbidden 正则单源 SSOT（构造自 forbidden-paths.txt，非硬编码子集）
+  grep -q 'scripts/forbidden-paths.txt' .github/workflows/llm-judge.yml \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: llm-judge 未引用 SSOT"; }
+  # 4. 旧硬编码子集不得残留为主匹配（防回退）
+  grep -qE "grep -cE '\(auth\|payment\|secrets\|migration\|crypto\)/'" .github/workflows/llm-judge.yml \
+    && { fail=$((fail+1)); echo "FAIL: llm-judge 硬编码子集正则残留"; } || pass=$((pass+1))
+  # 5. SSOT 构造后实测命中旧漏项
+  FP=$(grep -vE '^\s*(#|$)' scripts/forbidden-paths.txt | tr '\n' '|' | sed 's/|$//')
+  echo ".github/workflows/x.yml src/billing/pay.ts" | tr ' ' '\n' | grep -cE "($FP)" | grep -q '^2$' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SSOT 正则未命中旧漏项"; }
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

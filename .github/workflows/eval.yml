@@ -24,6 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # v4.0e: 显式声明 Node（v4.0b guard engine = engine/*.mjs，run-evals.sh 经 shim exec node）。
+      # ubuntu-latest 预装 node，但显式 setup 避免 base image 变更时静默破门（cutover 审查 MUST）。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Count eval cases
         id: count
         run: |
@@ -43,6 +49,15 @@ jobs:
       # 旧 CI 只 count yaml + assert 字段存在 = §32.5 反模式 #6 eval-gaming。
       # 现在真跑每个 verification_command（hook 红线 / guard 行为），FAIL → exit 1 阻 merge。
       # AlphaEvolve evaluator-grounded：eval 必须真执行才是 fitness 函数。
+      # v4.0e: guard engine 单测（node:test）纳入 gate — 引擎红线逻辑回归防护。
+      - name: Run guard engine unit tests
+        run: |
+          if [ -f .claude/hooks/engine/guard.test.mjs ]; then
+            node --test .claude/hooks/engine/guard.test.mjs
+          else
+            echo "no engine unit suite — skipped"
+          fi
+
       - name: Run executable evals (real execution)
         run: |
           chmod +x scripts/run-evals.sh
@@ -92,4 +107,4 @@ jobs:
 
       - name: Summary
         run: |
-          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories: counts-SSOT + real-exec + structure)"
+          echo "✅ Eval gate passed (${{ steps.count.outputs.count }} trajectories: counts-SSOT + engine-unit + real-exec + structure)"

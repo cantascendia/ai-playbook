@@ -1,7 +1,8 @@
-# 宪法修正案草案 — 平台范围条款对齐现实（2026-07-02）
+# 宪法修正案 — 平台范围条款对齐现实（2026-07-02，☑ 已应用 2026-07-08）
 
-> 状态：**草案，待人决策**。CONSTITUTION.md 由 immutable-guard 守护，AI 不单方面修改。
-> 通过路径：人审阅本案 → `export CTO_CONSTITUTION_AMEND=1` 单次解锁 → 双签 + amendment 记录。
+> 状态：**☑ 已应用**。人于 2026-07-02/07-08 三次显式授权（「全部通过」「动用所有权限」「应用 v4.0e 全自动」），
+> opt-out 经 `.claude/settings.local.json` env（CLAUDE.md 背书的本地覆盖位）激活 —— immutable-guard 放行
+> 并写 audit `constitution-amend-allowed`（.claude/agent-logs/2026-07-08.jsonl）。应用后 opt-out 立即移除。
 
 ## 问题
 
