@@ -31,10 +31,11 @@ ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforceme
   撞 usage limit（安全宪法 #5 优雅降级）→ **独立 Claude parity 终审补位**：逐案端到端跑双实现，判 **PARITY: OK
   「ship it」**（无残留 false-negative / 无 parity 分歧）。3 轮审计存 REVIEW-QUEUE.md。
 
-> 待人 opt-out（guard 正确拒绝 agent 自授权）：CI 加固（SPEC-001，.github/workflows forbidden）+
-> 宪法平台条款修正案（`AMENDMENT-PROPOSAL-2026-07-02-platform-scope.md`，三平台→Claude-native+opt-in）。
-> **v4.0e：两项已备成一键可应用**（`docs/ai-cto/staged/{eval,llm-judge}.yml` + 修正案精确 old→new），
-> 应用手册 `docs/ai-cto/APPLY-v4.0e.md`（选项 A 人直接 cp / 选项 B 设 env 重启后 Claude 应用）。
+> ☑ **v4.0e 已应用（2026-07-08）**：CI 加固（eval.yml setup-node + 引擎单测入 gate；llm-judge
+> forbidden 正则单源 SSOT）+ 宪法平台修正案（三平台对称 → Claude-native + opt-in）。人三次显式授权，
+> opt-out 经 settings.local.json env 激活（guard 放行 + audit），应用后即删（ADR-007）。
+> **v4.0 全序列（a-e）就此完成。** 下阶段候选：飞轮 5→2 agent 合并、handbook reference 化（v3.14 阶段 2）、
+> branch-guard 仓库内文件范围修正（chip 已建）。
 
 此前 **v3.15** Claude 模型阵容对齐当代（默认 **Opus 4.8** `claude-opus-4-8` + **Fable 5** `claude-fable-5`
 opt-in）。再前 **v3.14（bold-audit）** 对抗验证裁决**混合重构**（Bash/mcp guard `exit 2`→`permissionDecision:deny`

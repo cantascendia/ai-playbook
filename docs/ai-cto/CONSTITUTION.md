@@ -8,13 +8,13 @@
 ai-playbook 是 **AI-native CTO 闭环指挥系统** — 让 Claude Code + Antigravity + Codex 三平台协作的 agent 框架。**不是**：
 
 - ❌ 通用 dev tool（专注 AI agent harness 设计）
-- ❌ 单平台工具（必须跨 Claude / AG / Codex 三平台）
+- ❌ 锁死单一平台的工具（Claude-native 为主体，桥接层开放 — AG / Codex opt-in，AAIF AGENTS.md 跟进）
 - ❌ 仅文档（必须有可执行 hooks / commands / skills / sub-agents）
 
 ## 架构宪法
 
 1. **Constitution-Anchored**：所有自我进化在红线之内（§37 + §50）
-2. **三平台对称**：Claude Code 主体 + Antigravity 委派 + Codex 委派（§5）
+2. **Claude-native 主体 + 跨平台桥接 opt-in**：Claude Code 唯一默认平台；Antigravity / Codex 以 opt-in 桥接支持（§5 / §49）；跨模型 review（§48）不受影响（2026-07 amendment，见 AMENDMENT-PROPOSAL-2026-07-02-platform-scope.md）
 3. **跨模型 review 必须**：任何代码改动 PR 必走 §48（codex 跨模型审）
 4. **Hooks-driven**：14 铁律 + 23 命令认知负担过重，必须由 hooks 自动化（§41）
 5. **Eval 即 fitness**：所有 agent 配置改动须配 golden trajectory（§35 + 铁律 #12）

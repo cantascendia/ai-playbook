@@ -20,8 +20,15 @@ jobs:
         id: risk
         run: |
           # Forbidden 路径触及
+          # v4.0e: 正则单源自 SSOT scripts/forbidden-paths.txt（等价 common.sh forbidden_fallback_pattern），
+          # 修复旧硬编码漂移（漏 billing/keys/infra/terraform/.github/workflows）。构造同 forbidden-guard.sh。
+          if [ -f scripts/forbidden-paths.txt ]; then
+            FP=$(grep -vE '^\s*(#|$)' scripts/forbidden-paths.txt | tr '\n' '|' | sed 's/|$//')
+          else
+            FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+          fi
           FORBIDDEN=$(git diff --name-only origin/main HEAD | \
-            grep -cE '(auth|payment|secrets|migration|crypto)/' || true)
+            grep -cE "($FP)" || true)
           [ -z "$FORBIDDEN" ] && FORBIDDEN=0
           echo "forbidden=$FORBIDDEN" >> $GITHUB_OUTPUT
 
