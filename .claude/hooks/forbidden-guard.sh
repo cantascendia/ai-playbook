@@ -53,19 +53,13 @@ if echo "$REL_PATH" | grep -qE -- "($PATTERN)"; then
 
   block_with_reason "🛑 §32.1 BLOCKED: \`$REL_PATH\` 命中 forbidden 路径
 
-此路径属于高风险范畴（auth/payment/secrets/migration/crypto/infra），
-不能直接 vibe-code。必须走 spec-driven 流程（铁律 #13）：
+此路径禁止 vibe coding（铁律 #13），必须走 spec-driven：
+  1. /cto-spec specify — 先写 SPEC 并经人审
+  2. 双签：CTO + 第二模型独立审（/cto-review --cross）
+  3. PR 打 \`requires-double-review\` 标签
 
-  步骤：
-  1. 起草规范：/cto-spec specify
-  2. 第二模型 review：/cto-review
-  3. PR 加 \`requires-double-review\` 标签
-  4. commit message 显式引用 SPEC（如 'Per SPEC.md §3.2 ...'）
-
-  紧急临时解锁（已 double-sign 后）：
-    export CTO_DOUBLE_SIGNED=1   # 仅本会话有效
-
-参考：handbook §32.1 / §19 / 铁律 #13"
+详见 .claude/rules/forbidden-paths.md（handbook §32.1 / §19 / 铁律 #13）
+紧急 opt-out（已获双签后）：export CTO_DOUBLE_SIGNED=1   # 仅本会话有效"
 fi
 
 exit 0

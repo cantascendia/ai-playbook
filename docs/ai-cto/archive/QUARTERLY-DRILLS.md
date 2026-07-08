@@ -2,18 +2,44 @@
 
 > 每季度跑一次，验证 §43 Agent Reliability Engineering 的 fallback 链路真生效（不是设计文档自欺）。
 
+## 🆕 2026-07-08：3 场景 + 引擎兜底已脚本化
+
+此前 4 场景全 TBD，理由记「headless 无法真模拟」。复核后发现**其中 3 场景 + guard 引擎兜底其实可脚本化**
+（用 mock 命令 / PATH 屏蔽 / 临时 git 仓，全程不碰真状态）—— 只是一直没把可跑的 bash 变成可执行脚本。
+
+现已落地 `evals/drills/`，每季度一键跑：
+
+```bash
+bash evals/drills/run.sh
+```
+
+| 场景 | 脚本 | 状态 |
+|---|---|---|
+| 场景 1 codex 配额 → claude | `evals/drills/01-codex-quota-fallback.sh` | ✅ 已脚本化（每季度可跑） |
+| 场景 2 jq 卸载 → sed | `evals/drills/02-jq-missing-sed-fallback.sh` | ✅ 已脚本化 |
+| （引擎兜底）node 缺失 → legacy | `evals/drills/03-node-missing-legacy-fallback.sh` | ✅ 已脚本化 |
+| 场景 4 缺 cwd → "." 兜底 | `evals/drills/04-cwd-missing-fallback.sh` | ✅ 已脚本化 |
+| 场景 3 settings.local 关 hook | `evals/drills/05-settings-optout.manual.sh` | ⊘ **手动**（needs real env，见场景 3 末注） |
+
+回归门：`bash scripts/run-evals.sh 075`。
+
 ## 演练日程
 
 | 季度 | 日期 | 场景 | 状态 |
 |---|---|---|---|
-| 2026 Q2 | TBD | 4 场景全跑 | 待安排 |
+| 2026 Q2 | TBD | 4 场景全跑 | 待安排（脚本化后可一键补跑 1-4，场景 3 手动） |
 | 2026 Q3 | TBD | TBD | — |
+| — | 2026-07-08 | 脚本化 1/2/4 + 引擎兜底 → `evals/drills/` | ✅ 已完成 |
 
 ## 4 个演练场景
 
-### 场景 1：codex 配额耗尽 → claude fallback
+### 场景 1：codex 配额耗尽 → claude fallback  ✅ 已脚本化 → `evals/drills/01-codex-quota-fallback.sh`
 
 **目的**：验证 v3.6 fallback chain（codex 失败 → claude headless）真工作。
+
+> 脚本化实现：临时 `git init` 仓当 `REPO_ROOT`，mock `codex`（吐 rate_limit）/ `claude`（吐 mock 报告）/ `gh`，
+> `FORCE=1` 跑真 `codex-bridge/run.sh`，轮询断言 ①`.codex-quota-cooldown` 创建 ②`mode=fallback-to-claude`
+> ③冷却内重跑 codex 不再被调用。全程不碰真仓/真云。
 
 **执行**：
 ```bash
@@ -36,9 +62,12 @@ FORCE=1 bash .agents/skills/codex-bridge/run.sh HEAD
 
 **Pass criteria**：上面 4 条全满足
 
-### 场景 2：jq 卸载 → sed fallback
+### 场景 2：jq 卸载 → sed fallback  ✅ 已脚本化 → `evals/drills/02-jq-missing-sed-fallback.sh`
 
 **目的**：验证 v3.8 common.sh 在 Windows 无 jq 环境降级。
+
+> 脚本化实现：本机 / Windows git-bash 默认**无 jq**，sed fallback 即生产路径 —— 演练直接跑真实降级路径，
+> 断言 guard 仍拦红线（exit 2）不静默 fail-open。装了 jq 且无法安全屏蔽的 CI → `SKIP` + 理由（不伪造）。
 
 **执行**：
 ```bash
@@ -58,7 +87,7 @@ echo "exit=$?"
 
 **Pass criteria**：exit=2 + sed fallback 工作
 
-### 场景 3：settings.local.json 关 hook → 仍能 audit
+### 场景 3：settings.local.json 关 hook → 仍能 audit  ⊘ **手动（needs real env）** → `evals/drills/05-settings-optout.manual.sh`
 
 **目的**：验证用户可关 hook（opt-out 设计）但 enforcement 仍有审计追溯。
 
@@ -81,9 +110,25 @@ EOF
 
 **Pass criteria**：差异警告输出 + audit log
 
-### 场景 4：immutable-guard 缺 cwd → fallback 到 "."
+> **needs real env（为何手动，不是偷懒）**：本场景要观察的是「用户清空 `PreToolUse` 后，**新起一个真
+> Claude 会话**时 `SessionStart` 能否比对 effective vs 配置 hooks 并输出差异警告」。这需要：
+> ① 真实 Claude 会话（`SessionStart` 只在真会话启动触发，headless 脚本起不了）；② 用户主动写
+> `settings.local.json`（演练不会去写真仓）。这是明确的**前置条件**，不是悬空 TODO。
+>
+> **诚实发现（2026-07-08）**：当前 `.claude/settings.json` 的 `SessionStart` 只做「回显项目记忆 + 提示
+> enforcement 已部署」，**尚未实现**「比对 effective vs 配置 hooks 数并警告」这一步 —— 场景 3 期望的审计
+> 行为目前是待补实现缺口。`evals/drills/05-settings-optout.manual.sh` 静态核对前置条件（settings.local.json
+> 已 gitignored ✓ / SessionStart-diff 未实现）后 `SKIP-manual`，绝不伪装通过。
+>
+> **运营手动跑法**：改 `settings.local.json` 清空 `PreToolUse` → 新开会话 → 确认差异警告 + `git log` 可见。
+
+### 场景 4：immutable-guard 缺 cwd → fallback 到 "."  ✅ 已脚本化 → `evals/drills/04-cwd-missing-fallback.sh`
 
 **目的**：复演 codex 第 6 轮 dogfood P1（cwd 缺失 bypass）。
+
+> 脚本化实现：沙盒仓内跑，input 不带 `cwd` → guard `CWD="."` 兜底定位 `scripts/forbidden-paths.txt`，
+> 断言仍拦红线（exit 2）；含 Windows 反斜杠绝对路径变体（learned rule 2026-05-12 同源 bug）。
+> 另：guard 引擎缺 node → legacy bash 兜底由 `evals/drills/03-node-missing-legacy-fallback.sh` 覆盖。
 
 **执行**：
 ```bash
@@ -105,6 +150,13 @@ echo "exit=$?"
 ### 2026-05-11（首次 dry-run，未实跑）
 
 仅文档化 4 场景。Q2 实跑后填充结果。
+
+### 2026-07-08（脚本化 — v4.1 backlog-zero）
+
+把场景 1/2/4 + guard 引擎 node→legacy 兜底变成可执行演练 `evals/drills/`（runner + 5 脚本 + README）。
+每季度一键 `bash evals/drills/run.sh`。本机实跑结果：`01/02/03/04 PASS · 05 SKIP-manual · DRILLS: PASS`。
+场景 3 判定为 genuinely-manual（needs real Claude session；且 SessionStart 差异警告逻辑尚未实现）。
+回归门 eval `075-quarterly-drill-scripting`。所有演练只在临时目录/临时 git 仓/mock 里跑，不碰真状态。
 
 ### Q2 2026（计划）
 

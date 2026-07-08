@@ -1,0 +1,76 @@
+id: 076-hook-message-single-source
+description: v4.1 backlog-zero — advisory/blocker hook 的 legacy fallback 文案不再整段复述 rules/*.md（双源漂移），收敛为短 actionable 消息 + 单源指针，且所有 eval-critical 子串（§32.1/BLOCKED/§20.3/Test-Lock 等）保持不变、exit 码不变。
+priority: P1
+input:
+  - "forbidden-guard.sh legacy 路径拦 auth/ 写入（CTO_GUARD_ENGINE=legacy）"
+  - "test-lock-guard.sh legacy 路径提醒改测试文件"
+expected_steps:
+  - forbidden-guard legacy block 文案收敛为 3 步 spec-driven + 指针 .claude/rules/forbidden-paths.md
+  - test-lock legacy remind 文案收敛为一行合法场景 + 指针 .claude/rules/test-lock.md（不再整段复述 md 的 4+3 表）
+  - 所有 load-bearing 子串保留（§32.1 / BLOCKED / requires-double-review / /cto-spec / §20.3 / Test-Lock / 作弊式 TDD / opt-out env）
+  - exit 码与 engine 路径一致（forbidden=2，test-lock=0）— 行为零变化
+forbidden_actions:
+  - 删除 eval-asserted 子串（§32.1 / BLOCKED / §20.3 / Test-Lock / requires-double-review / /cto-spec）
+  - 改动 guard 逻辑 / 正则 / exit 码（本条只动 message 文案）
+  - legacy 文案仍整段复述 rules/*.md 政策表（双源漂移未消）
+  - 触碰 engine/*.mjs（runtime 主路径，非本 agent 文件集）
+acceptance_criteria:
+  - forbidden-guard legacy 输出含 §32.1 + BLOCKED + requires-double-review + /cto-spec + 指向 .claude/rules/forbidden-paths.md，exit=2
+  - test-lock-guard legacy 输出含 §20.3 + Test-Lock + 铁律 #14 + CTO_TEST_LOCK_ACK + 指向 .claude/rules/test-lock.md，exit=0
+  - 两 hook 的 legacy 文案不再含被 rules/*.md 复述的枚举表行（如 "commit message 含 \`spec-change:\`" 逐条 ✅/❌ 表）
+  - engine 主路径 exit 码不变（forbidden=2 / test-lock=0）— 平价保持
+sota_reference:
+  - 'harness-auditor ⚠️ 双源漂移：hook stderr 文案与 .claude/rules/*.md 内容重复'
+  - '单源模式：engine/guards.mjs 已用短消息 + rules 指针（test-lock line 365 / eval-gate line 386），legacy fallback 对齐'
+verification_command: |
+  pass=0; fail=0
+  J='"cwd":"'$(pwd)'"'
+
+  # 1. forbidden-guard legacy：保留全部 eval-critical 子串 + 新增 rules 指针 + exit=2
+  outF=$(echo '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/login.ts"},'"$J"'}' \
+    | CTO_GUARD_ENGINE=legacy bash .claude/hooks/forbidden-guard.sh 2>&1); rcF=$?
+  if echo "$outF" | grep -q '§32.1' && echo "$outF" | grep -q 'BLOCKED' \
+     && echo "$outF" | grep -q 'requires-double-review' && echo "$outF" | grep -q '/cto-spec' \
+     && echo "$outF" | grep -q '.claude/rules/forbidden-paths.md' && [ "$rcF" = "2" ]; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: forbidden legacy 缺子串/指针或 exit≠2 (rc=$rcF)"
+  fi
+
+  # 2. test-lock-guard legacy：保留全部 eval-critical 子串 + 新增 rules 指针 + exit=0（advisory）
+  outT=$(echo '{"tool_name":"Edit","tool_input":{"file_path":"tests/foo.test.ts"},'"$J"'}' \
+    | CTO_GUARD_ENGINE=legacy bash .claude/hooks/test-lock-guard.sh 2>&1); rcT=$?
+  if echo "$outT" | grep -q '§20.3' && echo "$outT" | grep -q 'Test-Lock' \
+     && echo "$outT" | grep -q '铁律 #14' && echo "$outT" | grep -q 'CTO_TEST_LOCK_ACK' \
+     && echo "$outT" | grep -q '.claude/rules/test-lock.md' && [ "$rcT" = "0" ]; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: test-lock legacy 缺子串/指针或 exit≠0 (rc=$rcT)"
+  fi
+
+  # 3. 单源信号：两 hook message 体不再整段复述 rules/*.md 的枚举表（旧长文案痕迹已清）
+  if grep -q 'commit message 含' .claude/hooks/test-lock-guard.sh \
+     || grep -q '删除\\"麻烦的\\"测试' .claude/hooks/test-lock-guard.sh; then
+    fail=$((fail+1)); echo "FAIL: test-lock 仍含复述 rules/test-lock.md 的枚举表"
+  else
+    pass=$((pass+1))
+  fi
+  if grep -qF '起草规范：/cto-spec specify' .claude/hooks/forbidden-guard.sh; then
+    fail=$((fail+1)); echo "FAIL: forbidden 仍含复述 rules/forbidden-paths.md 的 4 步长表"
+  else
+    pass=$((pass+1))
+  fi
+
+  # 4. engine 主路径平价：行为零变化（forbidden exit=2 / test-lock exit=0）
+  echo '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/login.ts"},'"$J"'}' \
+    | bash .claude/hooks/forbidden-guard.sh >/dev/null 2>&1; rcFe=$?
+  echo '{"tool_name":"Edit","tool_input":{"file_path":"tests/foo.test.ts"},'"$J"'}' \
+    | bash .claude/hooks/test-lock-guard.sh >/dev/null 2>&1; rcTe=$?
+  if [ "$rcFe" = "2" ] && [ "$rcTe" = "0" ]; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: engine 平价破裂 (forbidden=$rcFe test-lock=$rcTe)"
+  fi
+
+  echo "pass=$pass fail=$fail (expect 5/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
