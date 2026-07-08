@@ -179,6 +179,19 @@ export function gitBranch(cwd) {
   return (r.stdout || '').trim();
 }
 
+// ─── git 工作树根「相对上爬」查询（branch-guard 边界判断用）───
+// v4.0e（codex §48 修正×2）：返回 `git rev-parse --show-cdup`（从 cwd 到工作树根的相对 `../` 串，
+// 根目录时为空）。用它从 cwd 上爬得到工作树根 —— 全程停留在 cwd/file_path 的路径空间，
+// 不引入 `--show-toplevel` 的 resolved-real 路径。否则 symlink/junction 别名（cwd 用别名路径、
+// toplevel 返回真实路径）会前缀不匹配 → 保护分支上漏拦（codex §48 round-3 false-negative）。
+export function gitCdup(cwd) {
+  let dir = fsPath((cwd || '.').replaceAll('\\', '/'));
+  try { if (!fs.statSync(dir).isDirectory()) dir = '.'; } catch { dir = '.'; }
+  const r = spawnSync('git', ['rev-parse', '--show-cdup'], { cwd: dir, encoding: 'utf8' });
+  if (r.status !== 0 || r.error) return null; // 非 git / 失败 → null（调用方回退 cwd）
+  return (r.stdout || '').trim(); // 根目录 = ''，否则 '../' 重复
+}
+
 // ─── 字节截断（bash head -c 等价，按字节非字符）───
 export function headBytes(s, n) {
   return Buffer.from(String(s), 'utf8').subarray(0, n).toString('utf8').replace(/�+$/, '');

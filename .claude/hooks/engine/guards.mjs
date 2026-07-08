@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import {
   normalizePaths, isAiPlaybookSelf, forbiddenPattern, block, deny, remind,
-  auditLog, gitBranch, headBytes, escapeField, localDay, isoLocal, fsPath,
+  auditLog, gitBranch, gitCdup, headBytes, escapeField, localDay, isoLocal, fsPath,
   FORBIDDEN_FALLBACK_PATTERN, DESTRUCTIVE_SQL_CORE,
 } from './lib.mjs';
 
@@ -285,12 +285,44 @@ function branchGuardBash(ctx) {
   process.exit(0);
 }
 
+// v4.0e（修 2026-07-02 误拦 + codex §48 加固×2）：判定目标文件是否落在当前 git 工作树内。
+// 保护分支只保护本仓工作树 — 仓库外文件（如 ~/.claude/.../memory/*.md）与本仓 main 无关 → 放行。
+// 工作树根 = 从 cwd 按 `git rev-parse --show-cdup` 相对上爬（非 --show-toplevel 的 resolved-real 路径）：
+//   - Major-1（cwd 为子目录）：cdup 上爬到真根 → cwd 外的同仓文件仍拦；
+//   - round-3（symlink/junction 别名）：全程停留在 cwd/file 的路径空间，不引入 real 路径 → 别名前缀仍匹配。
+// canonPath 归一：MSYS(/c/)→原生盘符 + 去尾斜杠 + Windows 大小写不敏感（Major-2）。
+// engine 与 legacy branch-guard.sh 的 _canon / cdup 上爬同款，保 parity。
+function canonPath(p) {
+  let s = fsPath(String(p).replaceAll('\\', '/')).replace(/\/+$/, '');
+  if (process.platform === 'win32') s = s.toLowerCase(); // Windows FS 大小写不敏感
+  return s;
+}
+function fileInsideWorktree(ctx) {
+  const rawFile = String(ctx.filePath).replaceAll('\\', '/');
+  if (!/^\/|^[A-Za-z]:\//.test(rawFile)) return true; // 相对路径 → 相对 cwd（恒在工作树内）
+  // 从 cwd 上爬 N 层得工作树根（N = cdup 中 '..' 段数）；全程 cwd 空间，与 file_path 同空间
+  let root = String(ctx.cwd || '.').replaceAll('\\', '/').replace(/\/+$/, '');
+  const cdup = gitCdup(ctx.cwd);
+  if (cdup) {
+    const levels = cdup.split('/').filter((s) => s === '..').length;
+    for (let i = 0; i < levels; i++) root = root.replace(/\/[^/]+$/, '');
+  }
+  const base = canonPath(root);
+  const f = canonPath(rawFile);
+  return f === base || f.startsWith(base + '/');
+}
+
 export function branchGuard(ctx) {
   if (ctx.toolName === 'Bash') return branchGuardBash(ctx);
   if (!ctx.filePath) process.exit(0);
   const branch = gitBranch(ctx.cwd);
   if (!branch) process.exit(0); // 非 git repo / detached 空值 → 放行（与 bash 一致）
   if (PROTECTED_BRANCHES.has(branch)) {
+    // v4.0e：仓库外文件放行（保护分支只拦本仓工作树内的直接 Edit/Write）
+    if (!fileInsideWorktree(ctx)) {
+      auditLog(ctx, 'branch-guard', 'main-edit-outside-repo-allowed', `branch=${branch} file=${ctx.filePath}`);
+      process.exit(0);
+    }
     if (env().CTO_MAIN_EDIT_ALLOWED === '1') {
       auditLog(ctx, 'branch-guard', 'main-edit-allowed-emergency', `branch=${branch} file=${ctx.filePath}`);
       process.exit(0);

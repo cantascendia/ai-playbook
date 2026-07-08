@@ -1,4 +1,4 @@
-id: 062-ci-hardening
+id: 063-ci-hardening
 description: v4.0e SPEC-001 验收 — eval.yml 显式 setup-node + 引擎单测入 gate；llm-judge forbidden 正则单源 SSOT（修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows）
 priority: P1
 input:

@@ -3,8 +3,8 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-02 — v4.0 agent-native runtime **已落地 main**（PR #38/#39/#40 合并）+ v4.0d 收尾（本仓 settings 激活 + 实验 plugin 通道）
-上一版：2026-06-25 v3.15 — 会话恢复 + 下半部 v3.4 陈账刷新
+最后更新：2026-07-04 — v4.0e branch-guard 工作树边界修正 **已 merge 到 main**（PR #43 squash `3940c0f`）
+上一版：2026-07-02 — v4.0 agent-native runtime **已落地 main**（PR #38/#39/#40 合并）+ v4.0d 收尾（本仓 settings 激活 + 实验 plugin 通道）
 
 ---
 
@@ -19,8 +19,17 @@ ai-playbook **v4.0 (agent-native runtime) — 主体已落地 main**。enforceme
   bug 类，Windows 14× 提速），逐条 parity + legacy-fallback shim；32 单测 + eval 058 平价门。
 - ✅ **PR-C #40（新语义，已人双签）**：铁律 #8 扩展 Bash（git commit/push 到保护分支拦截，refspec 解析
   + FP 矩阵）+ guard 自保护（覆写 guard 文件拦截）。
-- 🔄 **v4.0d 收尾（本 PR）**：本仓 live settings.json 激活 v4.0a/c（自改保护上轮拦下，本轮获授权应用）+
+- 🔄 **v4.0d 收尾**：本仓 live settings.json 激活 v4.0a/c（自改保护上轮拦下，本轮获授权应用）+
   `.claude-plugin/` 实验 plugin 分发通道（validate 通过，与 cto-init 并行）。
+- ✅ **v4.0e（PR #43 已 merge，squash `3940c0f`）**：branch-guard 工作树边界修正 —— 铁律 #8 原实现在保护分支上无条件拦
+  **所有** Edit/Write，不判断文件是否在仓库工作树内 → 写仓库外文件（如 `~/.claude/.../memory/*.md`）被
+  误拦（2026-07-02 实测）。engine `guards.mjs` + legacy `branch-guard.sh` 同步加**工作树边界**判断
+  （工作树根 = `git rev-parse --show-cdup` 相对上爬 + canon 归一，parity），仓库外放行 + audit；eval 062 双路径矩阵
+  12/14 断言 + 6 单测（36→42）；COUNTS evals 39→40。**双审迭代（§48 价值实证）**：独立 Claude 审判"无 Major"，
+  但 §48 codex 审 3 轮 verdict=**BLOCK**，逐层抓到单模型漏掉的 4 个安全 false-negative（cwd 子目录 / Windows
+  大小写 / symlink 别名 / legacy 多尾斜杠 parity）→ canon 归一 + cdup 上爬 + bash 剥全部尾斜杠修复。第 4 轮 codex
+  撞 usage limit（安全宪法 #5 优雅降级）→ **独立 Claude parity 终审补位**：逐案端到端跑双实现，判 **PARITY: OK
+  「ship it」**（无残留 false-negative / 无 parity 分歧）。3 轮审计存 REVIEW-QUEUE.md。
 
 > ☑ **v4.0e 已应用（2026-07-08）**：CI 加固（eval.yml setup-node + 引擎单测入 gate；llm-judge
 > forbidden 正则单源 SSOT）+ 宪法平台修正案（三平台对称 → Claude-native + opt-in）。人三次显式授权，
@@ -168,6 +177,13 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
+- **CONSTITUTION 安全宪法 #4「GitHub Branch Protection」是 vaporware**（🟠 治理缺口，2026-07-04 发现）：
+  `gh api repos/cantascendia/ai-playbook/branches/main/protection` 返回 **404 Branch not protected** —— main **实际未开** GitHub 分支保护。
+  宪法声称"main 必须 PR + codex review + 人 merge"，但技术上零强制，纯荣誉制（同 v3.13 修过的"check-counts 声称是 CI gate 但脚本不存在"类）。
+  建议：要么真配 branch protection（gh api PUT + required checks = Run evals），要么修正宪法措辞为"约定非强制"。**改 `.github`/宪法均需人双签**（forbidden / 铁律 #12/#13）。
+- **bypass-guard FP：读 config 与写 config 同拦**（🟡 minor，2026-07-03 v4.0e 过程发现）：`BYPASS_PATTERNS`
+  含裸 `core.hooksPath` 字面量 + `git\s+config.*hooksPath`，导致 `git config --get core.hooksPath`（只读检查）
+  也被 deny。应给无赋值的 `--get` / 读取场景做 carve-out（改 hooks → 需配 eval，独立 PR）。
 - **eval.yml push-gap**：CI eval gate 只在 PR 触发，直接 push main 绕过（P0，forbidden-path，需人工双签）
 - **8 个 command 零 eval 覆盖**：存量命令未回填 golden-trajectory（P0）
 - **llm-judge.yml forbidden-regex 与 forbidden-paths.md 漂移**：路径清单不同步（P1，forbidden-path，需人工双签）

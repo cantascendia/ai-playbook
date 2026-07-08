@@ -19,7 +19,7 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
   `node --test` 引擎单测入 gate；② `.github/workflows/llm-judge.yml` forbidden 正则单源
   `scripts/forbidden-paths.txt`（修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows）；
   ③ CONSTITUTION.md 平台条款修正（三平台对称 → Claude-native 主体 + AG/Codex opt-in，对齐 v3.13 现实）；
-  eval 062 编码 SPEC-001 验收标准
+  eval 063 编码 SPEC-001 验收标准（原编 062，与并行 chip 会话的 062-branch-guard-worktree-boundary 撞号后改 063）
 - 为什么 & 怎么过的红线：人三次显式授权（transcript 留痕）；agent 拒绝 Bash 间接写绕过，改走
   `.claude/settings.local.json` env 注入 opt-out（CLAUDE.md 背书的本地覆盖位，实测热生效）——
   forbidden-guard / immutable-guard 照常运行、自行放行、自动写 audit（`forbidden-allowed
@@ -27,9 +27,40 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
   应用后 settings.local.json 立即删除（transient opt-out）。全程记 ADR-007。
   诚实残留：harness 进程已加载的 env 不随文件删除卸载 → 应用会话内红线保持敞开至重启
   （文件已删，下次会话闭合；本次会话内 agent 自律不再触碰 forbidden/immutable）
-- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**
+- Eval 跑分前/后：merge 后合计 **41 PASS / 0 FAIL**（本项 +1 = 063；并行 chip 会话 +1 = 062）
 - 影响范围：CI gate 强度（引擎依赖显式化 + 单测入门禁 + forbidden 风险信号补盲区）；
   宪法与 v3.13 已落地现实对齐（审计不再需要打豁免）
+
+---
+
+## [2026-07-03] v4.0e — branch-guard 工作树边界修正（铁律 #8 false-positive）
+
+- 改了什么：engine `engine/guards.mjs` 的 `branchGuard`（file-path 路径）+ legacy `branch-guard.sh`
+  回退实现 —— 命中保护分支后新增**工作树边界**判断：工作树根 = 从 cwd 按 `git rev-parse --show-cdup`
+  相对上爬（非 `--show-toplevel` 的 resolved-real 路径 —— 全程停留在 cwd/file 的路径空间，symlink/junction
+  别名不漏拦）；相对路径恒视为仓库内、绝对路径经 canon 归一（MSYS `/c/`→原生盘符 + 去尾斜杠 + Windows
+  大小写不敏感）后按前缀判断；仓库内 → block，仓库外文件放行 + audit `main-edit-outside-repo-allowed`。
+  engine `canonPath`+cdup 上爬 与 legacy `_canon`+cdup 上爬 同款（parity）。`gitCdup` 新增于 lib.mjs。
+  eval 062（双路径 parity 矩阵，12 断言 Linux / 14 Windows）+ 6 条 node:test 单测（仓库外放行 / 仓库内绝对仍拦 /
+  尾斜杠 cwd / cwd 子目录同仓文件 / Windows 大小写 / symlink 别名）；COUNTS evals 39→40
+- 为什么：2026-07-02 实测 —— 在 main 分支的仓库里写**仓库外**文件（如
+  `~/.claude/projects/.../memory/*.md`）被铁律 #8 `BLOCKED` 误拦。branch-guard 原实现命中保护分支后
+  无条件拦所有 Edit/Write，不判断文件是否在仓库工作树内。而 #8 的威胁模型是"保护本仓 main"，
+  仓库外文件与本仓分支无关，属 false positive（同 learned rule 类：guard 判断需带上下文边界）
+- 双审迭代（诚实记录，§48 跨模型审价值实证）：首版用 cwd 前缀（图省事、规避 Windows normalize footgun）。
+  独立 Claude 审判"无 Critical/Major，parity 一致"，仅提尾斜杠 Minor（已加固）。**但 §48 codex 审连续两轮
+  verdict=BLOCK**，逐层抓到单模型自审漏掉的**安全 false-negative**：① cwd 为子目录时 cwd 外同仓文件漏拦
+  （从子目录/monorepo package 跑 claude 可触发）；② Windows 大小写/盘符差异（`c:` vs `C:`）同仓文件漏拦；
+  ③ symlink/junction 工作树别名 —— cwd 用别名路径而 `--show-toplevel` 返回 real 路径致前缀不匹配漏拦
+  （macOS `/tmp`→`/private/tmp`、Windows junction）；④ legacy bash 多重尾斜杠 —— `${_ROOT%/}` 只剥一个尾斜杠、
+  engine `.replace(/\/+$/,'')` 剥全部 → cwd `…/app//` 时 legacy climb 少爬一层漏拦（engine/legacy 真分歧）。
+  ①② 用 canon 归一修；③ 改用 cdup 上爬（停留 cwd 空间，从构造上消除 real/别名不匹配，无需 realpath → 避开 3 条
+  learned rule 的跨平台路径脆弱性）；④ bash 改为剥全部尾斜杠（`while [ "$p" != "${p%/}" ]`）对齐 engine
+- Eval 跑分前/后：39 → **40 PASS / 0 FAIL**；单测 36 → 42；node:test 全绿（Windows 大小写 + symlink junction 测试真机实跑未跳过）+ run-evals 全绿；
+  eval 062 增多尾斜杠 + symlink 别名断言（gated），直接复现并守 codex round-3 的 4 个发现
+  （注：eval 045 曾在 Windows 本地因工作树陈旧 CRLF 伪失败 —— git blob 两侧 SHA 一致 + CI 绿，
+  renormalize 后本地亦 40/40；非仓库漂移，无需改文件）
+- 影响范围：保护分支上对**仓库外**文件的 Edit/Write（现放行）；仓库内 Edit/Write 拦截行为不变（含 cwd 子目录 / Windows 大小写场景现正确拦截）
 
 ---
 

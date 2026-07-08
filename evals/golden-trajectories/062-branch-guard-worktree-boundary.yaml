@@ -1,0 +1,103 @@
+id: 062-branch-guard-worktree-boundary
+description: v4.0e 铁律 #8 边界修正 — 保护分支上 Edit/Write 仅拦当前工作树内文件；仓库外文件（如 ~/.claude/.../memory/*.md）放行。engine + legacy 双路径 parity。
+priority: P0
+input:
+  - "在 main 分支的仓库工作目录中 Edit/Write 一个文件（路径可能在仓库内，也可能在仓库外）"
+expected_steps:
+  - branch-guard 读取 cwd 的 git 分支，命中保护分支（main/master/production/prod/release）
+  - 命中后判断 file_path 是否落在 git 工作树根（rev-parse --show-toplevel，非 cwd）前缀内（相对路径视为仓库内；绝对路径按归一后前缀）
+  - canon 归一：MSYS(/c/)→原生 + 去尾斜杠 + Windows 大小写不敏感
+  - 仓库内 → block（exit 2，铁律 #8）；仓库外 → 放行（exit 0，与本仓 main 无关）
+  - engine（默认）与 legacy（CTO_GUARD_ENGINE=legacy）两路径决策一致
+forbidden_actions:
+  - 命中保护分支后无条件拦截所有 Edit/Write（不判断文件是否在仓库内 — 2026-07-02 实测误拦 ~/.claude/.../memory/*.md）
+  - 用 cwd 而非 git 工作树根作边界（cwd 为子目录时同仓文件漏拦 — codex §48 Major-1 false-negative）
+  - Windows 大小写/盘符差异导致同仓文件漏拦（codex §48 Major-2 — 须大小写不敏感归一）
+  - engine 修了仓库边界但 legacy 未修（平价破裂 — node 缺失回退时误拦复现）
+  - 相对路径（相对 cwd）被误判为仓库外而放行（相对路径恒在工作树内）
+acceptance_criteria:
+  - 仓库内文件（相对 + 绝对）在 main 上 → exit 2；仓库外绝对路径 → exit 0
+  - engine 与 legacy 两路径对每个场景 exit 码一致
+  - CTO_MAIN_EDIT_ALLOWED=1 对仓库内文件仍放行（紧急 opt-out 不受影响）
+sota_reference:
+  - '2026-07-02 实测：main 上写仓库外 ~/.claude/projects/.../memory/*.md 被铁律 #8 误拦（false positive）'
+  - 'v4.0c HARNESS-CHANGELOG：branch-guard 语义应服务于"保护本仓 main"，仓库外文件不在其威胁模型内'
+verification_command: |
+  # node-agnostic：engine（默认）与 legacy 均已修 — 两路径都测（parity）。无 node 时默认路径自动回退 legacy。
+  T=$(mktemp -d)
+  # git-bash 的 /tmp/... 是 MSYS 私有映射（真实 Claude Code 发原生路径）→ 转原生供引擎 fs 访问
+  command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  git -C "$T" init -b main -q 2>/dev/null || { git -C "$T" init -q && git -C "$T" checkout -b main -q; }
+  git -C "$T" -c user.email=t@t -c user.name=t commit --allow-empty -m init -q
+  pass=0; fail=0
+  # 诚实标注（codex §48 Minor）：默认腿在 node 缺失时回退 legacy → 非独立 engine 证明
+  command -v node >/dev/null 2>&1 && echo "[info] node present — 默认腿=engine，legacy 腿=CTO_GUARD_ENGINE=legacy" \
+    || echo "[info] node 缺失 — 默认腿回退 legacy（两腿同为 legacy，非 engine 独立证明）"
+  # $1=期望exit $2=env前缀(可空) $3=file_path $4=场景名
+  chk() {
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s"}' "$3" "$T" \
+      | env $2 bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "$1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(exit $1≠$rc) [$2] $4: $3"; }
+  }
+  # 仓库内（相对 + 绝对）→ exit 2；仓库外绝对 → exit 0。engine 默认 + legacy 双跑。
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    chk 2 "$E" 'a.ts'                                     "仓库内-相对"
+    chk 2 "$E" "$T/docs/x.md"                             "仓库内-绝对"
+    chk 0 "$E" '/somewhere/else/.claude/memory/note.md'  "仓库外-绝对(修复目标)"
+  done
+  # 防御性（Minor-1 加固）：cwd 带尾斜杠时仓库内文件仍拦（去尾斜杠归一，两路径 parity）
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/"}' "$T/docs/x.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(尾斜杠cwd仓库内应拦 exit2≠$rc) [$E]"; }
+  done
+  # codex §48 Major-1：cwd 为子目录时同仓文件（cwd 外）仍拦（边界=git 工作树根，非 cwd；两路径 parity）
+  mkdir -p "$T/packages/app"
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/packages/app"}' "$T/README.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(cwd子目录同仓文件应拦 exit2≠$rc) [$E]"; }
+  done
+  # codex §48 Major-2 覆盖：Windows 盘符/大小写差异同仓文件仍拦（仅 MSYS/Windows；Linux FS 大小写敏感 → 跳过）
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*)
+      LC=$(printf '%s' "$T" | sed -E 's#^([A-Za-z]):#\L\1:#')  # 盘符转小写
+      for E in "" "CTO_GUARD_ENGINE=legacy"; do
+        out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/docs/x.md","content":"x"},"cwd":"%s"}' "$LC" "$T" \
+          | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+        [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(Win大小写同仓应拦 exit2≠$rc) [$E]"; }
+      done
+      echo "[info] Windows 大小写断言已跑（+2）" ;;
+    *) echo "[info] 非 Windows — 跳过大小写断言（Linux FS 大小写敏感）" ;;
+  esac
+  # codex round-3 Major：cwd 多重尾斜杠时 climb 不误吞 '..' 层级（bash 须剥全部尾斜杠，对齐 engine；两路径 parity）
+  for E in "" "CTO_GUARD_ENGINE=legacy"; do
+    out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"},"cwd":"%s/packages/app//"}' "$T/README.md" "$T" \
+      | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+    [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(多尾斜杠cwd子目录同仓应拦 exit2≠$rc) [$E]"; }
+  done
+  # codex round-3 覆盖：symlink/junction 别名工作树内文件仍拦（两路径，含 legacy）。
+  # 优先 ln -s（Linux CI）；退回 Windows junction（mklink /J，免管理员）；均不可则跳过（+0，不 fail）。
+  LNK="${T}-lnk"; _linked=0
+  if MSYS=winsymlinks:nativestrict ln -s "$T" "$LNK" 2>/dev/null; then _linked=1
+  elif command -v cmd >/dev/null 2>&1 && cmd //c mklink //J "$(cygpath -w "$LNK" 2>/dev/null || echo "$LNK")" "$(cygpath -w "$T" 2>/dev/null || echo "$T")" >/dev/null 2>&1; then _linked=1; fi
+  if [ "$_linked" = "1" ]; then
+    for E in "" "CTO_GUARD_ENGINE=legacy"; do
+      out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/README.md","content":"x"},"cwd":"%s/packages/app"}' "$LNK" "$LNK" \
+        | env $E bash .claude/hooks/branch-guard.sh 2>/dev/null); rc=$?
+      [ "$rc" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(symlink/junction别名同仓应拦 exit2≠$rc) [$E]"; }
+    done
+    rm -rf "$LNK" 2>/dev/null || rmdir "$LNK" 2>/dev/null || true
+    echo "[info] symlink/junction 断言已跑（+2，含 legacy）"
+  else
+    echo "[info] 无法建 symlink/junction（权限/平台）— 跳过（+0，不影响判定）"
+  fi
+  # 紧急 opt-out：仓库内文件仍放行
+  chk 0 "CTO_MAIN_EDIT_ALLOWED=1" "$T/docs/x.md"         "opt-out-仓库内"
+  # 非保护分支：仓库内文件放行（回归）
+  git -C "$T" checkout -b feat/z -q
+  chk 0 "" 'a.ts'                                        "feature分支-放行"
+  rm -rf "$T" "${T}-lnk" 2>/dev/null || true
+  # 断言数随平台/权限浮动（基础 14 + Windows 大小写 2 + symlink 2，能建则跑）；判定只看 fail=0
+  echo "pass=$pass fail=$fail (基础 14；+Win大小写/+symlink 视平台，期望 fail=0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

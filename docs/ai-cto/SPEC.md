@@ -10,7 +10,7 @@
 
 - **状态**: ☑ **已实现**（v4.0e-apply：人三次显式授权 + `CTO_DOUBLE_SIGNED` opt-out 经
   settings.local.json 激活，forbidden-guard 放行 + audit `forbidden-allowed double_signed=true`；
-  eval 062 编码验收标准守护回归）
+  eval 063 编码验收标准守护回归）
 - **提案日**: 2026-07-02（v4.0 扫描 + cutover 对抗审查产出）
 - **触碰路径**: `.github/workflows/eval.yml`、`.github/workflows/llm-judge.yml`（forbidden：铁律 #13）
 
