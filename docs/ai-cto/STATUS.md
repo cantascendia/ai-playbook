@@ -176,6 +176,11 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
+- **llm-judge.yml 每次 push 产生 failure run（pre-existing 噪声）**（🟡 minor，2026-07-08 v4.1 定性）：
+  该 workflow `on: pull_request` only，却在每次 push 生成一条 "workflow file issue" failure run —— **自
+  2026-06-16 起就存在**（早于 v4.0 全部改动三周），YAML 本地校验合法（UTF-8），Actions 层解析怪癖待查。
+  llm-judge 本身定位「建议非阻断」（无密钥启发式），不影响 Eval Gate / merge。处置候选：查 Actions 解析
+  annotation 修文件，或删该 workflow（v3.14 曾点名 kill 候选）——改 .github/workflows 需 opt-out。
 - **CONSTITUTION 安全宪法 #4「GitHub Branch Protection」是 vaporware**（🟠 治理缺口，2026-07-04 发现）：
   `gh api repos/cantascendia/ai-playbook/branches/main/protection` 返回 **404 Branch not protected** —— main **实际未开** GitHub 分支保护。
   宪法声称"main 必须 PR + codex review + 人 merge"，但技术上零强制，纯荣誉制（同 v3.13 修过的"check-counts 声称是 CI gate 但脚本不存在"类）。
