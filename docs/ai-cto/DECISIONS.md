@@ -106,3 +106,20 @@ settings.local.json（transient opt-out，红线不长期敞开）。
 ③ 后续 harness 改进候选：guard 可要求 opt-out 附带 reason 字符串入 audit。
 
 来源：本会话 transcript + .claude/agent-logs/2026-07-08.jsonl + APPLY-v4.0e.md 选项 B 变体
+
+## ADR-008: v4.1 backlog 清零 — verify-then-implement 编队 + 诚实 refute（2026-07-08）
+
+**Context**: 用户要求「做到没有下一步为止，Fable 5 指挥其他模型执行」。2026-07-02 扫出的 backlog
+混杂真项、stale 项（v4.0e 已做）、cargo-cult false positive（skill paths-trigger）、需真环境项（演练）。
+
+**Decision**: 两波 Opus 代理 verify-then-implement —— 每个代理先核实自己那条 finding 真伪，真则
+实施+eval，假则 finding_status=refuted-stale 诚实记录不假修。disjoint 文件集 + 中央分配 eval 编号
+（防上轮 062 撞号复发）。Fable 5 中央对账 COUNTS/STATUS + 跑干净环境全量 + 提交。forbidden 项
+（push-gap）经 ADR-007 的 settings.local.json opt-out 通道应用，用完即删。
+
+**Consequences**: ① backlog 从「一堆开放 TODO」变「全部终态」（done / 明确 precondition / 裁决保护的不做），
+真正做到「无下一步」的诚实版本；② 确立 refute 是合法产出（skill finding 若假修会破坏机制边界 +
+制造虚假安全感）；③ 终态定性优于假完成 —— 真环境项（branch protection / 真 FP-rate / 演练场景3）
+标 precondition 而非悬挂，v3.14 阶段 2 大改标「no big-bang 裁决保护」留人启动。
+
+来源：本会话 transcript + 两波 workflow journal + eval 064-077 + evals/{slo-checks,drills}/

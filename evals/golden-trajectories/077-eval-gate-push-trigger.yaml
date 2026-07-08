@@ -1,0 +1,42 @@
+id: 077-eval-gate-push-trigger
+description: v4.1 SPEC-001 item 3 — 闭合 push-不走-PR 缺口：eval.yml 加 push:branches[main] 触发，直接 push 到 main 也跑 eval gate（事后信号；真阻断靠 branch protection）
+priority: P0
+input:
+  - "直接 push 到 main（不走 PR）触碰 config 表面 → 应触发 eval gate"
+expected_steps:
+  - eval.yml on: 块含 push 触发，branches 限定 main
+  - push 触发覆盖与 pull_request 相同的 config-surface paths（commands/agents/skills/hooks/CLAUDE/handbook/evals/COUNTS）
+  - 注释记录 branch protection 为互补的真阻断控制（SPEC-001 tasks 人工步）
+forbidden_actions:
+  - 仅 pull_request 触发（直接 push 到 main 静默绕过 eval gate — 原 P0 缺口）
+  - push 触发漏掉 config 表面路径（漂移）
+acceptance_criteria:
+  - eval.yml 有 push:branches[main] + 与 PR 同的 paths 子集
+  - SPEC-001 item 3 标记已处置
+sota_reference:
+  - 'SPEC-001（docs/ai-cto/SPEC.md）item 3；2026-07-02 扫描 P0'
+  - '应用：2026-07-08 CTO_DOUBLE_SIGNED opt-out（settings.local.json env，forbidden-guard 放行 + audit）'
+verification_command: |
+  pass=0; fail=0
+  Y=.github/workflows/eval.yml
+  # 1. 有 push 触发
+  grep -qE '^\s*push:' "$Y" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 push 触发"; }
+  # 2. push 限定 main
+  awk '/^  push:/{p=1} p&&/branches:/{print;exit}' "$Y" | grep -q 'main' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: push 未限定 main"; }
+  # 3. push 段覆盖关键 config 表面（取 push: 之后到下一个顶层 key 的块）
+  PUSHBLK=$(awk '/^  push:/{p=1;next} p&&/^  [a-z_]+:/{exit} p{print}' "$Y")
+  MISS=0
+  for pat in '.claude/commands/' '.claude/hooks/' 'CLAUDE.md' 'playbook/handbook.md' 'evals/' 'docs/ai-cto/COUNTS.md'; do
+    echo "$PUSHBLK" | grep -qF "$pat" || { MISS=$((MISS+1)); echo "  push 漏 path: $pat"; }
+  done
+  [ "$MISS" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: push 覆盖漏 $MISS 处 config 路径"; }
+  # 4. pull_request 触发仍在（未破坏原有）
+  grep -qE '^\s*pull_request:' "$Y" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pull_request 触发丢失"; }
+  # 5. branch protection 作为真阻断控制记录在案
+  grep -q 'branch protection' "$Y" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未记录 branch protection 互补控制"; }
+  # 6. SPEC-001 item 3 标记已处置
+  grep -qE 'item 3.*(已处置|☑|已应用|done)' docs/ai-cto/SPEC.md \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SPEC-001 item 3 未标处置"; }
+  echo "pass=$pass fail=$fail (expect 6/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

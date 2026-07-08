@@ -13,6 +13,23 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-08] v4.1 — backlog 清零（Fable 5 指挥 + Opus 编队，verify-then-implement）
+
+- 改了什么：2026-07-02 扫出的待办全部处置到终态。新增 eval 064-077（命令契约覆盖 7 条 / skill description 触发 /
+  SLO 机检 / bypass 单源 / audit 决策树 / 演练脚本化 / hook 文案单源 / push-gap 闭合），evals 41→55；新增
+  `evals/slo-checks/`（8 断言 runner，6 静态 PASS + 2 诚实 SKIP）+ `evals/drills/`（4 mock 演练 + 1 manual）；
+  bypass 正则单源 common.sh `bypass_patterns()`；legacy hook 文案收缩为 rule 指针；CLAUDE.md audit 决策树表；
+  eval.yml 加 push:branches[main] 触发（push-gap，经 opt-out 应用）
+- 方法：两波 5+2 Opus 代理 verify-then-implement（先核实 finding 真伪，真则实施+eval，假则诚实 refute）。
+  disjoint 文件集 + 分配 eval 编号防撞号。Fable 5 中央对账 COUNTS + 跑全量 + 提交
+- 诚实核销（铁律 #2/#9）：skill paths-trigger finding = cargo-cult false positive（refute，非假修）；
+  llm-judge 漂移 = v4.0e 已核销的 STATUS stale；SLO/演练的运行时项诚实 SKIP-manual 不伪 pass；
+  Agent-F 报的引擎↔legacy CLAUDE.md 平价缺口 = 沙箱 self=false 假阳性（实测两路径 in-repo 均 exit 2）
+- Eval 跑分前/后：41 → **55 PASS / 0 FAIL**（干净环境）；引擎 42/42；check-counts 绿；slo-checks 6ok/2skip；drills 4ok/1manual
+- 影响范围：CI gate（push-gap 补 + 引擎单测入门禁 v4.0e）；命令/skill/hook 的 eval 覆盖与单源；可观测性（SLO 机检 + 演练可跑）
+- 终态定性：branch protection（人治理开关）+ 真 FP-rate/演练场景3（需真会话）= 明确 precondition 非悬挂；
+  v3.14 阶段 2（命令 23→12 / agent 5→2 / handbook reference 化）= 「no big-bang」裁决保护，留人启动
+
 ## [2026-07-08] v4.0e-apply — governance 两项落地（forbidden + immutable，人授权 opt-out 通道）
 
 - 改了什么：① `.github/workflows/eval.yml` 加 `actions/setup-node@v4`（node 22）+
