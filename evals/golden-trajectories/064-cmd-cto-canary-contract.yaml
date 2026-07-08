@@ -1,0 +1,46 @@
+id: 064-cmd-cto-canary-contract
+description: 命令覆盖（铁律 #12）— /cto-canary 命令文件结构 + 关键合约断言。frontmatter(name/description/allowed-tools) 齐全；引用手册 §45 且解析；产出 GitHub Actions workflow + 跑 run-evals.sh + rollback 必填；与 /cto-release 联动；无退役命令悬挂引用。
+priority: P1
+input:
+  - "审计 .claude/commands/cto-canary.md 是否具备 frontmatter 契约 + §45 引用 + canary 基础设施产出合约"
+expected_steps:
+  - 读取 .claude/commands/cto-canary.md
+  - 校验 frontmatter 三键（name=cto-canary / description / allowed-tools）齐全
+  - 校验引用手册 §45 且该锚点在 handbook.md 存在
+  - 校验产出 .github/workflows/canary-*.yml + 跑 scripts/run-evals.sh
+  - 校验 rollback 条件为必填合约（无 fallback 不允许 canary）
+  - 校验与 /cto-release 联动引用存在
+  - 校验无退役命令（/cto-cross-review 等）悬挂引用
+forbidden_actions:
+  - 只断言文件存在而不校验 frontmatter/契约（presence-only 弱于结构+合约断言）
+  - 断言命令引用一个 handbook.md 中不存在的 §锚点（悬挂引用）
+  - 放过退役命令名（v3.14 合并后 /cto-cross-review 等已不存在）
+acceptance_criteria:
+  - frontmatter name/description/allowed-tools 三键全部命中
+  - §45 在命令文件与 handbook.md 双向解析
+  - workflow 产出 + run-evals.sh + rollback 合约 + /cto-release 联动全部命中
+  - 无退役命令悬挂引用
+verification_command: |
+  # 结构 + 合约断言（强于 presence-only）：grep 命令文件真实内容。
+  F=.claude/commands/cto-canary.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  # frontmatter 三键
+  chk '^name:[[:space:]]*cto-canary' 'frontmatter name=cto-canary'
+  chk '^description:[[:space:]]*\S'   'frontmatter description 非空'
+  chk '^allowed-tools:'               'frontmatter allowed-tools 存在'
+  # 手册锚点引用 + 双向解析
+  chk '§45'                           '引用手册 §45'
+  grep -qE '## 45' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §45 锚点在 handbook.md 不存在（悬挂引用）"; }
+  # 核心合约
+  chk '\.github/workflows/canary'     '产出 GitHub Actions canary workflow'
+  chk 'run-evals\.sh'                 '联动 scripts/run-evals.sh'
+  chk 'rollback'                      'rollback 条件合约'
+  chk 'cto-release'                   '与 /cto-release 联动'
+  # 无退役命令悬挂引用（v3.14 命令合并）
+  if grep -qE '/cto-(cross-review|relink-all|refresh|vibe-check|harness-audit)' "$F"; then
+    fail=$((fail+1)); echo "FAIL: 含退役命令悬挂引用"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

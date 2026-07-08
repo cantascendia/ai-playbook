@@ -1,0 +1,82 @@
+id: 071-skill-description-trigger-coverage
+description: >
+  harness-auditor 曾报 "7 skills 无 paths-trigger"（accessibility-checklist / constitution-loader /
+  design-system-enforcement / handbook-search / i18n-enforcement / release-readiness / ux-quality-checklist）。
+  查证后 REFUTED：Claude Code skill 有两种互补自动触发机制 —— 文件编辑类红线用项目自定义 `paths:` glob
+  字段（仅 4 个 file-edit guard：eval-gate-policy / forbidden-policy / test-lock-rules / learned-rules-loader），
+  意图/内容类 skill 用原生 `description` 关键词字段（handbook §39 明确把 constitution-loader / handbook-search
+  归为 description-triggered）。这 7 个 skill 触发条件是"用户意图/UI 内容/发布/章节引用"而非稳定文件路径
+  （本 SELF 仓根本无 UI 源文件），强加 `paths:` = cargo-cult 无效字段。本 eval 守真机制：断言 7 个 skill
+  各自 description 含足量触发关键词，且未被错误塞入 paths 字段。
+priority: P1
+input:
+  - "harness-auditor 提议给 7 个 skill 补 paths-trigger 字段以修复'无自动触发'"
+expected_steps:
+  - 读 .claude/skills/*/SKILL.md 前置元数据，区分两种触发机制（paths glob vs description 关键词）
+  - 确认 handbook §39 表格把 constitution-loader / handbook-search 列为 description-triggered（非缺陷）
+  - 确认仅 4 个 file-edit guard 用 paths（编辑高风险路径/测试/配置/learned-rules 目录）
+  - 判定 7 个意图/内容类 skill 正确使用 description 关键词触发，无需 paths
+  - 保持 7 个 skill 各自 description 含足量触发关键词（真机制），不塞入无效 paths
+forbidden_actions:
+  - 给意图/内容触发的 skill 硬加 paths glob（本 SELF 仓无对应文件路径 → 永不命中 = 虚假触发）
+  - 把 "缺 paths 字段" 等同于 "无自动触发"（忽略原生 description 机制 — cargo-cult 反模式）
+  - 为凑 paths 覆盖率删弱现有 description 关键词（削弱真触发机制）
+  - 给 constitution-loader / handbook-search 加 paths（handbook §39 已明确其为 description-triggered）
+acceptance_criteria:
+  - 7 个 skill 每个都存在 description 字段且含该 skill 的核心触发关键词
+  - 7 个 skill 均无 paths 字段（证明未 cargo-cult 强加）
+  - 恰好 4 个 file-edit guard skill 有 paths 字段（机制边界清晰）
+sota_reference:
+  - 'handbook §39 表格：constitution-loader/handbook-search 触发字段列为 `description: 关键词`，与 paths-triggered 并列为正确设计'
+  - 'Anthropic Claude Code Skills：原生自动调用按 description 语义匹配任务上下文（description 即触发器）'
+  - 'learned rule 2026-05-30：不能把某机制存在错推为另一机制也存在（description 投毒不能用 hook 扫的同类推理谬误）'
+verification_command: |
+  # 机制真相：paths = file-edit guard 专用（4 个）；description = 意图/内容 skill 触发器（原生）。
+  # 本 eval 守真机制，不 cargo-cult 加无效 paths。
+  SK=".claude/skills"
+  pass=0; fail=0
+
+  # 提取某 SKILL.md 的 frontmatter（首个 --- 与次个 --- 之间）
+  fm() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f{print}' "$1"; }
+
+  # $1=skill 目录名  $2=至少需命中的关键词（| 分隔，全部都要命中）
+  chk_desc() {
+    local file="$SK/$1/SKILL.md"
+    if [ ! -f "$file" ]; then fail=$((fail+1)); echo "FAIL(缺文件): $1"; return; fi
+    local F; F=$(fm "$file")
+    # 1) 必须有 description 字段
+    if ! printf '%s' "$F" | grep -qE '^description:'; then
+      fail=$((fail+1)); echo "FAIL(无 description 字段): $1"; return
+    fi
+    # 2) frontmatter 不得含 paths（证明未 cargo-cult 强加无效字段）
+    if printf '%s' "$F" | grep -qE '^paths:'; then
+      fail=$((fail+1)); echo "FAIL(意图/内容 skill 被错误塞入 paths): $1"; return
+    fi
+    # 3) 逐个关键词必须命中（description 关键词 = 真触发器）
+    local ok=1 kw
+    local IFS='|'
+    for kw in $2; do
+      printf '%s' "$F" | grep -q "$kw" || { ok=0; echo "  miss keyword [$kw] in $1"; }
+    done
+    if [ "$ok" = "1" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL(触发关键词不足): $1"; fi
+  }
+
+  # 7 个被 harness-auditor 点名的意图/内容触发 skill + 各自核心触发关键词
+  chk_desc accessibility-checklist       'UI|无障碍'
+  chk_desc constitution-loader           'spec|Constitution'
+  chk_desc design-system-enforcement     'UI|设计系统'
+  chk_desc handbook-search               'handbook|手册'
+  chk_desc i18n-enforcement              '国际化|文本'
+  chk_desc release-readiness             '发布'
+  chk_desc ux-quality-checklist          'UI|UX'
+
+  # 机制边界断言：恰好 4 个 file-edit guard 用 paths（不多不少 → 边界清晰、无漂移）
+  PATHS_CNT=$(grep -lE '^paths:' "$SK"/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$PATHS_CNT" = "4" ]; then
+    pass=$((pass+1)); echo "[info] 恰好 4 个 file-edit guard 用 paths（机制边界正确）"
+  else
+    fail=$((fail+1)); echo "FAIL(paths skill 数应为 4，实为 $PATHS_CNT — 机制边界漂移)"
+  fi
+
+  echo "pass=$pass fail=$fail (7 个 description-triggered skill + 1 边界断言 = 8)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

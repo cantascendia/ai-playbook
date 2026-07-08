@@ -3,8 +3,8 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-04 — v4.0e branch-guard 工作树边界修正 **已 merge 到 main**（PR #43 squash `3940c0f`）
-上一版：2026-07-02 — v4.0 agent-native runtime **已落地 main**（PR #38/#39/#40 合并）+ v4.0d 收尾（本仓 settings 激活 + 实验 plugin 通道）
+最后更新：2026-07-08 — **v4.1 backlog 清零**：2026-07-02 扫出的待办全部处置到终态（14 eval 新增至 55，SLO 机检 + 演练脚本化 + 命令/skill/hook 单源与覆盖 + push-gap 闭合）
+上一版：2026-07-04 — v4.0e branch-guard 工作树边界修正 **已 merge 到 main**（PR #43 squash `3940c0f`）
 
 ---
 
@@ -126,30 +126,29 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 
 ## 待办（按优先级）
 
-> 2026-07-02 刷新：v3.4 era 的 P0/P1 早已被 v3.5→v3.15 多轮吸收（历史核销见 EVOLUTION-LOG）。
-> 下面是 **2026-07-02 memory-layer 审计**新扫出的项，CI/workflow 类均属 forbidden-path，**需人工双签**（铁律 #12/#13）。
+> **2026-07-08 v4.1「backlog 清零」轮**（Fable 5 指挥 + Opus 编队，verify-then-implement）：
+> 2026-07-02 扫出的项**全部处置到终态** —— 要么 ✅ 已做，要么 ⚪ 诚实定性为「需真环境/人治理开关」（非悬挂 TODO）。
 
-### P0（2026-07-02 scan，grounded）
-- [ ] **eval.yml push-gap**（🔴 forbidden-path，需人工双签 + spec-driven）：`.github/workflows/eval.yml` 仅
-  `on: pull_request`，**直接 push 到 main 绕过 eval gate**（铁律 #12 CI 闸有洞）。修 workflow 触及 `.github/workflows/**`
-  = forbidden 路径，须走 SPEC → PLAN → 双签，不得 vibe（`.claude/rules/forbidden-paths.md`）。
-- [ ] **8 个 command 零 eval 覆盖**：现有 golden-trajectory 只覆盖部分命令，8 个 cto-* 命令无对应 eval
-  case（铁律 #12 要求 agent-config 改动配 eval，但存量命令未回填）→ 逐条补 eval（独立 PR，本身触发 eval-gate）。
+### ✅ 已完成（v4.1）
+- [x] **eval.yml push-gap**（forbidden）→ 加 `push:branches[main]` 触发（eval 077），经 CTO_DOUBLE_SIGNED opt-out 应用 + audit。
+- [x] **7 个 command 零 eval 覆盖** → 064-070 结构+契约 eval（原述「8 个」实为 7：canary/design/eval/image/models/release/skills）。
+- [x] **llm-judge.yml forbidden-regex 漂移**（forbidden）→ v4.0e 已单源自 `scripts/forbidden-paths.txt`（本条为 STATUS stale，实早已核销）。
+- [x] **`evals/slo-checks/` 机器可执行 SLO** → 8 断言 + runner（6 静态 PASS / 2 运行时诚实 SKIP），eval 072。
+- [x] **季度 fallback 演练脚本化** → `evals/drills/`（4 场景 mock+temp 可跑 / 1 需真会话 SKIP-manual），eval 075。原「headless 无法模拟」部分为陈述性 stale。
+- [x] **7 skill 无 paths trigger** → **诚实 refute**（cargo-cult false positive：paths 仅 file-edit guard 用，这 7 个用 description 触发是正确设计），eval 071 守 description 关键词。
+- [x] **bypass-guard BYPASS_PATTERNS 单源** → common.sh `bypass_patterns()` + engine const 字节对齐，eval 073。
+- [x] **4 条 hooks 文案单源** → legacy 文案收缩为 rule 指针（forbidden/test-lock；eval-gate 已有指针；vibe 无 rules 对应），eval 076。
+- [x] **CLAUDE.md audit 决策树** → 7 行 review/audit/release 辨析表，eval 074。
+- [x] **清理远程已合并分支** → 删 11 个。
+- [x] **Plugin 化** → v4.0d `.claude-plugin/`（validate 通过，与 cto-init 并行）。
 
-### P1（2026-07-02 scan + 2026-06-25 audit 结转）
-- [ ] **llm-judge.yml forbidden-regex 漂移**（🟠 forbidden-path，需人工双签）：`.github/workflows/llm-judge.yml:24`
-  的 `(auth|payment|secrets|migration|crypto)/` 与 `.claude/rules/forbidden-paths.md` 的路径清单不同步
-  （rules 含 billing/keys/migrations/infra/terraform/ansible/.github/workflows），须单源化。改 workflow = forbidden 路径，人工双签。
-- [ ] `evals/slo-checks/` 机器可执行 SLO 断言目录仍未建（SLO 当前靠人工 + agent-logs 核）
-- [ ] **季度 fallback 演练 Q2 2026 过期未跑**（`archive/QUARTERLY-DRILLS.md` 4 场景全 TBD）— headless 无法真模拟 codex 配额耗尽等，需人/真环境实跑（铁律 #9 不伪完成）
-- [ ] 7 skill 无 `paths:` trigger（改 skill frontmatter，触发 eval-gate，需配 eval → 独立 PR）
-- [ ] 4 条 hooks 文案 + bypass-guard BYPASS_PATTERNS 收缩为单源（改 hooks，需 eval → 独立 PR）
-- [ ] CLAUDE.md audit 类命令（review / audit --vibe / --harness）决策树文档化（功能交叠）
+### ⚪ 终态：需真环境 / 人治理开关（非悬挂 TODO，precondition 明确）
+- ⚪ **push-gap 真阻断** = GitHub branch protection（require PR + require check）—— 改变人的 direct-push 权限，是仓库治理开关，SPEC-001 记 `gh api ...` 命令供人按需开（不由 agent 误锁）。
+- ⚪ **季度演练场景 3（settings opt-out）+ 真 FP-rate SLO** —— 需真 Claude 会话 / 人工标注 block 正确性，drill 05 + slo-check 07 已 SKIP-manual 标 precondition。附带发现：settings.json 的 SessionStart 未实现「effective vs declared hook 数」告警（QUARTERLY-DRILLS scenario-3 note 记录，未来 harness 增强候选）。
 
-### P2
-- [ ] 清理远程已合并 feature 分支（`git push origin --delete <branch>`）
-- [ ] Plugin 化（待业界稳定后再考虑）
-- [ ] AAIF AGENTS.md 标准化提案
+### 🔵 明确不做（v3.14 「no big-bang」裁决保护，非本轮范围）
+- 🔵 命令 23→18→**12** 合并 / 5→2 agent 合并 / handbook → reference/ 不分发 —— v3.14 阶段 2，需 27 项目灰度滚动验证，headless 大改会违反「no big-bang」裁决。留人决定何时启动。
+- 🔵 AAIF AGENTS.md 标准化提案 —— 待标准稳定。
 
 ---
 

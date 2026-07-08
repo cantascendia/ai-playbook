@@ -1,0 +1,40 @@
+id: 065-cmd-cto-design-contract
+description: 命令覆盖（铁律 #12）— /cto-design 命令文件结构 + 关键合约断言。frontmatter 齐全；引用手册 §26 且解析；Stitch 集成 + 五态验证 + WCAG 可访问性 + Antigravity 委派实现；无退役命令悬挂引用。
+priority: P1
+input:
+  - "审计 .claude/commands/cto-design.md 是否具备 frontmatter 契约 + §26 引用 + UI 设计流程合约"
+expected_steps:
+  - 读取 .claude/commands/cto-design.md
+  - 校验 frontmatter 三键（name=cto-design / description / allowed-tools）齐全
+  - 校验引用手册 §26 且该锚点在 handbook.md 存在
+  - 校验 Stitch 集成 + 五态验证 + WCAG 可访问性合约
+  - 校验委派 Antigravity 实现设计
+  - 校验无退役命令悬挂引用
+forbidden_actions:
+  - 只断言文件存在而不校验 frontmatter/契约
+  - 断言引用一个 handbook.md 中不存在的 §锚点
+  - 遗漏 WCAG 可访问性合约（设计输出必须可访问）
+acceptance_criteria:
+  - frontmatter name/description/allowed-tools 三键全部命中
+  - §26 在命令文件与 handbook.md 双向解析
+  - Stitch + 五态 + WCAG + Antigravity 委派合约全部命中
+  - 无退役命令悬挂引用
+verification_command: |
+  F=.claude/commands/cto-design.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  chk '^name:[[:space:]]*cto-design' 'frontmatter name=cto-design'
+  chk '^description:[[:space:]]*\S'   'frontmatter description 非空'
+  chk '^allowed-tools:'               'frontmatter allowed-tools 存在'
+  chk '§26'                           '引用手册 §26'
+  grep -qE '## 26' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §26 锚点在 handbook.md 不存在"; }
+  chk 'Stitch'                        'Stitch 集成'
+  chk '五态'                          '五态验证合约'
+  chk 'WCAG'                          'WCAG 可访问性合约'
+  chk 'Antigravity'                   '委派 Antigravity 实现'
+  if grep -qE '/cto-(cross-review|relink-all|refresh|vibe-check|harness-audit)' "$F"; then
+    fail=$((fail+1)); echo "FAIL: 含退役命令悬挂引用"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

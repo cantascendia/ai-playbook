@@ -41,20 +41,11 @@ if echo "$REL_PATH" | grep -qE -- "$TEST_PATTERN"; then
   # 注入 additionalContext（jq 优先，fallback 用 stderr 提醒，配合 exit 0）
   REMINDER="🛑 §20.3 Test-Lock 触发（铁律 #14）: $REL_PATH
 
-编辑测试文件必须符合下列合法场景之一：
-  ✅ Spec 变更 → commit message 含 \`spec-change:\`
-  ✅ Bug 修复 → commit message 含 \`bug-fix:\` 或 \`fix:\`
-  ✅ 新增测试 → 仅添加 test case，不修改既有断言
-  ✅ Refactor → 测试结构调整但断言语义不变
+测试文件锁定：AI 只能改实现，不能改断言迁就实现（作弊式 TDD）。
+合法场景（需在 commit message 声明依据）：spec-change / bug-fix / 新增测试 / refactor（不改断言语义）。
 
-禁止：
-  ❌ 实现失败时改测试让其通过（作弊式 TDD）
-  ❌ AI 不理解期望行为时改断言迁就实现
-  ❌ 删除\"麻烦的\"测试
-
-如本次确属合法场景，请在响应中显式说明属于哪类，并在 commit message 中标注。
-
-临时静默：export CTO_TEST_LOCK_ACK=1"
+如属合法场景请显式说明属于哪类并在 commit message 标注；确认合法：export CTO_TEST_LOCK_ACK=1。
+详见 .claude/rules/test-lock.md（handbook §20.3 / 铁律 #14）"
 
   if [ "$HAS_JQ" = "1" ]; then
     # 用 jq 输出 structured additionalContext

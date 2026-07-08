@@ -15,6 +15,23 @@ on:
       - 'scripts/check-counts.sh'
       - 'docs/ai-cto/COUNTS.md'
       - '.claude/hooks/**'
+  # v4.1 (SPEC-001 item 3): 闭合 push-不走-PR 缺口 —— 直接 push 到 main 也跑 eval gate。
+  # 事后信号（push 已发生）；真正阻断靠 GitHub branch protection（require PR + require this
+  # check），属仓库治理开关（改变人的 direct-push 权限）—— 见 SPEC-001 tasks 人工步。
+  push:
+    branches: [main]
+    paths:
+      - '.claude/commands/**'
+      - '.claude/agents/**'
+      - '.claude/skills/**'
+      - '.agents/skills/**'
+      - 'CLAUDE.md'
+      - 'playbook/handbook.md'
+      - 'evals/**'
+      - 'scripts/run-evals.sh'
+      - 'scripts/check-counts.sh'
+      - 'docs/ai-cto/COUNTS.md'
+      - '.claude/hooks/**'
   workflow_dispatch:
 
 jobs:

@@ -178,3 +178,11 @@ forbidden_fallback_pattern() {
 destructive_sql_core() {
   echo '\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b|\bTRUNCATE\b|DELETE\s+FROM\s+[a-z_]+\s*(;|$)'
 }
+
+# hook/pre-commit 绕过模式（#40117 6+ 种绕过面）。canonical 唯一源。
+# 此前 bypass-guard.sh（legacy）与 engine/guards.mjs 各写一份字面拷贝 → 漂移风险
+# （同 O7 forbidden/destructive 单源化）。engine/lib.mjs 的 BYPASS_PATTERNS 常量
+# 必须与本函数输出逐字节相等（eval 073 断言锁定）。
+bypass_patterns() {
+  echo '--no-verify|git\s+commit\s+-n($|\s)|core\.hooksPath|HUSKY=0|hooks-disable|chmod\s+-x.*husky|git\s+stash[^|]*&&[^|]*commit|SKIP=|--allow-empty\s+--dry-run|git\s+config.*hooksPath'
+}

@@ -21,7 +21,8 @@
    单源脱钩，PR 触碰 .github/workflows 或 billing/ 时风险信号为零。
 2. **eval.yml 隐式 Node 依赖**：guard engine（PR-B）后 eval 跑分依赖 node，但 workflow 无
    `actions/setup-node` 声明 — base image 变更时静默破门。
-3. **push-不走-PR 缺口**：eval gate 仅 PR 触发；直接 push 分支只有未安装的本地 pre-commit 兜底。
+3. **push-不走-PR 缺口**（☑ item 3 已处置 2026-07-08）：eval gate 仅 PR 触发；直接 push 分支只有未安装的本地 pre-commit 兜底。
+   **处置**：eval.yml 加 `push:branches[main]` 触发（同 config-surface paths）→ 直接 push 到 main 也跑 eval gate（事后信号，eval 077 守护）。**真阻断**（require PR + require check）靠 GitHub branch protection —— 属仓库治理开关（改变人的 direct-push 权限），是**唯一保留的人工步**：`gh api repos/cantascendia/ai-playbook/branches/main/protection -X PUT ...`（人按需开，避免误锁自己 direct-push）。
 
 ### 验收标准（可量化）
 

@@ -1,0 +1,44 @@
+id: 070-cmd-cto-skills-contract
+description: 命令覆盖（铁律 #12）— /cto-skills 命令文件结构 + 关键合约断言。frontmatter 齐全；引用手册 §21-§22；管理 .agents/skills 与 .claude/skills 双路径；三模式 list/create/audit；健康检查含 name 字段与目录名一致；无退役命令悬挂引用。
+priority: P1
+input:
+  - "审计 .claude/commands/cto-skills.md 是否管理双 skill 路径 + §21-§22 引用 + 健康检查合约"
+expected_steps:
+  - 读取 .claude/commands/cto-skills.md
+  - 校验 frontmatter 三键（name=cto-skills / description / allowed-tools）齐全
+  - 校验引用手册 §21 与 §22 且锚点在 handbook.md 存在
+  - 校验管理 .agents/skills 与 .claude/skills 双路径
+  - 校验三模式 list/create/audit 存在
+  - 校验健康检查含 name 字段与目录名一致
+  - 校验无退役命令悬挂引用
+forbidden_actions:
+  - 只断言文件存在而不校验双 skill 路径管理
+  - 断言引用一个 handbook.md 中不存在的 §锚点
+  - 遗漏 name 字段与目录名一致的健康检查合约
+acceptance_criteria:
+  - frontmatter 三键全部命中
+  - §21 与 §22 在命令文件与 handbook.md 双向解析
+  - .agents/skills + .claude/skills 双路径 + 三模式 + name 一致检查全部命中
+  - 无退役命令悬挂引用
+verification_command: |
+  F=.claude/commands/cto-skills.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  chk '^name:[[:space:]]*cto-skills'  'frontmatter name=cto-skills'
+  chk '^description:[[:space:]]*\S'    'frontmatter description 非空'
+  chk '^allowed-tools:'                'frontmatter allowed-tools 存在'
+  chk '§21'                            '引用手册 §21'
+  chk '§22'                            '引用手册 §22'
+  grep -qE '## 21' "$HB" && grep -qE '## 22' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §21/§22 锚点在 handbook.md 不存在"; }
+  # 双 skill 路径管理
+  chk '\.agents/skills'                '管理 .agents/skills 路径'
+  chk '\.claude/skills'                '管理 .claude/skills 路径'
+  # 三模式 + 健康检查
+  chk 'list\|create\|audit'            'argument-hint 三模式 list/create/audit'
+  chk 'name 字段与目录名一致'          '健康检查 name 与目录名一致'
+  if grep -qE '/cto-(cross-review|relink-all|refresh|vibe-check|harness-audit)' "$F"; then
+    fail=$((fail+1)); echo "FAIL: 含退役命令悬挂引用"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 11/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

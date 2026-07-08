@@ -28,7 +28,8 @@ maybe_run_override "bypass-guard"
 # - chmod -x .husky: 删 hook 执行权
 # - git stash + commit + pop: 借 stash 绕过
 # - SKIP / skip: 一些工具的 bypass env
-BYPASS_PATTERNS='--no-verify|git\s+commit\s+-n($|\s)|core\.hooksPath|HUSKY=0|hooks-disable|chmod\s+-x.*husky|git\s+stash[^|]*&&[^|]*commit|SKIP=|--allow-empty\s+--dry-run|git\s+config.*hooksPath'
+# 单源：pattern 由 common.sh bypass_patterns() 提供（防 legacy/engine 漂移，O7）
+BYPASS_PATTERNS="$(bypass_patterns)"
 
 if echo "$HOOK_BASH_CMD" | grep -qE -- "$BYPASS_PATTERNS"; then
   # Opt-out: 紧急情况下手动设 CTO_BYPASS_ALLOWED=1

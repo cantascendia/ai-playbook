@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import {
   normalizePaths, isAiPlaybookSelf, forbiddenPattern, block, deny, remind,
   auditLog, gitBranch, gitCdup, headBytes, escapeField, localDay, isoLocal, fsPath,
-  FORBIDDEN_FALLBACK_PATTERN, DESTRUCTIVE_SQL_CORE,
+  FORBIDDEN_FALLBACK_PATTERN, DESTRUCTIVE_SQL_CORE, BYPASS_PATTERNS as BYPASS_PATTERNS_SRC,
 } from './lib.mjs';
 
 const env = () => process.env;
@@ -420,7 +420,9 @@ export function trajectoryLogger(ctx) {
 }
 
 // ═══ bypass-guard ═══（PreToolUse Bash：hook 绕过尝试 → deny JSON）
-const BYPASS_PATTERNS = /--no-verify|git\s+commit\s+-n($|\s)|core\.hooksPath|HUSKY=0|hooks-disable|chmod\s+-x.*husky|git\s+stash[^|]*&&[^|]*commit|SKIP=|--allow-empty\s+--dry-run|git\s+config.*hooksPath/m;
+// 单源：pattern 字符串由 lib.mjs BYPASS_PATTERNS 提供（= common.sh bypass_patterns()）。
+// /m 保留 legacy grep 逐行语义（($|\s) 的 $ 需匹配行尾而非串尾）。
+const BYPASS_PATTERNS = new RegExp(BYPASS_PATTERNS_SRC, 'm');
 export function bypassGuard(ctx) {
   if (ctx.toolName !== 'Bash') process.exit(0);
   if (!ctx.cmd) process.exit(0);

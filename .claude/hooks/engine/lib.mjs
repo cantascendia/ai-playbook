@@ -19,6 +19,9 @@ export const FORBIDDEN_FALLBACK_PATTERN =
   'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\\.github/workflows/';
 export const DESTRUCTIVE_SQL_CORE =
   '\\bDROP\\s+(TABLE|DATABASE|SCHEMA|INDEX)\\b|\\bTRUNCATE\\b|DELETE\\s+FROM\\s+[a-z_]+\\s*(;|$)';
+// hook 绕过模式：必须与 common.sh bypass_patterns() 输出逐字节相等（eval 073 锁定）。
+export const BYPASS_PATTERNS =
+  '--no-verify|git\\s+commit\\s+-n($|\\s)|core\\.hooksPath|HUSKY=0|hooks-disable|chmod\\s+-x.*husky|git\\s+stash[^|]*&&[^|]*commit|SKIP=|--allow-empty\\s+--dry-run|git\\s+config.*hooksPath';
 
 // ─── MSYS 路径翻译（git-bash 场景）───
 // evals / 用户脚本经 git-bash 传入 /c/projects/... 风格 cwd；win32 Node 的 fs 只认 C:/...。
