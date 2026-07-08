@@ -75,6 +75,15 @@ jobs:
             echo "no engine unit suite — skipped"
           fi
 
+      # 诊断（非阻断）：drill 演练在 ubuntu 的完整输出 —— 定位跨平台失败。
+      - name: Drill diagnostics (non-blocking)
+        run: |
+          echo "=== jq/node present? ==="; command -v jq; command -v node; jq --version || true
+          echo "=== drill runner verbose ==="
+          DRILL_VERBOSE=1 bash evals/drills/run.sh || true
+          echo "=== eval 075 verbose ==="
+          EVAL_VERBOSE=1 bash scripts/run-evals.sh 075 || true
+
       - name: Run executable evals (real execution)
         run: |
           chmod +x scripts/run-evals.sh
