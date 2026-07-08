@@ -121,7 +121,19 @@
 - `/cto-eval [init|audit|add|run]` — **Eval 集**操作（§35 golden trajectory）
 - `/cto-release` — 发布前**最终门禁**（§24 八维 + 性能 + 合规 + Constitution）
 
-> 何时用哪个：审具体改动 → review；跨模型审 → review --cross；项目卫生/红线/harness → audit[--vibe|--harness]；eval 集 → eval；发布把关 → release
+> **何时用哪个（决策树 — 消除 review / audit / release 功能交叠）**：按"审的对象"选，不重不漏。
+>
+> | 场景 | 命令 | 审的对象 | 依据 |
+> |---|---|---|---|
+> | 审**具体改动 / PR / 分支** | `/cto-review [文件/分支]` | 一次代码改动 | §19 八维 |
+> | 同上但要**跨模型独立复审** | `/cto-review --cross` | 同上，加 codex 二审 | §48 |
+> | **项目卫生 / 交叉引用 / 计数一致性** | `/cto-audit`（默认） | playbook 自身结构 | §36 |
+> | **vibe / 红线扫描**（防 §33 反模式） | `/cto-audit --vibe` | 全仓红线合规 | §33 |
+> | **harness 八原则评分** | `/cto-audit --harness` | harness 成熟度 | §34 |
+> | **eval 集**（创建 / 审视 / 跑） | `/cto-eval` | golden trajectory | §35 |
+> | **发布前最终门禁** | `/cto-release` | 发布就绪度（八维+性能+合规+Constitution） | §24 |
+>
+> 一句话辨析：**review 审"这次改动"，audit 审"整个仓库的健康/合规"，release 审"能不能发"**。三者对象不同，不是同一件事的三种叫法。
 
 **Advanced（opt-in，低频）**
 - `/cto-design` UI 设计（§26）· `/cto-image` 图像委派（§26.5）· `/cto-replay` trajectory 重放（§44）· `/cto-canary` 部署（§45）· `/cto-skills` skill 管理（§21）· `/cto-models` 模型表更新

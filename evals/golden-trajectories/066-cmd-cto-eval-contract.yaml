@@ -1,0 +1,41 @@
+id: 066-cmd-cto-eval-contract
+description: 命令覆盖（铁律 #12）— /cto-eval 命令文件结构 + 关键合约断言。frontmatter 齐全；引用手册 §35；驱动 evals/golden-trajectories/ + scripts/run-evals.sh 真跑；四模式 init/audit/add/run；写入铁律 #12；总数不硬编码走 COUNTS.md。
+priority: P0
+input:
+  - "审计 .claude/commands/cto-eval.md 是否驱动 evals/golden-trajectories + run-evals.sh 且写入铁律 #12"
+expected_steps:
+  - 读取 .claude/commands/cto-eval.md
+  - 校验 frontmatter 三键（name=cto-eval / description / allowed-tools）齐全
+  - 校验引用手册 §35 且该锚点在 handbook.md 存在
+  - 校验驱动 evals/golden-trajectories/ 目录 + scripts/run-evals.sh 真执行
+  - 校验四模式 init/audit/add/run 存在
+  - 校验写入铁律 #12（无 eval 的 agent 配置改动不得进 main）
+  - 校验总数走 docs/ai-cto/COUNTS.md 不硬编码
+forbidden_actions:
+  - 只断言文件存在而不校验它真的驱动 run-evals.sh（否则铁律 #12 又成空壳）
+  - 断言引用一个 handbook.md 中不存在的 §锚点
+  - 遗漏铁律 #12 写入合约
+acceptance_criteria:
+  - frontmatter 三键全部命中
+  - §35 在命令文件与 handbook.md 双向解析
+  - evals/golden-trajectories + run-evals.sh + 四模式 + 铁律 #12 + COUNTS.md 全部命中
+verification_command: |
+  F=.claude/commands/cto-eval.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  chk '^name:[[:space:]]*cto-eval'   'frontmatter name=cto-eval'
+  chk '^description:[[:space:]]*\S'   'frontmatter description 非空'
+  chk '^allowed-tools:'               'frontmatter allowed-tools 存在'
+  chk '§35'                           '引用手册 §35'
+  grep -qE '## 35' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §35 锚点在 handbook.md 不存在"; }
+  # 驱动 eval 集 + 真跑脚本（核心合约 — 否则铁律 #12 空壳）
+  chk 'evals/golden-trajectories'     '驱动 evals/golden-trajectories 目录'
+  chk 'run-evals\.sh'                 '驱动 scripts/run-evals.sh 真执行'
+  # 四模式
+  chk 'init\|audit\|add\|run'         'argument-hint 四模式 init/audit/add/run'
+  # 铁律 #12 + 计数走 SSOT
+  chk '铁律 #12'                      '写入铁律 #12'
+  chk 'COUNTS\.md'                    '总数走 COUNTS.md SSOT 不硬编码'
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

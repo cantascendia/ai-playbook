@@ -1,0 +1,50 @@
+id: 073-bypass-pattern-single-source
+description: v4.1 bypass-guard BYPASS_PATTERNS 单源化 — legacy bash 与 engine 不再各写一份字面 regex，统一到 common.sh bypass_patterns() / lib.mjs BYPASS_PATTERNS（同 O7 forbidden/destructive 单源，防漂移）
+priority: P1
+input:
+  - "common.sh 提供 canonical bypass_patterns() 函数"
+  - "legacy bypass-guard.sh 与 engine guards.mjs 复用同一 pattern 源"
+expected_steps:
+  - common.sh 定义 bypass_patterns() 返回 canonical bypass 正则（唯一源）
+  - legacy bypass-guard.sh 用 BYPASS_PATTERNS="$(bypass_patterns)"（不再内联字面）
+  - engine/lib.mjs 导出 const BYPASS_PATTERNS，注记必须与 common.sh 逐字节相等
+  - engine/guards.mjs 从 lib.mjs 导入常量 new RegExp(..., 'm')（不再内联字面第二源）
+  - bash 函数输出与 JS 常量逐字节相等（byte-parity）
+  - git commit --no-verify 在 engine 与 legacy 两条路径均 deny（行为不变）
+forbidden_actions:
+  - bypass pattern 出现第二份字面拷贝（legacy 或 engine 任一内联 → 漂移源复活）
+  - 单源化改动改变了 regex 行为（大小写 / 任一 alternative / /m 逐行语义丢失）
+  - engine 与 legacy 对 --no-verify 给出不同拦截决策（平价破裂）
+acceptance_criteria:
+  - common.sh 含 bypass_patterns()；bypass-guard.sh 引用它且无内联字面 pattern
+  - lib.mjs 含 export const BYPASS_PATTERNS + byte-match 注记；guards.mjs 用导入的 BYPASS_PATTERNS_SRC 且无内联字面片段
+  - bash bypass_patterns() 输出 == lib.mjs BYPASS_PATTERNS（逐字节，非空）
+  - --no-verify 在 engine + legacy 双路径均产出 deny JSON
+  - 引擎单测 node --test 全绿（无回归）；eval 024/058 仍 PASS
+sota_reference:
+  - 'v3.13 O7 单源正则：forbidden_fallback_pattern() / destructive_sql_core() 防多 guard 各写一份漂移（learned rule 2026-05-12）'
+verification_command: |
+  pass=0; fail=0
+  # ── 单源结构断言 ──
+  # 1. common.sh 提供 canonical bypass_patterns() 函数
+  grep -q 'bypass_patterns()' .claude/hooks/lib/common.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: common.sh 缺 bypass_patterns()"; }
+  # 2. legacy bypass-guard.sh 引用该函数
+  grep -q 'bypass_patterns' .claude/hooks/bypass-guard.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: bypass-guard.sh 未引用 bypass_patterns"; }
+  # 3. legacy 不再内联字面 pattern（防残留第二源）
+  if grep -qE "^BYPASS_PATTERNS='" .claude/hooks/bypass-guard.sh; then fail=$((fail+1)); echo "FAIL: bypass-guard.sh 仍内联字面 pattern"; else pass=$((pass+1)); fi
+  # 4. engine/lib.mjs 导出常量 + byte-match 注记（引用 common.sh bypass_patterns()）
+  grep -q 'export const BYPASS_PATTERNS' .claude/hooks/engine/lib.mjs && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: lib.mjs 缺 export const BYPASS_PATTERNS"; }
+  grep -q 'bypass_patterns()' .claude/hooks/engine/lib.mjs && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: lib.mjs 缺 byte-match 注记"; }
+  # 5. engine/guards.mjs 用导入的常量构造 regex（不再内联字面第二源）
+  grep -q 'new RegExp(BYPASS_PATTERNS_SRC' .claude/hooks/engine/guards.mjs && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: guards.mjs 未用导入的 BYPASS_PATTERNS_SRC"; }
+  if grep -q 'hooks-disable' .claude/hooks/engine/guards.mjs; then fail=$((fail+1)); echo "FAIL: guards.mjs 仍内联字面 pattern 片段"; else pass=$((pass+1)); fi
+  # ── byte-parity：bash 函数输出 == JS 常量（逐字节，非空）──
+  BASH_P=$(bash -c 'source .claude/hooks/lib/common.sh && bypass_patterns')
+  JS_P=$(node -e "import('./.claude/hooks/engine/lib.mjs').then(m=>process.stdout.write(m.BYPASS_PATTERNS))")
+  if [ -n "$BASH_P" ] && [ "$BASH_P" = "$JS_P" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: bypass pattern 双源漂移 bash=[$BASH_P] js=[$JS_P]"; fi
+  # ── 行为断言：git commit --no-verify 在两条路径均 deny ──
+  J='{"tool_name":"Bash","tool_input":{"command":"git commit --no-verify"},"cwd":"."}'
+  printf '%s' "$J" | node .claude/hooks/engine/guard.mjs bypass-guard 2>/dev/null | grep -q 'permissionDecision":"deny"' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: engine 未 deny --no-verify"; }
+  printf '%s' "$J" | CTO_GUARD_ENGINE=legacy bash .claude/hooks/bypass-guard.sh 2>/dev/null | grep -q 'permissionDecision":"deny"' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: legacy 未 deny --no-verify"; }
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

@@ -1,0 +1,42 @@
+id: 069-cmd-cto-release-contract
+description: 命令覆盖（铁律 #12）— /cto-release 命令文件结构 + 关键合约断言。frontmatter 齐全；引用手册 §24；发布门禁含 八维审核 + WCAG 2.2 + Constitution 一致性 + 隐私合规 + 崩溃监控；无退役命令悬挂引用。
+priority: P1
+input:
+  - "审计 .claude/commands/cto-release.md 是否覆盖 八维 + WCAG + Constitution + 隐私 + 可观测性 发布门禁"
+expected_steps:
+  - 读取 .claude/commands/cto-release.md
+  - 校验 frontmatter 三键（name=cto-release / description / allowed-tools）齐全
+  - 校验引用手册 §24 且该锚点在 handbook.md 存在
+  - 校验发布门禁含 八维审核 + WCAG 2.2 + Constitution 一致性
+  - 校验含 隐私合规 + 崩溃监控（可观测性）维度
+  - 校验无退役命令悬挂引用
+forbidden_actions:
+  - 只断言文件存在而不校验八维/WCAG/Constitution 门禁
+  - 断言引用一个 handbook.md 中不存在的 §锚点
+  - 遗漏 Constitution 一致性检查（发布前必须对齐项目宪法）
+acceptance_criteria:
+  - frontmatter 三键全部命中
+  - §24 在命令文件与 handbook.md 双向解析
+  - 八维 + WCAG + Constitution + 隐私 + 崩溃监控 全部命中
+  - 无退役命令悬挂引用
+verification_command: |
+  F=.claude/commands/cto-release.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  chk '^name:[[:space:]]*cto-release' 'frontmatter name=cto-release'
+  chk '^description:[[:space:]]*\S'    'frontmatter description 非空'
+  chk '^allowed-tools:'                'frontmatter allowed-tools 存在'
+  chk '§24'                            '引用手册 §24'
+  grep -qE '## 24' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §24 锚点在 handbook.md 不存在"; }
+  # 发布门禁维度
+  chk '八维'                          '八维审核门禁'
+  chk 'WCAG'                           'WCAG 可访问性门禁'
+  chk 'Constitution'                   'Constitution 一致性门禁'
+  chk '隐私'                          '隐私合规维度'
+  chk '崩溃监控'                      '崩溃监控（可观测性）维度'
+  if grep -qE '/cto-(cross-review|relink-all|refresh|vibe-check|harness-audit)' "$F"; then
+    fail=$((fail+1)); echo "FAIL: 含退役命令悬挂引用"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 11/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

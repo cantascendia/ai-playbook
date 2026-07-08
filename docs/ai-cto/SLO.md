@@ -2,7 +2,7 @@
 
 > Agent Reliability Engineering (§43) — 每个核心组件的 success_rate / latency / cost / fallback 四字段。
 > ⚠️ v3.10–v3.15 新增组件 SLO 见下「v3.10+ 组件」节（reliability-auditor 2026-06-25 审计标 P1：此前 SLO.md 冻结 v3.9.1 零覆盖新组件）。
-> 仍欠：`evals/slo-checks/` 目录（把 SLO 转为机器可执行断言）尚未建——SLO 当前靠人工 + agent-logs 核。
+> ✅ v4.1：`evals/slo-checks/`（机器可执行 SLO 断言）已落地 —— 静态可查的 SLO 转硬断言，真需运行时数据的（FP-rate / 季度演练）READ-then-SKIP 诚实不伪造。跑 `bash evals/slo-checks/run.sh`；eval `072-slo-machine-checks` 守门。见本文件「机器可执行断言」节。
 
 ## v3.9 飞轮三组件
 
@@ -111,9 +111,29 @@
 | eval 集 pass rate | ≥ 90%（31 条 golden trajectory，实测 31/31 = 100%）|
 | Cost 月度 | < $30（codex + Claude API + GH Actions）|
 
+## 机器可执行断言（v4.1 — `evals/slo-checks/`）
+
+> backlog P1「SLO 靠人工核」修复。目录把上表 SLO 分两类落为脚本：
+> **静态可查** → 硬 PASS/FAIL 断言；**真需运行时数据** → READ agent-logs / 记录文件后
+> SKIP-with-reason（诚实，不伪 pass）。runner：`bash evals/slo-checks/run.sh`。
+
+| 脚本 | 类型 | 覆盖的上表 SLO |
+|---|---|---|
+| `01-security-guards-eval-coverage.sh` | 静态 | Block accuracy 100%（5 红线 guard 各有 eval + 文件存在）|
+| `02-cost-cap-config.sh` | 静态 | 月度 codex token < $20（cap_cents ≤2000 + 计量回写 + 退化模式）|
+| `03-ci-gates-wired.sh` | 静态 | 计数一致 / Eval 真执行（check-counts + run-evals + engine 单测在 CI）|
+| `04-guard-engine-legacy-parity.sh` | 静态 | engine↔legacy 平价（每 shim engine+legacy+node 探测）|
+| `05-mcp-guard-coverage.sh` | 静态 | mcp-guard 覆盖 `mcp__.*` 全 MCP server |
+| `06-fallback-chain.sh` | 静态 | Fallback 完整（jq 降级 + codex→claude→no-reviewer）|
+| `07-fp-rate-agent-logs.sh` | 运行时 | FP-rate < 1% → **SKIP**（真 FP 需 block 正确性标注，agent-logs 不携带）|
+| `08-quarterly-drill-freshness.sh` | 运行时 | 季度演练 → **SKIP**（演练是运营动作，advisory 报告新鲜度）|
+
+明细与「为何 07/08 是 SKIP」见 `evals/slo-checks/README.md`。
+
 ## 季度演练（QUARTERLY-DRILLS.md）
 
 详见 `docs/ai-cto/archive/QUARTERLY-DRILLS.md`（v4.0 已轮转至 archive/）。
+运营新鲜度可跑 `bash evals/slo-checks/08-quarterly-drill-freshness.sh` 报告距今天数（advisory）。
 
 ## 修改记录
 

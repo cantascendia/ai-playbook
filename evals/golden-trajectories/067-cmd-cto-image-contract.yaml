@@ -1,0 +1,43 @@
+id: 067-cmd-cto-image-contract
+description: 命令覆盖（铁律 #12）— /cto-image 命令文件结构 + 关键合约断言。frontmatter 齐全；引用手册 §26.5；模型名 gpt-image-2 / Nano Banana Pro 与手册解析一致；Codex vs Antigravity 分流；数据可视化拒绝委派合约；无退役命令悬挂引用。
+priority: P1
+input:
+  - "审计 .claude/commands/cto-image.md 是否按 §26.5 分流 Codex/Antigravity 且模型名与手册一致"
+expected_steps:
+  - 读取 .claude/commands/cto-image.md
+  - 校验 frontmatter 三键（name=cto-image / description / allowed-tools）齐全
+  - 校验引用手册 §26.5 且该锚点在 handbook.md 存在
+  - 校验模型名 gpt-image-2 / Nano Banana Pro 在命令文件与 handbook.md 双向解析
+  - 校验 Codex（asset-in-loop）vs Antigravity（mockup-first）分流合约
+  - 校验数据可视化拒绝委派（引导用代码）合约
+  - 校验无退役命令悬挂引用
+forbidden_actions:
+  - 只断言文件存在而不校验模型名与手册解析一致（铁律 #3 编造模型名）
+  - 断言引用一个 handbook.md 中不存在的 §锚点或模型名
+  - 遗漏数据可视化拒绝委派合约
+acceptance_criteria:
+  - frontmatter 三键全部命中
+  - §26.5 + gpt-image-2 + Nano Banana Pro 在命令文件与 handbook.md 双向解析
+  - Codex/Antigravity 分流 + 数据可视化拒绝委派合约命中
+  - 无退役命令悬挂引用
+verification_command: |
+  F=.claude/commands/cto-image.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  # 命令文件与 handbook 双向解析（锚点/模型名不悬挂）
+  bi(){ grep -qE "$1" "$F" && grep -qE "$2" "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL(双向解析): $3"; }; }
+  chk '^name:[[:space:]]*cto-image'  'frontmatter name=cto-image'
+  chk '^description:[[:space:]]*\S'   'frontmatter description 非空'
+  chk '^allowed-tools:'               'frontmatter allowed-tools 存在'
+  bi '§26\.5' '26\.5'                 '§26.5 双向解析'
+  bi 'gpt-image-2' 'gpt-image-2'      'gpt-image-2 模型名双向解析'
+  bi 'Nano Banana Pro' 'Nano Banana Pro' 'Nano Banana Pro 模型名双向解析'
+  chk 'Codex'                         'Codex 分流目标'
+  chk 'Antigravity'                   'Antigravity 分流目标'
+  chk '数据可视化'                    '数据可视化拒绝委派合约'
+  if grep -qE '/cto-(cross-review|relink-all|refresh|vibe-check|harness-audit)' "$F"; then
+    fail=$((fail+1)); echo "FAIL: 含退役命令悬挂引用"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

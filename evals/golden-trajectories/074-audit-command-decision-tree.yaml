@@ -1,0 +1,68 @@
+id: 074-audit-command-decision-tree
+description: v4.1 backlog-zero — CLAUDE.md 斜杠命令段新增 review/audit/release 决策树表，消除 /cto-review vs /cto-audit --vibe/--harness vs /cto-release 功能交叠（P1）。断言映射行存在且不与 COUNTS SSOT 矛盾。
+priority: P1
+input:
+  - "用户问：审我这次的 PR 改动用哪个命令？"
+  - "用户问：/cto-audit --vibe 和 /cto-audit --harness 有什么区别？"
+  - "用户问：发布前门禁走哪个命令？"
+expected_steps:
+  - 读 CLAUDE.md 斜杠命令段，命中"何时用哪个（决策树"标题
+  - 决策表按"审的对象"区分：review=一次改动 / audit=整仓健康合规 / release=发布就绪
+  - 三个 audit 子模式（默认项目卫生 / --vibe 红线 / --harness 八原则）各占独立行
+  - 每行给出命令 + 审的对象 + 手册依据（§19/§48/§36/§33/§34/§35/§24）
+  - 不新增命令、不改命令计数（COUNTS.md 仍是 SSOT）
+forbidden_actions:
+  - 把 review / audit / release 描述成"同一件事的三种叫法"（必须区分审的对象）
+  - 在 CLAUDE.md 里写死一个与 COUNTS.md 矛盾的命令总数（决策树只描述用途不重述计数）
+  - 触碰 CLAUDE.md 铁律段（1-14 条 + 层级标注，本改动只动斜杠命令段）
+  - 新增/删除斜杠命令（仅文档化既有命令的用途边界）
+acceptance_criteria:
+  - CLAUDE.md 含决策树标题 + 7 行场景→命令映射（review / review --cross / audit / audit --vibe / audit --harness / eval / release）
+  - CLAUDE.md 铁律段哈希与改动前一致（未被本改动触碰）
+  - CLAUDE.md 未硬编码"18 命令"类计数字面量（避免与 COUNTS SSOT 双写漂移）
+sota_reference:
+  - 'v4.1 backlog P1：audit 类命令（review / audit --vibe / --harness）决策树文档化（功能交叠）'
+  - 'Anthropic disambiguation 原则：重叠命令须按"对象/意图"给单一入口，避免用户选择瘫痪'
+verification_command: |
+  # 纯文档 grep 断言：决策树映射行存在 + 不与 COUNTS SSOT 矛盾 + 铁律段未被触碰。
+  pass=0; fail=0
+  F=CLAUDE.md
+
+  # 1. 决策树标题存在
+  grep -q "何时用哪个（决策树" "$F" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺决策树标题"; }
+
+  # 2. 七行场景→命令映射（表格行含命令 + 手册章节依据）
+  for pat in \
+    '/cto-review [文件/分支]' \
+    '/cto-review --cross' \
+    '/cto-audit`（默认）' \
+    '/cto-audit --vibe' \
+    '/cto-audit --harness' \
+    '/cto-eval' \
+    '/cto-release'; do
+    grep -qF "$pat" "$F" \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 决策表缺行 $pat"; }
+  done
+
+  # 3. 一句话辨析：三者审的对象不同（防"三种叫法"反模式）
+  grep -q 'review 审"这次改动"' "$F" && grep -q 'audit 审' "$F" && grep -q 'release 审' "$F" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺 review/audit/release 对象辨析"; }
+
+  # 4. 不与 COUNTS SSOT 矛盾：决策树段不硬编码命令总数字面量（如 "18 个命令"/"共 18"）
+  #    截取斜杠命令段（## 斜杠命令 到下一个 ## 之间）做局部扫描。
+  seg=$(awk '/^## 斜杠命令/{f=1} f&&/^## 八维审核/{f=0} f' "$F")
+  if printf '%s' "$seg" | grep -qE '(共|总计|一共)[^\n]*[0-9]+[^\n]*个?命令|[0-9]+[[:space:]]*个命令(总数|合计)'; then
+    fail=$((fail+1)); echo "FAIL: 决策树段硬编码命令总数（与 COUNTS SSOT 双写漂移）"
+  else
+    pass=$((pass+1))
+  fi
+
+  # 5. 铁律段未被本改动触碰：铁律 1-14 条仍完整（抽查首尾两条 + 层级标注体系）
+  grep -q '所有决策服务于产品愿景' "$F" \
+    && grep -q 'Test-Lock 不可绕过' "$F" \
+    && grep -q 'L1 安全 > L2 治理 > L3 质量 > L4 效率' "$F" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 铁律段被触碰/残缺"; }
+
+  echo "pass=$pass fail=$fail (expect 11/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

@@ -1,0 +1,42 @@
+id: 068-cmd-cto-models-contract
+description: 命令覆盖（铁律 #12）— /cto-models 命令文件结构 + 关键合约断言。frontmatter 齐全；列出 §1.2/§5.1/§5.2/§14 + CLAUDE.md 同步目标且锚点解析；退役的 CTO-PLAYBOOK.md 仅以"退役归档"出现、不再是活跃同步目标（v4.0a）。
+priority: P0
+input:
+  - "审计 .claude/commands/cto-models.md 同步目标是否为 §1.2/§5/§14 且 CTO-PLAYBOOK.md 已标退役"
+expected_steps:
+  - 读取 .claude/commands/cto-models.md
+  - 校验 frontmatter 三键（name=cto-models / description / allowed-tools）齐全
+  - 校验列出 §1.2 / §5.1 / §5.2 / §14 + CLAUDE.md 同步目标
+  - 校验这些 §锚点在 handbook.md 存在
+  - 校验 CTO-PLAYBOOK.md 只以"退役/归档/不再是同步目标"上下文出现（非活跃同步目标）
+forbidden_actions:
+  - 只断言文件存在而不校验同步目标清单
+  - 把退役的 CTO-PLAYBOOK.md 当作活跃同步目标（v4.0a 已归档）
+  - 断言引用一个 handbook.md 中不存在的 §锚点
+acceptance_criteria:
+  - frontmatter 三键全部命中
+  - §1.2/§5.1/§5.2/§14 + CLAUDE.md 同步目标全部命中且锚点解析
+  - CTO-PLAYBOOK.md 每次出现都在退役上下文中（不作活跃目标）
+verification_command: |
+  F=.claude/commands/cto-models.md
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  chk(){ grep -qE "$1" "$F" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $2"; }; }
+  chk '^name:[[:space:]]*cto-models' 'frontmatter name=cto-models'
+  chk '^description:[[:space:]]*\S'   'frontmatter description 非空'
+  chk '^allowed-tools:'               'frontmatter allowed-tools 存在'
+  # 同步目标清单
+  chk 'CLAUDE\.md'                    '同步目标 CLAUDE.md'
+  chk '§1\.2'                         '同步目标 §1.2'
+  chk '§5\.1'                         '同步目标 §5.1'
+  chk '§5\.2'                         '同步目标 §5.2'
+  chk '§14'                           '同步目标 §14'
+  # §锚点在 handbook 解析
+  grep -qE '## 5' "$HB" && grep -qE '## 14' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: §5/§14 锚点在 handbook.md 不存在"; }
+  # 退役的 CTO-PLAYBOOK.md：每次出现必在退役上下文（不作活跃同步目标）
+  n_total=$(grep -c 'CTO-PLAYBOOK' "$F")
+  n_retired=$(grep 'CTO-PLAYBOOK' "$F" | grep -cE '退役|归档|不再')
+  if [ "$n_total" -ge 1 ] && [ "$n_total" = "$n_retired" ]; then pass=$((pass+1));
+  else fail=$((fail+1)); echo "FAIL: CTO-PLAYBOOK.md 未全部处于退役上下文（total=$n_total retired=$n_retired）"; fi
+  echo "pass=$pass fail=$fail (expect 10/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
