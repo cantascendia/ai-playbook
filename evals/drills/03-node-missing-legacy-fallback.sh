@@ -25,11 +25,20 @@ if [ -n "$NODE_BIN" ]; then
   MASKED="$(drill_path_without_dir "$NODE_DIR")"
   if [ -n "$MASKED" ]; then
     RC_B=$(printf '%s' "$IN" | PATH="$MASKED" bash -c '
-      command -v node >/dev/null 2>&1 && { echo 0; exit 0; }   # 屏蔽失败 → 记 0 触发下方 fail
+      command -v node >/dev/null 2>&1 && { echo masked-fail; exit 0; }   # node 仍可达（多 PATH 入口）→ 无法模拟 node-missing
       bash "'"$GUARD"'" >/dev/null 2>&1; echo $?
     ')
-    [ "$RC_B" = "2" ] || drill_fail "(b) 屏蔽 node 后 shim 未回退 legacy 拦红线（exit=$RC_B，期望 2）"
-    echo "[info] (b) 已从 PATH 移除 $NODE_DIR，node 缺失 → shim 回退 legacy → 拦截（exit 2） ✓"
+    if [ "$RC_B" = "masked-fail" ]; then
+      # ubuntu runner：setup-node 在 /usr/local/bin 也留 node symlink，移除 hostedtoolcache 目录后
+      # node 仍可达 → 本平台无法可靠模拟「node 二进制真缺失」。(a) CTO_GUARD_ENGINE=legacy 已确定性
+      # 覆盖 legacy 兜底（真红线降级路径），(b) 只是换个触发方式 → 屏蔽不掉就跳过子检查，不误判 FAIL。
+      echo "[info] (b) 移除 $NODE_DIR 后 node 仍经其他 PATH 入口可达（ubuntu runner /usr/local/bin symlink）→ 无法模拟 node-missing，跳过 (b) 子检查；(a) 已确定性覆盖 legacy 兜底"
+    elif [ "$RC_B" = "2" ]; then
+      echo "[info] (b) 已从 PATH 移除 $NODE_DIR，node 缺失 → shim 回退 legacy → 拦截（exit 2） ✓"
+    else
+      # 真问题：node 确实被屏蔽（masked-fail 未触发）但 shim 没回退 legacy 拦红线 = 红线真空
+      drill_fail "(b) node 已屏蔽但 shim 未回退 legacy 拦红线（exit=$RC_B，期望 2 —— 真红线真空）"
+    fi
   else
     echo "[info] (b) node 位于共享目录，跳过 PATH 屏蔽子项；(a) 已覆盖 legacy 兜底"
   fi
