@@ -52,3 +52,14 @@
 
 - ☐ 人 · ☐ 第二模型（/cto-review --cross）· 实现 PR 须打 `requires-double-review`
 - 用户 2026-07-02 已给「所有权限」授权（= 双签的人签面）；剩余是 shell env opt-out 的 deliberate act（见 APPLY-v4.0e.md）
+
+### item 4（2026-07-09 追加）：llm-judge.yml 从未解析成功的根因修复
+
+- **问题**：与 item 1（forbidden 正则漂移）不同——这是**更基础**的 bug：整个文件自 2026-04-29
+  创建以来在 GitHub Actions **schema 层解析失败**，`pull_request` 触发器从未真正触发过一次，
+  push 事件 100% 产生 "workflow file issue" 空 run（jobs=0）。诊断 + 排除过程见
+  `docs/ai-cto/HARNESS-CHANGELOG.md` [2026-07-09] 条目。
+- **处置**：☑ 已应用 2026-07-09。改纯 PR-only 触发 + 去 job-level 多行 `if:` + 去
+  `actions/github-script`（改 `gh pr comment`）+ forbidden 正则 `tr -d '\r'` 兜底。
+  经 `CTO_DOUBLE_SIGNED=1` opt-out（同 item 1-3 的通道）应用，eval 078 守护。
+  协作：codex(gpt-5.5) 编码（`codex exec --full-auto`），Fable 5 诊断/裁决/应用/验证。

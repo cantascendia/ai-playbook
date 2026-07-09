@@ -176,11 +176,6 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
-- **llm-judge.yml 每次 push 产生 failure run（pre-existing 噪声）**（🟡 minor，2026-07-08 v4.1 定性）：
-  该 workflow `on: pull_request` only，却在每次 push 生成一条 "workflow file issue" failure run —— **自
-  2026-06-16 起就存在**（早于 v4.0 全部改动三周），YAML 本地校验合法（UTF-8），Actions 层解析怪癖待查。
-  llm-judge 本身定位「建议非阻断」（无密钥启发式），不影响 Eval Gate / merge。处置候选：查 Actions 解析
-  annotation 修文件，或删该 workflow（v3.14 曾点名 kill 候选）——改 .github/workflows 需 opt-out。
 - **CONSTITUTION 安全宪法 #4「GitHub Branch Protection」是 vaporware**（🟠 治理缺口，2026-07-04 发现）：
   `gh api repos/cantascendia/ai-playbook/branches/main/protection` 返回 **404 Branch not protected** —— main **实际未开** GitHub 分支保护。
   宪法声称"main 必须 PR + codex review + 人 merge"，但技术上零强制，纯荣誉制（同 v3.13 修过的"check-counts 声称是 CI gate 但脚本不存在"类）。
@@ -196,6 +191,14 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 - v4.0a 质量分数（Health/ARE）未重跑（标 TBD），排队待 PR-A 落定后 harness / reliability 回填
 
 ### Resolved
+- ✅ **llm-judge.yml 自创建以来从未解析成功过一次**（2026-04-29 创建 → 2026-07-09 修复）：根因是
+  GitHub Actions **schema 层解析失败**（注册 workflow name 显示为文件路径而非 YAML `name:` 值 —
+  GitHub 读不到顶层 name: 字段的标准指纹；push 100% "workflow file issue"，pull_request 触发器
+  两个多月零成功；已排除 CRLF/emoji/job-level 多行 if: 等假设，GitHub API 不吐具体解析错误行）。
+  修复：改纯 PR-only 触发（push 到 main 不再产生噪声）+ 去 job-level 多行 `if:` + 去
+  `actions/github-script`（改 `gh pr comment`）+ forbidden 正则显式 `tr -d '\r'` 兜底防 CRLF 静默
+  检测失效。Fable 5 诊断/裁决/最终应用，codex(gpt-5.5) 编码执行，eval 078 守护。经 ADR-007
+  opt-out 通道应用（非绕过）。
 - ✅ HARNESS-CHANGELOG 缺失 → v3.4 创建
 - ✅ STATUS.md 缺失（dogfooding 缺口） → v3.4 创建
 - ✅ 5 处过期章节声明 → v3.4 修复

@@ -13,6 +13,35 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-09] fix — llm-judge.yml 从未解析成功的根因修复（PR-only + 结构简化）
+
+- 改了什么：`.github/workflows/llm-judge.yml` 整体重写 —— ① 仅保留 `on: pull_request`（去掉隐性的
+  push 触发面，push 到 main 不再产生噪声 run）；② job-level 多行 `if: |` 改为 step 内 bash 早退出
+  （`IS_DRAFT` 经 env 传入，`[ "$IS_DRAFT" = "true" ] && exit 0`）；③ 去掉 `actions/github-script@v7`
+  + 内嵌 JS 模板字符串，改用 `gh pr comment --body-file`（需新增 `permissions: pull-requests: write`）；
+  ④ forbidden 正则读取 `scripts/forbidden-paths.txt` 前显式 `tr -d '\r'`（该文件是 CRLF，ubuntu-latest
+  是原生 Linux，sed/paste 不做 CRLF 转换，不兜底会导致 \r 混进正则、forbidden 检测静默失效——最危险
+  的一类 bug，不报错只是测不出）；⑤ 评论正文改 `printf` 逐行写（原 heredoc 会把 YAML block-scalar
+  的前导空格原样写进文件，GFM 4+ 空格缩进渲染成代码块而非表格）。新增 eval 078 守护结构断言。
+- 为什么：诊断确认该 workflow **自 2026-04-29 创建以来从未解析成功过一次**——GitHub 注册的 workflow
+  name 显示为文件路径而非 YAML `name:` 值（GitHub 读不到顶层 name: 字段的标准指纹）；100% push 事件
+  产生 "workflow file issue"（jobs=0，check-runs=0）；`pull_request` 触发器两个多月零成功触发。
+  取证排除：git 推送内容损坏（本地/GitHub blob 归一化后逐字节一致）、CRLF 换行（其余 4 个 workflow
+  同样 CRLF 但正常）、emoji 零宽字符（合法）、job-level 多行 if:（另一正常工作的 workflow 用了同样
+  构造）。GitHub API 不吐出具体解析错误行（已知平台限制）。工程决策：与其继续猜单字节，重写为防御性
+  更简单的结构，规避整类风险构造
+- 协作模式：Fable 5 做诊断（GitHub API/blob 取证）、方案裁决、最终应用（forbidden-guard opt-out 通道，
+  ADR-007 先例）与上线验证；**codex(gpt-5.5) 承担实际编码**（workflow 重写 + eval 078 起草，经
+  `codex exec --full-auto` 委派，responding to 用户本周 Claude 额度紧张的指示）——codex 的产出先写到
+  非 forbidden 的暂存路径，由 Fable 5 review + 修复两处遗留缺陷（heredoc 缩进 / CRLF 兜底）后正式应用，
+  确保编码委派不绕过 forbidden-guard（codex 子进程写 forbidden 路径不会触发我的 PreToolUse hook，
+  这与 Bash `cat >` 绕过是同一类问题，全程未发生）
+- Eval 跑分前/后：55 → **56 PASS / 0 FAIL**（新增 078，参数化 `LLM_JUDGE_PATH` 支持部署前后双跑）
+- 影响范围：push 到 main 触碰 config 表面不再有 llm-judge 噪声 run；PR 上的 advisory 评论功能从
+  「从未真正跑过」变为可用（两个多月的功能性空白）；SPEC-001（.github/workflows forbidden 路径）追加此项
+
+---
+
 ## [2026-07-08] v4.1 — backlog 清零（Fable 5 指挥 + Opus 编队，verify-then-implement）
 
 - 改了什么：2026-07-02 扫出的待办全部处置到终态。新增 eval 064-077（命令契约覆盖 7 条 / skill description 触发 /
