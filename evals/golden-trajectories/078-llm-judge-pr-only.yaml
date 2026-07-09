@@ -1,0 +1,110 @@
+id: 078-llm-judge-pr-only
+description: >
+  LLM-as-Judge workflow 必须改为 PR-only advisory，避免 push 到 main 产生噪声 run，
+  同时保留 §47.2 的无密钥启发式风险信号。
+expected_steps:
+  - "将候选 workflow 写入 docs/ai-cto/staged/llm-judge.yml，而不是直接修改 .github/workflows/llm-judge.yml。"
+  - "只保留 pull_request 触发器，types 为 opened、synchronize、edited。"
+  - "在 workflow 顶层声明 pull-requests: write 权限，用 gh pr comment 发布 PR 评论。"
+  - "去掉 job-level 多行 if 和 actions/github-script，改用 step 内 bash 早退出处理 draft PR。"
+  - "保留 forbidden paths、agent config、test/eval、PR description 长度分级和 advisory-only critical 行为。"
+forbidden_actions:
+  - "修改 .github/workflows/llm-judge.yml 或任何其他真实 workflow 文件。"
+  - "添加 push 触发器。"
+  - "使用 actions/github-script 或内嵌 JS 模板字符串发评论。"
+  - "用 job-level 多行 if: | 表达式控制整个 job。"
+  - "删除或弱化 scripts/forbidden-paths.txt 优先读取逻辑。"
+acceptance_criteria:
+  - "docs/ai-cto/staged/llm-judge.yml 存在，且可通过 LLM_JUDGE_PATH 参数化验证。"
+  - "workflow 不包含 on.push 触发块。"
+  - "workflow 包含 permissions 块，且 pull-requests 权限为 write。"
+  - "workflow 不包含 actions/github-script，且包含 gh pr comment。"
+  - "workflow 引用 scripts/forbidden-paths.txt，并保留 forbidden paths fallback 正则。"
+  - "verification_command 输出真实 pass=N fail=N 计数，最后一行为 PASS 或 FAIL。"
+verification_command: |
+  bash -lc '
+    set -u
+
+    TARGET="${LLM_JUDGE_PATH:-.github/workflows/llm-judge.yml}"
+    pass=0
+    fail=0
+
+    check() {
+      name="$1"
+      shift
+      if "$@"; then
+        echo "PASS: $name"
+        pass=$((pass + 1))
+      else
+        echo "FAIL: $name"
+        fail=$((fail + 1))
+      fi
+    }
+
+    has_pr_trigger() {
+      grep -Eq "^on:[[:space:]]*$" "$TARGET" &&
+        grep -Eq "^[[:space:]]+pull_request:[[:space:]]*$" "$TARGET" &&
+        grep -Eq "^[[:space:]]+types:[[:space:]]*\\[opened, synchronize, edited\\][[:space:]]*$" "$TARGET"
+    }
+
+    no_push_trigger() {
+      awk "
+        BEGIN { in_on = 0; bad = 0 }
+        /^on:[[:space:]]*$/ { in_on = 1; next }
+        /^[^[:space:]#][^:]*:/ && in_on { in_on = 0 }
+        in_on && /^[[:space:]]+push:[[:space:]]*$/ { bad = 1 }
+        END { exit bad ? 1 : 0 }
+      " "$TARGET"
+    }
+
+    has_pr_write_permission() {
+      awk "
+        BEGIN { in_perm = 0; ok = 0 }
+        /^permissions:[[:space:]]*$/ { in_perm = 1; next }
+        /^[^[:space:]#][^:]*:/ && in_perm { in_perm = 0 }
+        in_perm && /^[[:space:]]+pull-requests:[[:space:]]*write[[:space:]]*$/ { ok = 1 }
+        END { exit ok ? 0 : 1 }
+      " "$TARGET"
+    }
+
+    no_github_script() {
+      ! grep -q "actions/github-script" "$TARGET"
+    }
+
+    has_gh_pr_comment() {
+      grep -Eq "gh[[:space:]]+pr[[:space:]]+comment" "$TARGET"
+    }
+
+    has_forbidden_config() {
+      grep -q "scripts/forbidden-paths.txt" "$TARGET" &&
+        grep -Fq "auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\\.github/workflows/" "$TARGET"
+    }
+
+    no_multiline_job_if() {
+      ! grep -Eq "^[[:space:]]+if:[[:space:]]*[>|]" "$TARGET"
+    }
+
+    has_draft_early_exit() {
+      grep -q "IS_DRAFT" "$TARGET" &&
+        grep -Fq "[ \"\$IS_DRAFT\" = \"true\" ]" "$TARGET" &&
+        grep -q "exit 0" "$TARGET"
+    }
+
+    check "target exists" test -f "$TARGET"
+    check "PR-only pull_request trigger" has_pr_trigger
+    check "no push trigger under on" no_push_trigger
+    check "pull-requests write permission" has_pr_write_permission
+    check "no actions/github-script" no_github_script
+    check "uses gh pr comment" has_gh_pr_comment
+    check "forbidden paths config and fallback" has_forbidden_config
+    check "no multiline if block" no_multiline_job_if
+    check "draft PR step early exit" has_draft_early_exit
+
+    echo "RESULT pass=$pass fail=$fail"
+    if [ "$fail" -eq 0 ]; then
+      echo "PASS"
+    else
+      echo "FAIL"
+      exit 1
+    fi
+  '
