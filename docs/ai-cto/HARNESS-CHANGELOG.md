@@ -13,6 +13,28 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-09] deploy — v4 guard engine 滚动分发到全部 29 个下游安装
+
+- 改了什么：把 ai-playbook 的 `.claude/hooks/`（engine/*.mjs 3 个运行时文件 + 10 个 shim + lib/common.sh）
+  分发到 **29 个下游 guard 安装**（21 独立项目 + nilou-network monorepo root+6 子应用 + hoyokit root+1 嵌套）。
+  只覆盖 enforcement 层，**不碰** CLAUDE.md / docs/ai-cto/ 记忆 / rules/learned / settings.json /
+  各项目自定义的 scripts/forbidden-paths.txt。
+- 为什么：29 个下游全部还在 legacy-pre-v4（纯 bash guard，无 Node 引擎），未享受 v4.0b/c+v4.1 的
+  JSON.parse 根除 sed 解析 bug 类 + Windows 14× 提速 + bypass/branch 单源等修复
+- 安全设计（v3.14 灰度裁决遵循）：① 每项目先 `cp -r hooks → hooks.bak-<ts>`（29 个备份，5 个 no-git
+  项目的唯一回滚）；② shim 自带 legacy 回退（node 缺失 / CTO_GUARD_ENGINE=legacy 原地走冻结实现，
+  零红线真空）；③ 先 1 项目 canary 彻底验证再批量；④ 每项目行为验证（用**各项目自身**
+  forbidden-paths.txt 首条目而非通用 auth/ —— amphoreus/dian 等自定义了 SSOT，engine 正确读各自的）
+- 前置扫描：29 个安装 immutable-guard.sh + common.sh 指纹**完全相同**（零本地分叉），确认纯拷贝可安全覆盖
+- 验证结果：**29/29 引擎激活 + 行为正确**（forbidden 命中各自 SSOT → exit 2，普通路径 → exit 0，
+  legacy 回退也在）；node v22 全机在位
+- 影响范围：29 个下游项目的 guard 执行引擎；行为契约不变（parity）；每次 Edit 省 ~5.6s（Windows）
+- 备注：本会话 CTO_DOUBLE_SIGNED env 残留一度让验证假阳性（下游干净会话无此残留）——教训：本会话内
+  验证下游 guard 须 `env -u CTO_DOUBLE_SIGNED`。分发是 ops 动作，未改 ai-playbook 代码，仅本条记录 +
+  COUNTS「已部署项目」27→29。**未提交下游 git**（17 个 git 项目留工作区改动 + .bak，由各维护者决定提交）
+
+---
+
 ## [2026-07-09] fix — llm-judge.yml 从未解析成功的根因修复（PR-only + 结构简化）
 
 - 改了什么：`.github/workflows/llm-judge.yml` 整体重写 —— ① 仅保留 `on: pull_request`（去掉隐性的
