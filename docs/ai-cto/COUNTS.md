@@ -26,7 +26,7 @@
 | learned-rules | **7** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）|
 | handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
 | plugin 清单（v4.0d 实验）| **1 plugin + 1 marketplace** | `.claude-plugin/{plugin,marketplace}.json` + `hooks.json`（`claude plugin validate` 通过；打包 commands/agents/skills/output-style/guard-hooks；rules/statusline/记忆种子仍留 cto-init）|
-| 已部署项目 | **27** | nilou-network 6 + 其他 21 |
+| 已部署项目 | **29** | 实测 `find /c/projects -name immutable-guard.sh`：21 独立项目 + nilou-network monorepo（root + 6 子应用）+ hoyokit（root + 1 嵌套）= 29 guard 安装。**2026-07-09 全部升级到 v4 guard engine**（bash→Node shim + legacy 回退），29/29 行为验证通过 + `.bak` 备份 |
 
 ## 版本
 
