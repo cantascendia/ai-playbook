@@ -1,24 +1,30 @@
 id: 043-precommit-eval-gate
-description: v3.13 A3 — install-pre-commit.sh 生成的 pre-commit hook 含铁律#12 本地 gate（改 agent 配置无 evals 配套 → 警告/STRICT 阻止），补本地 commit 层硬约束（此前仅 PR eval.yml 兜底，直接 push 可绕过）。
+description: v3.13 A3 + v4.2 PR#11 重放 — install-pre-commit.sh 装双 hook：pre-commit 含铁律#12 本地 gate（commit 前拦 staged 配置无 eval），post-commit 触发 §48 codex-bridge（pre 阶段 HEAD 是旧 commit 会审错对象）；run.sh debounce 认全部落 review 模式（success/claude-only/fallback-to-claude），防 fallback 后同 SHA 重复审。
 priority: P2
 input:
-  - "bash scripts/install-pre-commit.sh 装 hook"
+  - "bash scripts/install-pre-commit.sh 装双 hook"
   - "git commit 改了 .claude/commands 但无 evals/"
 expected_steps:
-  - 生成的 hook 检查 staged config 文件 vs evals/ 配套
+  - 生成的 pre-commit hook 检查 staged config 文件 vs evals/ 配套（commit 前）
   - 无配套 → 警告（默认）/ STRICT 阻止
   - 带 opt-out CTO_EVAL_GATE_ACK / STRICT 开关
-  - 仍异步触发 §48 codex-bridge
+  - 生成的 post-commit hook 异步触发 §48 codex-bridge（HEAD 已是新 commit）
+  - run.sh debounce 把 claude-only / fallback-to-claude 也算已审
 forbidden_actions:
   - 生成的 hook 无铁律#12 检查（直接 push 绕过 eval gate）
   - 默认就硬阻止 commit（破坏用户流，应默认警告）
+  - codex 触发放在 pre-commit（HEAD 是上一个 commit，review 对象错误 — PR #11 发现）
+  - eval gate 搬到 post-commit（commit 后失去阻止能力，破坏 v3.13 A3）
+  - debounce 只认 mode=success（fallback 后同 SHA 反复重审 — 实证 ba74d2a 记 16 次）
 acceptance_criteria:
-  - install-pre-commit.sh 生成的 hook 含 staged config vs evals 检查
+  - install-pre-commit.sh 生成的 pre-commit 含 staged config vs evals 检查
   - 含铁律#12 / §35 引用
   - 含 STRICT + ACK opt-out 机制
-  - 仍保留 §48 codex-bridge 触发
+  - post-commit 含 §48 codex-bridge 触发；pre-commit 部分不含（职责分离）
+  - run.sh debounce 正则含 claude-only 与 fallback-to-claude
 sota_reference:
   - 'SOTA team v2 审计 A3：铁律#12 仅 PR 兜底，直接 push 可绕过'
+  - 'PR #11（2026-05-12）：pre-commit 审旧 HEAD + debounce 漏 fallback；2026-07-10 裁决重放（拆分版，原 PR 整体搬 post 会破坏 A3 gate）'
 verification_command: |
   pass=0; fail=0
   IPC=scripts/install-pre-commit.sh
@@ -35,9 +41,30 @@ verification_command: |
   grep -qE 'CTO_EVAL_GATE_STRICT' "$IPC" && grep -qE 'CTO_EVAL_GATE_ACK' "$IPC" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 STRICT/ACK 机制"; }
 
-  # 4. 仍保留 §48 codex-bridge 触发
+  # 4. 仍保留 §48 codex-bridge 触发（v4.2 起在 post-commit 段）
   grep -qE 'codex-bridge/run.sh' "$IPC" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 丢了 §48 触发"; }
 
-  echo "pass=$pass fail=$fail (expect 4/0)"
+  # ── v4.2 PR#11 重放追加断言 ──
+  # 5. 装 post-commit hook 且 codex 触发在其中
+  grep -qE 'POST_HOOK=.*post-commit' "$IPC" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 无 post-commit hook 安装"; }
+
+  # 6. 职责分离：pre-commit heredoc 段不含 codex-bridge（用 awk 提取第一个 heredoc 块检查）
+  PRE_BLOCK=$(awk '/^cat > "\$PRE_HOOK"/,/^EOF$/' "$IPC")
+  if [ -n "$PRE_BLOCK" ] && ! echo "$PRE_BLOCK" | grep -q 'codex-bridge'; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: pre-commit 段仍含 codex 触发（应在 post-commit — PR#11 review 对象错误）"
+  fi
+
+  # 7. run.sh debounce 覆盖 fallback 模式（PR#11 修复 2）
+  grep -qE 'mode=\(success\|claude-only\|fallback-to-claude\)' .agents/skills/codex-bridge/run.sh \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: debounce 未覆盖 claude-only/fallback-to-claude"; }
+
+  # 8. 边界：codex-failed+claude-failed 不在 debounce 集合（没落 review 应允许重试）
+  grep -E 'mode=\(' .agents/skills/codex-bridge/run.sh | grep -q 'codex-failed' \
+    && { fail=$((fail+1)); echo "FAIL: debounce 误把 codex-failed 算已审"; } || pass=$((pass+1))
+
+  echo "pass=$pass fail=$fail (expect 8/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

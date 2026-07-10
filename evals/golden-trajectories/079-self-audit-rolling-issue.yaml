@@ -1,0 +1,63 @@
+id: 079-self-audit-rolling-issue
+description: >
+  v4.2 PR#11 — self-audit-weekly.yml 的"写 GitHub Issue"步骤从每周无条件 issues.create
+  改为滚动单 issue：复用带 self-audit-rolling 标签的 open issue（更新标题含最新日期 + body
+  最新报告 + 刷新评论），否则新建；并对其余仍 open 的 self-audit issue 评论 superseded 后
+  关闭（state: 'closed'），消除每周堆积噪声。候选写入 docs/ai-cto/staged/，真实 workflow
+  不动（forbidden 路径，待 PR 提升 staged→live）。
+priority: P1
+input:
+  - "weekly cron 生成 SELF-AUDIT 报告后，actions/github-script 写 issue 步骤运行"
+expected_steps:
+  - "issues.listForRepo state:'open' labels:'self-audit-rolling' 查是否已有滚动 issue"
+  - "存在 → issues.update 标题(含最新日期)+body(最新报告) + issues.createComment('🔄 audit refreshed <date>')"
+  - "不存在 → issues.create labels ['self-audit','self-audit-rolling','v3.9-flywheel']，记录其 number"
+  - "issues.listForRepo state:'open' labels:'self-audit'，对 number≠滚动号者 createComment('superseded by rolling issue #<N>') + update state:'closed'"
+  - "cron / permissions / 健康指标 step / 报告生成逻辑保持 byte-identical，仅改 github-script 块"
+forbidden_actions:
+  - "修改 .github/workflows/self-audit-weekly.yml 或任何真实 workflow（forbidden 路径，只写 staged 副本）"
+  - "保留无条件 issues.create（每周堆积一个新 issue — 本次修复的根因）"
+  - "改动 cron / permissions / 健康指标 step / 报告生成逻辑"
+  - "关闭 issue 时误关滚动 issue 自身（number 相等必须跳过）"
+acceptance_criteria:
+  - "docs/ai-cto/staged/self-audit-weekly.yml 存在，可经 SELF_AUDIT_PATH 参数化验证"
+  - "脚本含 listForRepo / self-audit-rolling / issues.update / state: 'closed' / superseded 文案"
+  - "issues.create 恰好出现 1 次，且落在 if/else 的 else 分支内（rollingNumber 为判别标记 → 条件新建非无条件）"
+  - "staged 的 schedule/permissions 行与 live 完全一致（仅 github-script 块变更）"
+  - "verification_command 输出真实 pass=N fail=N，末行 PASS 或 FAIL"
+verification_command: |
+  # 默认验证 staged 候选（live workflow 属 forbidden 路径本次不改，待 PR 提升）；
+  # 提升+移除 staged 后自动回退验证 live；SELF_AUDIT_PATH 可显式覆盖目标。
+  TARGET="${SELF_AUDIT_PATH:-}"
+  if [ -z "$TARGET" ]; then
+    if [ -f docs/ai-cto/staged/self-audit-weekly.yml ]; then
+      TARGET=docs/ai-cto/staged/self-audit-weekly.yml
+    else
+      TARGET=.github/workflows/self-audit-weekly.yml
+    fi
+  fi
+  LIVE=.github/workflows/self-audit-weekly.yml
+  pass=0; fail=0
+  ok()  { pass=$((pass+1)); }
+  bad() { fail=$((fail+1)); echo "FAIL: $1"; }
+  test -f "$TARGET"                                 && ok || bad "target 不存在: $TARGET"
+  grep -q 'listForRepo' "$TARGET"                   && ok || bad "缺 listForRepo（未查已有 issue）"
+  grep -q 'self-audit-rolling' "$TARGET"            && ok || bad "缺 self-audit-rolling 标签"
+  grep -q 'issues\.update' "$TARGET"                && ok || bad "缺 issues.update（未原地更新）"
+  grep -Eq "state:[[:space:]]*'closed'" "$TARGET"   && ok || bad "缺 state: 'closed'（未关闭旧 issue）"
+  grep -q 'superseded by rolling issue' "$TARGET"   && ok || bad "缺 superseded 文案"
+  grep -q 'issues\.createComment' "$TARGET"         && ok || bad "缺 issues.createComment"
+  grep -q '} else {' "$TARGET"                      && ok || bad "缺 if/else 条件分支"
+  grep -q 'rollingNumber' "$TARGET"                 && ok || bad "缺 rollingNumber 判别变量"
+  # 恰好 1 次 issues.create —— 模式 'issues.create(' 不会命中 createComment（create 后接 C 非 '('）
+  CNT=$(grep -c 'issues\.create(' "$TARGET")
+  [ "$CNT" = "1" ]                                  && ok || bad "issues.create 次数=$CNT≠1"
+  # issues.create 落在 else 分支内 → 证明是条件新建而非顶层无条件 create
+  awk '/} else \{/{e=1} e && /issues\.create\(/{f=1} END{exit f?0:1}' "$TARGET" \
+                                                    && ok || bad "issues.create 不在 else 分支内（疑似无条件 create）"
+  # 负向断言：schedule + permissions 行与 live 完全一致（仅改 github-script 块）
+  A=$(grep -E 'schedule:|- cron:|^permissions:|  contents: read|  issues: write' "$TARGET")
+  B=$(grep -E 'schedule:|- cron:|^permissions:|  contents: read|  issues: write' "$LIVE")
+  [ "$A" = "$B" ]                                   && ok || bad "schedule/permissions 与 live 不一致（越界改动）"
+  echo "pass=$pass fail=$fail"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

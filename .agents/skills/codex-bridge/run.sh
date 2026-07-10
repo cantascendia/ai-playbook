@@ -97,8 +97,12 @@ fi
   >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
 # 3. Debounce：同 commit 不重复 review
+# PR #11 重放（2026-07-10）：任何「成功落 review」的模式都算已审 —— codex 成功(success) /
+# claude 补位(claude-only / fallback-to-claude)。只认 success 时 codex 配额耗尽走 fallback 后
+# 同 SHA 会被反复重审（实证：CODEX-REVIEW-LOG 里 ba74d2a 记了 16 次）。
+# 边界：codex-failed+claude-failed **不算**已审（没落 review，应允许下次重试）。
 if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ] && \
-   grep -q "sha=${SHORT_SHA}.*mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
+   grep -qE "sha=${SHORT_SHA}\b.*mode=(success|claude-only|fallback-to-claude)" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
   echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=skipped-debounce | reason=already_reviewed" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
   exit 0
