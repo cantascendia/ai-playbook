@@ -1,0 +1,104 @@
+id: 080-otel-usage-dashboard
+description: >
+  telemetry/ 本地 OTel 用量看板：零依赖 Node collector 接收 Claude Code 导出的 OTLP/JSON
+  metrics+logs 拍平成 JSONL，report.mjs 按 repo/model 等维度聚合。SMOKE 断言真起 collector、
+  真 POST 合成 OTLP、真落盘、真出报表——不是 grep 源码。缺失 repo 维度显示 (unset)（诚实，不编造）。
+priority: P1
+input:
+  - "CTO 想在本地观测 Claude Code 的 token/成本/会话用量，按仓库和模型维度聚合，零 npm 依赖。"
+expected_steps:
+  - "telemetry/collector.mjs：node:http server（端口 TELEMETRY_PORT||4318），POST /v1/metrics 与 /v1/logs 解析 OTLP JSON，拍平每个 datapoint/logRecord 成一行 JSONL 落 telemetry/data/。"
+  - "malformed JSON 返回 400 且不崩；GET /healthz 返回 ok；SIGINT/SIGTERM 优雅退出；支持 TELEMETRY_DATA_DIR 覆盖落盘目录。"
+  - "telemetry/report.mjs：读 data/*.jsonl，--by(默认 repo,model)/--since(默认30)/--html/--dims；维度 resource 优先其次 datapoint attrs，缺失显示 (unset)。"
+  - "telemetry/README.md（中文）：settings.local.json env 片段、OTEL_RESOURCE_ATTRIBUTES 打 repo 标签（含 GH Actions 例）、运行命令、隐私与局限（repo 维度需注入 / transcript 回填列为未来工作不实现）。"
+  - "telemetry/.gitignore 排除 data/。"
+forbidden_actions:
+  - "引入任何 npm 依赖（必须零依赖 node:http/fs/path）。"
+  - "修改任何真实 .claude/settings.json 或 settings.local.json（README 只做文档示例）。"
+  - "对缺失的 repo/维度伪造值（必须 (unset)，铁律 #2/#9）。"
+  - "把 transcript 回填当已实现功能宣称（只能记为未来工作）。"
+acceptance_criteria:
+  - "collector 在随机高端口启动，/healthz 5s 内可达。"
+  - "POST 合成 OTLP metrics 后 telemetry/data/ 下出现 metrics-*.jsonl 且含 eval-smoke 与 123。"
+  - "collector 处理 /v1/logs：POST 后出现 events-*.jsonl。"
+  - "report.mjs --by repo,model --since 1 输出含 eval-smoke 与 test-model。"
+  - "report.mjs 支持 --dims；README 含 OTEL_RESOURCE_ATTRIBUTES 示例。"
+  - "verification_command 输出真实 pass=N fail=N，最后一行 PASS 或 FAIL。"
+verification_command: |
+  bash -lc '
+    set -u
+    pass=0; fail=0
+    check() { n="$1"; shift; if "$@"; then echo "PASS: $n"; pass=$((pass+1)); else echo "FAIL: $n"; fail=$((fail+1)); fi; }
+
+    # 结构断言（无需起进程）
+    check "collector.mjs exists" test -f telemetry/collector.mjs
+    check "report.mjs exists" test -f telemetry/report.mjs
+    check "README exists" test -f telemetry/README.md
+    check "gitignore excludes data" grep -q "data/" telemetry/.gitignore
+    check "zero-install (no telemetry/package.json)" bash -c "! test -f telemetry/package.json"
+    check "collector uses ESM import not require" grep -q "import http from" telemetry/collector.mjs
+    check "collector handles /v1/logs" grep -q "/v1/logs" telemetry/collector.mjs
+    check "report has --dims" grep -q -- "--dims" telemetry/report.mjs
+    check "report uses (unset) for missing dim" grep -q "(unset)" telemetry/report.mjs
+    check "README has OTEL_RESOURCE_ATTRIBUTES example" grep -q "OTEL_RESOURCE_ATTRIBUTES" telemetry/README.md
+    check "README notes transcript backfill as future work" grep -Eq "回填|未来工作" telemetry/README.md
+
+    # 需要 node/curl 才能跑 SMOKE；缺失则诚实标记（不伪 pass）
+    if ! command -v node >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+      echo "SKIP-smoke: node 或 curl 不可用（headless 环境缺依赖，诚实不伪造）"
+      echo "RESULT pass=$pass fail=$fail"
+      [ "$fail" -eq 0 ] && echo PASS || { echo FAIL; exit 1; }
+      exit 0
+    fi
+
+    # ---- 真 SMOKE：起 collector → POST 合成 OTLP → 落盘 → 出报表 ----
+    PORT=41818
+    DDIR=$(mktemp -d)
+    export TELEMETRY_DATA_DIR="$DDIR"
+    export TELEMETRY_PORT="$PORT"
+    CPID=""
+    cleanup() { [ -n "$CPID" ] && kill "$CPID" 2>/dev/null; rm -rf "$DDIR" 2>/dev/null; }
+    trap cleanup EXIT
+
+    node telemetry/collector.mjs >"$DDIR/collector.log" 2>&1 &
+    CPID=$!
+
+    up=0
+    for i in $(seq 1 25); do
+      if curl -sf "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then up=1; break; fi
+      sleep 0.2
+    done
+    check "healthz reachable within 5s" test "$up" = "1"
+
+    # 合成 OTLP metrics：一条 token.usage(asInt 123) + 一条 cost.usage(asDouble 0.05)。
+    # 不带 timeUnixNano → collector 用当前时间 → --since 1 可命中。内联转义双引号，避免 heredoc
+    # 被 run-evals.sh 的 2 空格缩进剥离破坏终止符。
+    METRICS="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[{\"key\":\"repo\",\"value\":{\"stringValue\":\"eval-smoke\"}}]},\"scopeMetrics\":[{\"metrics\":[{\"name\":\"claude_code.token.usage\",\"unit\":\"tokens\",\"sum\":{\"dataPoints\":[{\"attributes\":[{\"key\":\"type\",\"value\":{\"stringValue\":\"input\"}},{\"key\":\"model\",\"value\":{\"stringValue\":\"test-model\"}}],\"asInt\":\"123\"}]}},{\"name\":\"claude_code.cost.usage\",\"unit\":\"USD\",\"sum\":{\"dataPoints\":[{\"attributes\":[{\"key\":\"model\",\"value\":{\"stringValue\":\"test-model\"}}],\"asDouble\":0.05}]}}]}]}]}"
+    curl -s -X POST -H "content-type: application/json" -d "$METRICS" "http://127.0.0.1:$PORT/v1/metrics" >/dev/null 2>&1
+
+    # /v1/logs 处理
+    curl -s -X POST -H "content-type: application/json" -d "{\"resourceLogs\":[{\"resource\":{\"attributes\":[{\"key\":\"repo\",\"value\":{\"stringValue\":\"eval-smoke\"}}]},\"scopeLogs\":[{\"logRecords\":[{\"severityText\":\"INFO\",\"body\":{\"stringValue\":\"hi\"},\"attributes\":[{\"key\":\"event.name\",\"value\":{\"stringValue\":\"user_prompt\"}}]}]}]}]}" "http://127.0.0.1:$PORT/v1/logs" >/dev/null 2>&1
+
+    # malformed JSON → 不崩，返回 400
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "content-type: application/json" -d "{bad" "http://127.0.0.1:$PORT/v1/metrics" 2>/dev/null)
+    check "malformed JSON returns 400" test "$CODE" = "400"
+
+    sleep 0.3
+    MFILE=$(ls "$DDIR"/metrics-*.jsonl 2>/dev/null | head -1)
+    EFILE=$(ls "$DDIR"/events-*.jsonl 2>/dev/null | head -1)
+    check "metrics jsonl written" test -n "$MFILE"
+    check "metrics jsonl has eval-smoke" bash -c "grep -q eval-smoke \"$MFILE\""
+    check "metrics jsonl has 123" bash -c "grep -q 123 \"$MFILE\""
+    check "events jsonl written (/v1/logs flattened)" test -n "$EFILE"
+
+    REPORT=$(node telemetry/report.mjs --by repo,model --since 1 2>&1)
+    check "report shows eval-smoke" bash -c "printf %s \"\$0\" | grep -q eval-smoke" "$REPORT"
+    check "report shows test-model" bash -c "printf %s \"\$0\" | grep -q test-model" "$REPORT"
+    check "report shows cost 0.0500" bash -c "printf %s \"\$0\" | grep -q 0.0500" "$REPORT"
+
+    DIMS=$(node telemetry/report.mjs --dims --since 1 2>&1)
+    check "report --dims lists repo" bash -c "printf %s \"\$0\" | grep -q repo" "$DIMS"
+
+    echo "RESULT pass=$pass fail=$fail"
+    if [ "$fail" -eq 0 ]; then echo PASS; else echo FAIL; exit 1; fi
+  '

@@ -63,3 +63,11 @@
   `actions/github-script`（改 `gh pr comment`）+ forbidden 正则 `tr -d '\r'` 兜底。
   经 `CTO_DOUBLE_SIGNED=1` opt-out（同 item 1-3 的通道）应用，eval 078 守护。
   协作：codex(gpt-5.5) 编码（`codex exec --full-auto`），Fable 5 诊断/裁决/应用/验证。
+
+### item 5（2026-07-10 追加）：self-audit-weekly.yml 改单一 rolling issue
+
+- **处置**：☑ 已应用 2026-07-10。issue 写入段改为：查 self-audit-rolling label open issue → update+comment；
+  无则 create（labels 含 self-audit-rolling）；其余 self-audit open issues 评论 superseded 后 close。
+  其余 112 行（cron/健康指标/报告）逐字节不动。经 CTO_DOUBLE_SIGNED opt-out 应用（ADR-007 通道），
+  eval 079 守护（12 断言 + staged/live 双态验证设计：staged 删除后自动落 live）。
+  协作：Opus W2 编码（staged），Fable 5 验收+应用。

@@ -13,6 +13,29 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-10] v4.2 — PR#11 重放 + Self-Audit rolling issue + ADR-009 三层定位 + OTel 用量面板
+
+- 改了什么：① **PR#11 最小重放**（Fable 5 裁决 + 亲自编码）：run.sh debounce 认全部落 review 模式
+  （success|claude-only|fallback-to-claude，边界排除 codex-failed+claude-failed）——修同 SHA 重复审
+  （实证 ba74d2a×16）；install-pre-commit.sh 拆双 hook（pre=铁律#12 eval gate 原样留 commit 前，
+  post=codex-bridge 触发——pre 阶段 HEAD 是旧 commit 审错对象，PR#11 核心发现）。原 PR 整体搬 post
+  会破坏 v3.13 A3 gate → 关闭原 PR 附证据裁决。eval 043 扩 8 断言。
+  ② **Self-Audit → 单一 rolling issue**（Opus W2 编码经 staged + opt-out 应用）：github-script 改为
+  查 self-audit-rolling label open issue → update+comment；无则 create；其余 self-audit open issues
+  评论 superseded 后关闭。eval 079（12 断言 + 负向判别自测）。
+  ③ **ADR-009 定位收缩**：三层聚焦（规则/审计/回放），调度层冻结不再演进（Claude Code 原生
+  workflow/后台代理/诊断已覆盖），新功能只落三层。
+  ④ **telemetry/ OTel 本地用量面板**（Opus W4 编码，审计层新成员）：零依赖 collector.mjs
+  （OTLP http/json → JSONL）+ report.mjs（--by repo,model / workflow_run_id 等维度聚合 tokens/USD
+  成本/会话，缺维度诚实 '(unset)'）+ README（启用/CI 注入 OTEL_RESOURCE_ATTRIBUTES 示例）。
+  维度事实：repo/workflow_run_id 无内置属性，须 OTEL_RESOURCE_ATTRIBUTES 注入（官方文档查证）。
+  eval 080（21 项真冒烟：起服务/POST 合成 OTLP/断言落盘与报表/杀进程，temp dir 不污染）。
+- 协作：Fable 5 指挥+裁决+T1 编码+opt-out 应用；Opus×2 编码 T2/T4；claude-code-guide(Opus) 查证
+  OTel 事实；codex 首派超时零产出（本机沙箱不稳）→ 止损改道（诚实记录）
+- Eval 跑分前/后：56 → **58 PASS / 0 FAIL**（+079/080；043 4→8 断言）
+- 影响范围：codex-bridge 去重（log 膨胀止血）；终端 commit 的 review 对象正确性；audit issue 噪声
+  归一为单 rolling 单；用量可见性从零到本地面板；新功能范围治理（ADR-009 准则）
+
 ## [2026-07-09] deploy — v4 guard engine 滚动分发到全部 29 个下游安装
 
 - 改了什么：把 ai-playbook 的 `.claude/hooks/`（engine/*.mjs 3 个运行时文件 + 10 个 shim + lib/common.sh）

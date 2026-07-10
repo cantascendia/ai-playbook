@@ -123,3 +123,34 @@ settings.local.json（transient opt-out，红线不长期敞开）。
 标 precondition 而非悬挂，v3.14 阶段 2 大改标「no big-bang 裁决保护」留人启动。
 
 来源：本会话 transcript + 两波 workflow journal + eval 064-077 + evals/{slo-checks,drills}/
+
+## ADR-009: 定位收缩 — 三层聚焦（规则/审计/回放），不复制 Claude Code 原生调度层（2026-07-10）
+
+**Context**: Claude Code 已原生强化 workflow（`.claude/workflows/` saved workflows + Workflow 工具）、
+后台代理（background agents / FleetView）、诊断（原生 doctor / OTel 遥测）。ai-playbook 早期为填补
+这些空白做过的"调度层"能力（多代理编排 prose §39、自建 cron 审计、代理调度指令）正被平台原生吸收 ——
+继续在此层投入 = 与平台赛跑，必输且浪费（用户 2026-07-10 方向指示）。
+
+**Decision**: ai-playbook 定位收缩为跨 Claude/Codex 的三层，**新功能只落在这三层**：
+1. **规则层（Rules）**：红线 guard engine（跨引擎/legacy 双路径）、learned rules（Bugbot 模式）、
+   forbidden SSOT、Constitution 治理 —— 平台不会替你定义"什么不可做"。
+2. **审计层（Audit）**：trajectory-logger、ledger 跨项目事故账本、§48 跨模型审、SLO 机检、
+   llm-judge 风险信号、**OTel 本地用量面板（telemetry/，本 ADR 同期落地）** —— 平台产生行为，
+   本层负责"看见并对账"。
+3. **回放层（Replay）**：golden-trajectory evals、drills 演练、cto-replay —— 平台跑得快，
+   本层负责"可复现地证明它跑对了"。
+
+**调度层处置**（不激进删，标注定位）：
+- §38-40（agent loop / 多代理编排 / pair programming）：维持 v3.14 判决的 advanced-reference
+  不分发定位，**冻结不再演进**（原生 workflow 是正解，`.claude/workflows/cto-scan.js` 即范例——
+  用原生承载编排而非自建）。
+- self-audit-weekly cron：保留（GH Actions 原生承载，产出落审计层 rolling issue），但不再扩展
+  自建调度语义。
+- cto-doctor：收窄语义为「ai-playbook harness 自检」，不与 Claude Code 原生诊断重叠。
+
+**Consequences**: ① 新需求判断准则一句话——"这是在定义规则、留下审计证据、还是复现验证？都不是
+就不做"；② 与平台演进解耦：原生调度再怎么变，三层价值不受冲击（反而受益——更多原生行为可审计）；
+③ 产品宪法"AI-native CTO 闭环指挥系统"表述与收缩后定位的张力**暂不处理**（三层仍在"指挥系统"
+语义内；若未来正式改述需人发起 amendment，非本 ADR 范围）。
+
+来源：用户 2026-07-10 方向指示 + Claude Code 原生能力对照（workflows/后台代理/OTel 遥测均已官方文档化）

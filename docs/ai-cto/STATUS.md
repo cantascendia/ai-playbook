@@ -3,7 +3,7 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-08 — **v4.1 backlog 清零**：2026-07-02 扫出的待办全部处置到终态（14 eval 新增至 55，SLO 机检 + 演练脚本化 + 命令/skill/hook 单源与覆盖 + push-gap 闭合）
+最后更新：2026-07-10 — **v4.2**：PR#11 重放（debounce+双hook拆分）· Self-Audit rolling issue · ADR-009 三层定位（规则/审计/回放）· telemetry/ OTel 用量面板（audit 层新成员）
 上一版：2026-07-04 — v4.0e branch-guard 工作树边界修正 **已 merge 到 main**（PR #43 squash `3940c0f`）
 
 ---

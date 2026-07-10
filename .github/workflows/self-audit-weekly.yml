@@ -115,7 +115,7 @@ jobs:
           echo "audit_file=$OUT" >> $GITHUB_OUTPUT
           cat "$OUT"
 
-      - name: 3. 写 GitHub Issue（不开 PR — 业界共识：人审为主）
+      - name: 3. 写 GitHub Issue（滚动单 issue — 不开 PR，业界共识：人审为主）
         uses: actions/github-script@v7
         with:
           script: |
@@ -123,13 +123,67 @@ jobs:
             const file = '${{ steps.detect.outputs.audit_file }}';
             const body = fs.readFileSync(file, 'utf8');
             const date = new Date().toISOString().split('T')[0];
-            await github.rest.issues.create({
+            const title = `🔄 v3.9 Self-Audit ${date}`;
+            const fullBody = body + '\n\n---\n\n_由 .github/workflows/self-audit-weekly.yml 自动生成_';
+            // (1) 查已有的 open rolling issue（label self-audit-rolling）
+            const rollingList = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🔄 v3.9 Self-Audit ${date}`,
-              body: body + '\n\n---\n\n_由 .github/workflows/self-audit-weekly.yml 自动生成_',
-              labels: ['self-audit', 'v3.9-flywheel']
+              state: 'open',
+              labels: 'self-audit-rolling'
             });
+            const rollingIssue = rollingList.data[0];
+            let rollingNumber;
+            if (rollingIssue) {
+              // (2) 已存在 → 原地更新标题（含最新日期）+ body（最新报告）+ 刷新评论
+              rollingNumber = rollingIssue.number;
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: rollingNumber,
+                title: title,
+                body: fullBody
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: rollingNumber,
+                body: `🔄 audit refreshed ${date}`
+              });
+            } else {
+              // (3) 不存在 → 新建滚动 issue（打 self-audit-rolling 标签供下轮复用）
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: fullBody,
+                labels: ['self-audit', 'self-audit-rolling', 'v3.9-flywheel']
+              });
+              rollingNumber = created.data.number;
+            }
+            // (4) 关闭其余仍 open 的 self-audit issue（被滚动 issue 取代，去噪）
+            const staleList = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'self-audit'
+            });
+            for (const issue of staleList.data) {
+              if (issue.number !== rollingNumber) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `superseded by rolling issue #${rollingNumber}`
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+              }
+            }
 
       - name: 4. Cost cap 检查（输出警告但不阻断）
         run: |
