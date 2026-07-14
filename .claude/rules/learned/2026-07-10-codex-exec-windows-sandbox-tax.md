@@ -13,6 +13,8 @@
 
 ## 应该怎么做
 
+0. **优先走 codex MCP server**（2026-07-10 实测）：会话内用 `mcp__codex__codex` 工具替代 CLI exec —— MCP server 常驻进程复用沙箱，3 条 shell 命令 + 2 次模型往返仅 32s（CLI 税率下 >110s），且带 threadId 支持多轮。CLI exec 仅用于终端手动场景（配 `scripts/codex-delegate.sh` 包装）。
+
 1. **任务设计成"写作型"**（首选，沙箱可保留）：prompt 自包含贴入所需文件内容/上下文，明确
    「不要读仓库文件、不要跑测试、只用 apply_patch 写」——实证：llm-judge 重写任务如此成功，
    两个探索型任务（要求先读 143 行 yml + 自测）全部超时零产出。验证由 orchestrator 事后做。

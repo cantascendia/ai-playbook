@@ -1,0 +1,48 @@
+id: 084-codex-delegate-wrapper
+description: v4.3 codex 委派包装 — scripts/codex-delegate.sh 把 learned rule 2026-07-10 的正确姿势固化为一键脚本（写作型 lint + </dev/null + -C git仓库前置检查 + service_tier=fast），并解析 codex 'tokens used' 入 telemetry/data/ JSONL（metric=codex.token.usage）实现跨工具用量统一账本；同时 learned rule 补 MCP codex 通道新知（常驻 server 无 37s 沙箱税，会话内首选）。
+priority: P1
+input:
+  - "终端手动委派 codex 编码任务：bash scripts/codex-delegate.sh \"<自包含 prompt>\"；或在 Claude Code 会话内委派时按 learned rule 选 MCP codex 通道"
+expected_steps:
+  - codex-delegate.sh 存在，调用范式 = codex exec -s workspace-write -C <git仓库> -c service_tier=fast "$PROMPT" </dev/null（四要素齐）
+  - 前置检查：codex CLI 在 PATH + 目标是 git 仓库（否则 codex 直接拒绝，提前 fail-fast）
+  - 写作型 lint：prompt 含"先读/自测/跑测试"类字样 → 警告将超时零产出（不阻断，advisory）
+  - danger-full-access 时警告 codex 子进程不经 guard hook
+  - 解析输出 'tokens used N' → 追加 telemetry/data/metrics-<date>.jsonl（metric=codex.token.usage, resource.repo=仓库名），与 Claude Code OTel 数据同构，report.mjs 可统一聚合
+  - learned rule 2026-07-10 含 MCP codex 通道条目（步骤 0：会话内优先 mcp__codex__codex，无进程税）
+forbidden_actions:
+  - 省略 </dev/null（stdin 未闭合 codex 会挂起等 EOF — 学费已交）
+  - 不检查 git 仓库直接调 codex exec（非 git 目录 codex 拒绝退出，浪费一轮）
+  - tokens 解析失败时写入垃圾数据（应打印"未能解析"并跳过入账）
+  - learned rule 只写 CLI 税率不写 MCP 更优通道（信息不完整误导后续委派决策）
+acceptance_criteria:
+  - scripts/codex-delegate.sh 语法通过 bash -n
+  - 脚本含四要素：'-s "$SANDBOX"'、'-C "$REPO"'、'service_tier=fast'、'</dev/null'
+  - 脚本含 git 仓库前置检查 + codex.token.usage 入账逻辑
+  - learned rule 2026-07-10 文件含 'mcp__codex__codex'
+sota_reference:
+  - '2026-07-10 实测：workspace-write 沙箱 37s/shell进程（123×）；MCP server 常驻复用沙箱 3命令+2往返=32s'
+  - 'telemetry/report.mjs 按 metric+repo 聚合 — codex 用量与 Claude OTel 同构 JSONL 即可统一视图'
+verification_command: |
+  pass=0; fail=0
+  f=scripts/codex-delegate.sh
+  if [ -f "$f" ] && bash -n "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $f 缺失或语法错误"; fi
+  for pat in '\-s "\$SANDBOX"' '\-C "\$REPO"' 'service_tier=fast' '</dev/null'; do
+    if grep -qE -- "$pat" "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 缺调用要素 $pat"; fi
+  done
+  if grep -q 'rev-parse --show-toplevel' "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 缺 git 仓库前置检查"; fi
+  if grep -q 'codex.token.usage' "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 缺 telemetry 入账"; fi
+  if grep -q '未能从输出解析' "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 缺解析失败兜底分支"; fi
+  # 写作型 lint 存在（探索型 prompt 触发警告）
+  if grep -q '先读' "$f" && grep -q '零产出' "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: 缺写作型 lint"; fi
+  # learned rule 更新含 MCP 通道
+  lr=.claude/rules/learned/2026-07-10-codex-exec-windows-sandbox-tax.md
+  if grep -q 'mcp__codex__codex' "$lr"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: learned rule 缺 MCP 通道条目"; fi
+  # 行为断言：伪造 codex 输出，验证 tokens 解析函数逻辑（不真调 codex — 用量/时间成本）
+  TMPD=$(mktemp -d)
+  OUT_SAMPLE=$'some work done\ntokens used\n12,345\n'
+  TOKENS=$(printf '%s\n' "$OUT_SAMPLE" | grep -A1 '^tokens used' | tail -1 | tr -d ', ' | grep -E '^[0-9]+$' || true)
+  if [ "$TOKENS" = "12345" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: tokens 解析逻辑（got=$TOKENS）"; fi
+  rm -rf "$TMPD"
+  echo "pass=$pass fail=$fail"
+  [ "$fail" = "0" ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }

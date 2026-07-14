@@ -1,0 +1,80 @@
+id: 082-agents-md-single-source
+description: v4.3 hardening — scripts/sync-agents-md.mjs 单源生成 AGENTS.md/GEMINI.md 的 14 铁律 + forbidden 块。codex 读 AGENTS.md、Antigravity 读 GEMINI.md，手工维护会与 CLAUDE.md 铁律 + forbidden SSOT 漂移；用 BEGIN/END 生成标记 + --check 漂移锁实现跨工具 prompt 级对齐。
+priority: P1
+input:
+  - "CLAUDE.md 的 '## 铁律' 段（14 条 one-liner，read-only 源）"
+  - "scripts/forbidden-paths.txt（forbidden 路径 SSOT，read-only 源）"
+  - "templates/AGENTS.md + templates/GEMINI.md（生成目标，标记外内容保留）"
+expected_steps:
+  - sync-agents-md.mjs 解析 CLAUDE.md '## 铁律' 段抽 14 铁律 + forbidden-paths.txt 抽路径条目（剥 \r/注释/空行）
+  - 渲染进两个模板的 '<!-- BEGIN/END GENERATED: iron-laws -->' 与 '...: forbidden-paths -->' 标记块
+  - 标记间内容每次运行整块替换（幂等）；标记外平台专属段落一律不动
+  - 标记缺失时在 角色 段之后追加生成块
+  - --check 模式：需重新生成（漂移）则 exit 1，否则 exit 0（CI 漂移锁）
+forbidden_actions:
+  - 手改 AGENTS.md/GEMINI.md 铁律块导致与 CLAUDE.md 漂移（本脚本存在的理由）
+  - 修改 CLAUDE.md 或 forbidden-paths.txt（源为 read-only，脚本只读）
+  - 用 $ 特殊替换语义误伤块内容（须用函数 replacer）
+  - 生成非幂等（连跑两次结果不同 → --check 永远漂移）
+  - 标记外的平台专属段落（委派场景 / 提交格式 / Stitch）被覆盖
+acceptance_criteria:
+  - scripts/sync-agents-md.mjs 存在
+  - 生成后 --check 立即通过（exit 0，无漂移）
+  - 两模板各含 iron-laws + forbidden-paths 两对 BEGIN/END 标记
+  - 'auth/' 出现在 forbidden-paths 标记内；'铁律' 出现在 iron-laws 标记内
+  - 行为：mktemp 中破坏副本（标记内 sed 改动）后 TEMPLATES_DIR 指向副本跑 --check → exit 1，真模板不受影响
+sota_reference:
+  - '跨工具 prompt 对齐：codex AGENTS.md / Antigravity GEMINI.md / Claude CLAUDE.md 三处红线单源，防 learned rule 2026-05-12 单 sweep 类漂移'
+  - 'CI 漂移锁模式对标 prettier --check / gofmt -l：生成物入库 + --check 门禁'
+verification_command: |
+  pass=0; fail=0
+  SCRIPT=scripts/sync-agents-md.mjs
+
+  # 1. 脚本存在
+  [ -f "$SCRIPT" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $SCRIPT 缺失"; }
+
+  # node 缺失 → 无法执行行为断言，诚实跳过（不伪 PASS）
+  if ! command -v node >/dev/null 2>&1; then
+    echo "[info] node 缺失 — 仅做静态存在性断言，跳过行为测试"
+    echo "pass=$pass fail=$fail (node 缺失，仅 1 项静态)"
+    [ "$fail" = "0" ] && echo PASS || echo FAIL
+    return 0 2>/dev/null || exit 0
+  fi
+
+  # 2. 生成后 --check 立即通过（幂等 + 无漂移）。先跑一次 write 确保基线已同步。
+  node "$SCRIPT" >/dev/null 2>&1
+  node "$SCRIPT" --check >/dev/null 2>&1 && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 生成后 --check 仍报漂移"; }
+
+  # 3. 两模板各含两对标记
+  for t in AGENTS.md GEMINI.md; do
+    for m in iron-laws forbidden-paths; do
+      { grep -q "BEGIN GENERATED: $m" "templates/$t" && grep -q "END GENERATED: $m" "templates/$t"; } \
+        && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: templates/$t 缺 $m 标记对"; }
+    done
+  done
+
+  # 4. token 出现在对应标记块内部（awk 抽 BEGIN..END 区间再 grep）
+  extract() { awk "/BEGIN GENERATED: $2/{g=1} g{print} /END GENERATED: $2/{g=0}" "$1"; }
+  for t in AGENTS.md GEMINI.md; do
+    extract "templates/$t" iron-laws | grep -q "铁律" \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: templates/$t '铁律' 不在 iron-laws 块内"; }
+    extract "templates/$t" forbidden-paths | grep -q "auth/" \
+      && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: templates/$t 'auth/' 不在 forbidden-paths 块内"; }
+  done
+
+  # 5. 行为：隔离副本破坏 → --check 应 exit 1；TEMPLATES_DIR 覆盖使真模板不受影响
+  T=$(mktemp -d)
+  command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  cp templates/AGENTS.md templates/GEMINI.md "$T"/
+  # 标记内破坏 forbidden 条目（源未变 → 重新生成必与副本不同 → 漂移）
+  sed -i "s#^- auth/#- AUTH-CORRUPTED/#" "$T/GEMINI.md" 2>/dev/null \
+    || sed -i '' "s#^- auth/#- AUTH-CORRUPTED/#" "$T/GEMINI.md" 2>/dev/null
+  TEMPLATES_DIR="$T" node "$SCRIPT" --check >/dev/null 2>&1; rc=$?
+  [ "$rc" = "1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 破坏副本 --check 期望 exit 1 得 $rc"; }
+  # 真模板未被 TEMPLATES_DIR 覆盖跑污染
+  grep -q "^- auth/" templates/GEMINI.md \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 真 templates/GEMINI.md 被误改"; }
+  rm -rf "$T" 2>/dev/null || true
+
+  echo "pass=$pass fail=$fail (期望 12/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

@@ -13,7 +13,41 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
-## [2026-07-10] v4.2 — PR#11 重放 + Self-Audit rolling issue + ADR-009 三层定位 + OTel 用量面板
+## [2026-07-14] v4.3 — 跨工具 enforcement 收敛 + Windows 硬化 + 遥测全量入网
+
+- 改了什么：
+  ① **git 层 forbidden 兜底**（eval 081）：install-pre-commit.sh 的 pre-commit 在 eval-gate 前加
+  forbidden-path 段——从 forbidden-paths.txt（`tr -d '\r'`）建正则扫 staged 文件，命中硬 exit 1，
+  仅 `CTO_DOUBLE_SIGNED=1` 放行。**这是唯一对 codex / Antigravity / 终端一致生效的层**
+  （Claude hook 只拦 Claude 自己的工具调用，codex 子进程全绕过）。
+  ② **AGENTS.md/GEMINI.md 单源防漂**（eval 082）：scripts/sync-agents-md.mjs 从 CLAUDE.md 铁律段 +
+  forbidden-paths.txt 生成两模板的 GENERATED 块，`--check` 漂移即 exit 1。
+  ③ **Windows 硬化**（eval 083）：scripts/doctor-windows.sh 一次性环境体检（本机 11 ok/2 warn/0 fail）；
+  .gitattributes 补 `*.yml/*.yaml/*.json text eol=lf`（CRLF 静默漏匹配是本仓最狠战伤类）。
+  ④ **codex 委派包装**（eval 084）：scripts/codex-delegate.sh 固化写作型委派四要素
+  （workspace-write / `-C` git 仓库 / service_tier=fast / `</dev/null`）+ 写作型 lint +
+  解析 `tokens used` 入 telemetry JSONL（metric=codex.token.usage）——跨工具用量统一账本。
+  ⑤ **MCP codex 通道实测**：`mcp__codex__codex`（常驻 server）无 37s/进程沙箱税——3 条 shell 命令 +
+  2 次模型往返共 32s（CLI 税率下 >110s）。learned rule 2026-07-10 已补步骤 0：会话内委派首选 MCP。
+  ⑥ **branch protection 落地**：gh api PUT main 保护 = require PR / 0 approvals（单维护者不能自批）/
+  enforce_admins=false（逃生门）/ **无 required status checks**——Eval Gate 是 paths-filtered，
+  设为 required 会让不触发它的 PR 永卡 "Expected—Waiting"，此为有意取舍非遗漏。
+  ⑦ **遥测全量入网**：scripts/telemetry-enroll.mjs 深合并 OTel env 进 30/30 项目的
+  settings.local.json（不覆盖既有键；OTEL_RESOURCE_ATTRIBUTES 缺 repo= 才追加）；collector 常驻 +
+  Startup 文件夹自启（schtasks/Register-ScheduledTask 均失败：cp932 参数解析 / 需管理员——用户级
+  Startup 是零权限方案）。⚠️ **约束变更：settings.local.json 自此常驻**（含遥测 env），未来 opt-out
+  注入必须合并键，不得整文件覆盖/删除。
+  ⑧ **plugin 通道验证**：install→details→uninstall 闭环通过，但 loader 报 Agents(0)——manifest
+  `./.claude/agents/*.md` 数组路径 validate 通过 load 不认（已知限制，修复候选=标准 agents/ 根目录布局）。
+  验证后已卸载，避免与文件拷贝版 hooks 双跑。
+  ⑨ **ledger 首次真转**：29 项目 audit 数据蒸馏出 2 条 corroborated 聚类（bypass-guard::commit 169 hits /
+  forbidden-guard::path，均 ≥2 项目印证）；**传播 withheld**——drafts 是骨架质量，按设计需人审补根因后
+  才 propagate（顺手修 distill.mjs 模板 `c.hook` undefined bug）。
+- 为什么：v4.3 主题 = "以后用 Claude Code / codex / Antigravity 开发更顺"——enforcement 从
+  Claude-only hook 收敛到 git 层（工具无关）、配置单源化、Windows 环境自检、委派姿势脚本化、用量可见性全覆盖。
+- Eval 跑分前/后：58 → **62 PASS / 0 FAIL**（+081/082/083/084）；引擎单测 42/42；check-counts 绿。
+- 影响范围：所有工具的 commit 路径（forbidden 兜底）；codex/AG 配置模板消费者；Windows 开发环境；
+  跨项目用量报表（`node telemetry/report.mjs --by repo,model`）。
 
 - 改了什么：① **PR#11 最小重放**（Fable 5 裁决 + 亲自编码）：run.sh debounce 认全部落 review 模式
   （success|claude-only|fallback-to-claude，边界排除 codex-failed+claude-failed）——修同 SHA 重复审
