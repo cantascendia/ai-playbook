@@ -7,7 +7,7 @@ input:
   - "templates/AGENTS.md + templates/GEMINI.md（生成目标，标记外内容保留）"
 expected_steps:
   - sync-agents-md.mjs 解析 CLAUDE.md '## 铁律' 段抽 14 铁律 + forbidden-paths.txt 抽路径条目（剥 \r/注释/空行）
-  - 渲染进两个模板的 '<!-- BEGIN/END GENERATED: iron-laws -->' 与 '...: forbidden-paths -->' 标记块
+  - "渲染进两个模板的 '<!-- BEGIN/END GENERATED: iron-laws -->' 与 '...: forbidden-paths -->' 标记块"
   - 标记间内容每次运行整块替换（幂等）；标记外平台专属段落一律不动
   - 标记缺失时在 角色 段之后追加生成块
   - --check 模式：需重新生成（漂移）则 exit 1，否则 exit 0（CI 漂移锁）
