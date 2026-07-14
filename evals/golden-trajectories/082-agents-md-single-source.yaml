@@ -21,7 +21,7 @@ acceptance_criteria:
   - scripts/sync-agents-md.mjs 存在
   - 生成后 --check 立即通过（exit 0，无漂移）
   - 两模板各含 iron-laws + forbidden-paths 两对 BEGIN/END 标记
-  - 'auth/' 出现在 forbidden-paths 标记内；'铁律' 出现在 iron-laws 标记内
+  - "auth/ 出现在 forbidden-paths 标记内；'铁律' 出现在 iron-laws 标记内"
   - 行为：mktemp 中破坏副本（标记内 sed 改动）后 TEMPLATES_DIR 指向副本跑 --check → exit 1，真模板不受影响
 sota_reference:
   - '跨工具 prompt 对齐：codex AGENTS.md / Antigravity GEMINI.md / Claude CLAUDE.md 三处红线单源，防 learned rule 2026-05-12 单 sweep 类漂移'
