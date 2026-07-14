@@ -1,0 +1,49 @@
+id: 083-windows-doctor-eol-hardening
+description: v4.3 Windows 工具链硬化 — .gitattributes 补 yml/yaml/json eol=lf（本仓战伤全是 Windows：CRLF 咬 3 次、最狠是 llm-judge forbidden-regex \r 静默漏匹配）+ scripts/doctor-windows.sh 一次性环境自检（node>=20 / jq缺失=OK / autocrlf / CRLF审计 / MSYS路径 / guard smoke / PowerShell）。
+priority: P1
+input:
+  - "开发者/CI 在 Windows git-bash 上跑 bash scripts/doctor-windows.sh 做环境体检；或审 .gitattributes 是否覆盖 yaml/json 防 CRLF 静默漏匹配"
+expected_steps:
+  - .gitattributes 已含 '*.yml text eol=lf' + '*.yaml text eol=lf' + '*.json text eol=lf'（md/sh/mjs/js 原已覆盖，本次补齐数据/配置类）
+  - doctor-windows.sh 存在且可执行，POSIX/git-bash 一次性跑完 6 段自检，每段打 ✓/⚠/✗ + fix hint
+  - guard smoke 用 env -u CTO_DOUBLE_SIGNED 清会话残留双签，forbidden-guard 对 src/auth/x.ts 在 engine + legacy 双路径均 exit 2
+  - 本机跑 doctor 退出 0（⚠ 非致命，仅 ✗ 才 exit 1），输出含 summary 行 + 'GUARD-SMOKE: PASS' 机器可判标记
+forbidden_actions:
+  - .gitattributes 只加 yml 漏 yaml/json（yaml 是 eval 主体格式，json 是 settings/mcp 配置 — 任一漏则该类 CRLF 静默风险仍在）
+  - doctor 把 jq 缺失报成 ✗ fail（本仓 hook 用 sed fallback 作生产路径，jq 有无都行 — 缺失=OK）
+  - doctor 跑 git add --renormalize 批量改仓库（越权 — 规范化是独立人工决策，脚本只自检 + 记录 note）
+  - guard smoke 不清 CTO_DOUBLE_SIGNED（会话残留 opt-out 会放行 auth 路径 → 假绿）
+  - engine file:// import 直传 MSYS /c/ 路径不经 cygpath -m 转原生（ERR_INVALID_URL / 找不到文件 — 这正是历史 MSYS 路径战伤）
+acceptance_criteria:
+  - .gitattributes 三行 eol=lf（yml/yaml/json）均存在
+  - scripts/doctor-windows.sh 存在且 [ -x ] 为真
+  - 本机真跑 bash scripts/doctor-windows.sh → exit 0 且 stdout 含 'doctor summary:' 与 'GUARD-SMOKE: PASS'
+sota_reference:
+  - '本仓 learned rule 2026-07-10 codex-windows-sandbox-tax + 多条 Windows 路径战伤（\r 静默漏匹配是最难查类：无报错、检测永不触发）'
+  - 'core.autocrlf=true（本机实测）→ checkout LF→CRLF，仅 .gitattributes eol=lf 能兜底数据/配置类文件'
+verification_command: |
+  pass=0; fail=0
+  # ── 静态断言 1：.gitattributes 三行 eol=lf ──
+  for ext in yml yaml json; do
+    if grep -qE "^\*\.${ext}[[:space:]].*eol=lf" .gitattributes; then
+      pass=$((pass+1))
+    else
+      fail=$((fail+1)); echo "FAIL: .gitattributes 缺 *.$ext eol=lf"
+    fi
+  done
+  # ── 静态断言 2：doctor 脚本存在且可执行 ──
+  if [ -f scripts/doctor-windows.sh ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor-windows.sh 不存在"; fi
+  if [ -x scripts/doctor-windows.sh ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor-windows.sh 无执行位（chmod +x）"; fi
+  # ── 行为断言 3：真跑 doctor，捕获 stdout + exit 码 ──
+  DOUT="$(bash scripts/doctor-windows.sh 2>&1)"; drc=$?
+  if [ "$drc" = "0" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor 退出 $drc（期望 0）"; fi
+  # summary 行存在
+  if printf '%s' "$DOUT" | grep -q 'doctor summary:'; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor 输出无 summary 行"; fi
+  # guard-smoke PASS 标记存在
+  if printf '%s' "$DOUT" | grep -q 'GUARD-SMOKE: PASS'; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor 输出无 GUARD-SMOKE: PASS 标记"; fi
+  # ── 行为断言 4：独立复核 guard smoke 语义（env -u CTO_DOUBLE_SIGNED，engine+legacy 双 exit 2）──
+  rcE=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/x.ts"},"cwd":"."}' | env -u CTO_DOUBLE_SIGNED bash .claude/hooks/forbidden-guard.sh >/dev/null 2>&1; echo $?)
+  rcL=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/x.ts"},"cwd":"."}' | env -u CTO_DOUBLE_SIGNED CTO_GUARD_ENGINE=legacy bash .claude/hooks/forbidden-guard.sh >/dev/null 2>&1; echo $?)
+  if [ "$rcE" = "2" ] && [ "$rcL" = "2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: guard smoke engine=$rcE legacy=$rcL（期望 2/2）"; fi
+  echo "pass=$pass fail=$fail (expect 9/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

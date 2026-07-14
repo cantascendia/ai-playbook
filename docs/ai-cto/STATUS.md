@@ -143,7 +143,7 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 - [x] **Plugin 化** → v4.0d `.claude-plugin/`（validate 通过，与 cto-init 并行）。
 
 ### ⚪ 终态：需真环境 / 人治理开关（非悬挂 TODO，precondition 明确）
-- ⚪ **push-gap 真阻断** = GitHub branch protection（require PR + require check）—— 改变人的 direct-push 权限，是仓库治理开关，SPEC-001 记 `gh api ...` 命令供人按需开（不由 agent 误锁）。
+- ✅ **push-gap 真阻断已落地**（2026-07-14 v4.3）：branch protection ON（require PR / 0 approvals / enforce_admins=false / 无 required checks——见 Resolved 条目取舍说明）。
 - ⚪ **季度演练场景 3（settings opt-out）+ 真 FP-rate SLO** —— 需真 Claude 会话 / 人工标注 block 正确性，drill 05 + slo-check 07 已 SKIP-manual 标 precondition。附带发现：settings.json 的 SessionStart 未实现「effective vs declared hook 数」告警（QUARTERLY-DRILLS scenario-3 note 记录，未来 harness 增强候选）。
 
 ### 🔵 明确不做（v3.14 「no big-bang」裁决保护，非本轮范围）
@@ -176,21 +176,22 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
-- **CONSTITUTION 安全宪法 #4「GitHub Branch Protection」是 vaporware**（🟠 治理缺口，2026-07-04 发现）：
-  `gh api repos/cantascendia/ai-playbook/branches/main/protection` 返回 **404 Branch not protected** —— main **实际未开** GitHub 分支保护。
-  宪法声称"main 必须 PR + codex review + 人 merge"，但技术上零强制，纯荣誉制（同 v3.13 修过的"check-counts 声称是 CI gate 但脚本不存在"类）。
-  建议：要么真配 branch protection（gh api PUT + required checks = Run evals），要么修正宪法措辞为"约定非强制"。**改 `.github`/宪法均需人双签**（forbidden / 铁律 #12/#13）。
+- **plugin loader Agents(0)**（🟡 minor，2026-07-14 v4.3 发现）：`.claude-plugin/plugin.json` 的
+  `agents: ["./.claude/agents/*.md"]` 数组路径 `claude plugin validate` 通过、cache 内 5 个 agent 文件
+  确认存在，但 loader details 报 Agents(0) —— validate ≠ load。修复候选：改标准 `agents/` 根目录布局。
+  plugin 通道验证后已卸载（避免与文件拷贝版 hooks 双跑），不影响现行分发。
 - **bypass-guard FP：读 config 与写 config 同拦**（🟡 minor，2026-07-03 v4.0e 过程发现）：`BYPASS_PATTERNS`
   含裸 `core.hooksPath` 字面量 + `git\s+config.*hooksPath`，导致 `git config --get core.hooksPath`（只读检查）
   也被 deny。应给无赋值的 `--get` / 读取场景做 carve-out（改 hooks → 需配 eval，独立 PR）。
-- **eval.yml push-gap**：CI eval gate 只在 PR 触发，直接 push main 绕过（P0，forbidden-path，需人工双签）
-- **8 个 command 零 eval 覆盖**：存量命令未回填 golden-trajectory（P0）
-- **llm-judge.yml forbidden-regex 与 forbidden-paths.md 漂移**：路径清单不同步（P1，forbidden-path，需人工双签）
 - 4 条 hooks 文案与 rules 内容重复（双源漂移风险，harness-auditor 标⚠️）
 - audit 类命令（review / audit --vibe / audit --harness）有功能交叠（待 CLAUDE.md 决策树文档化）
 - v4.0a 质量分数（Health/ARE）未重跑（标 TBD），排队待 PR-A 落定后 harness / reliability 回填
 
 ### Resolved
+- ✅ **CONSTITUTION 安全宪法 #4 branch protection vaporware**（2026-07-04 发现 → 2026-07-14 v4.3 落地）：
+  gh api PUT main 保护 = require PR / 0 approvals（单维护者不能自批own PR）/ enforce_admins=false（逃生门）/
+  **无 required checks**（Eval Gate paths-filtered，设 required 会让不触发的 PR 永卡 Expected—Waiting，有意取舍）。
+  push-gap 真阻断随之闭合（direct push main 被 GitHub 拒绝）。
 - ✅ **llm-judge.yml 自创建以来从未解析成功过一次**（2026-04-29 创建 → 2026-07-09 修复）：根因是
   GitHub Actions **schema 层解析失败**（注册 workflow name 显示为文件路径而非 YAML `name:` 值 —
   GitHub 读不到顶层 name: 字段的标准指纹；push 100% "workflow file issue"，pull_request 触发器

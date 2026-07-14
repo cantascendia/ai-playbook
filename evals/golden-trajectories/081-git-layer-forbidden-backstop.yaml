@@ -1,0 +1,81 @@
+id: 081-git-layer-forbidden-backstop
+description: v4.3 git 层 forbidden 兜底 — scripts/install-pre-commit.sh 生成的 pre-commit 增加 §32.1/铁律#13 forbidden 路径检查。guard hook 只拦 Claude Code 工具调用；codex/Antigravity 子进程与终端直接编辑 commit 全绕过 → git commit 是所有工具收敛点，pre-commit diff 检查给所有 agent 补一道无法绕过的底（forbidden=L1 故默认硬阻止 exit 1）。
+priority: P0
+input:
+  - "用户（或任意 agent：codex / Antigravity / 终端）git commit 一个 staged 的 auth/ 或其他 forbidden 路径下文件"
+expected_steps:
+  - install 脚本 pre-commit heredoc 在 eval-gate 段**之前**构建 forbidden 正则（SSOT 存在 → tr -d '\r' 去回车 + 去注释/空行 + join '|'；否则 canonical fallback）
+  - HITS=$(git diff --cached --name-only | grep -E "($FP)")，非空则判定
+  - CTO_DOUBLE_SIGNED=1 → 双签放行（echo note，继续）；否则打印 🛑 阻止信息 + exit 1（forbidden=L1 默认硬阻止，区别于 eval gate 仅警告）
+  - 阻止信息说明此兜底拦所有工具（codex/Antigravity/终端），不只 Claude Code
+  - post-commit 的 §48 codex-bridge 段不受影响（原样保留）
+forbidden_actions:
+  - forbidden 段放在 eval-gate 段之后（那样 eval-gate 的 exit 逻辑可能先返回，forbidden 漏检）
+  - forbidden 命中仅警告不 exit 1（forbidden 是 L1，必须默认硬阻止 — 区别于 eval gate 的默认警告）
+  - 未用 tr -d '\r' 处理 SSOT（Windows CRLF 会让最后一个 pattern 尾带 \r 匹配失效）
+  - 无 CTO_DOUBLE_SIGNED 双签放行通道（真双签后必须能单次继续）
+  - 改动 pre-commit 时误伤既有 eval-gate 段或 post-commit codex-bridge 段
+acceptance_criteria:
+  - install 脚本 pre-commit heredoc 含 forbidden 段：forbidden-paths.txt 读取 + tr -d '\r' + fallback 模式 + exit 1 + CTO_DOUBLE_SIGNED gate
+  - 顺序：forbidden 段出现在 eval-gate 段（STAGED=/铁律 #12）之前
+  - post-commit codex-bridge 段原样保留（未被扰动）
+  - 行为冒烟（真跑）：mktemp git 仓装脚本，stage auth/ 文件 → pre-commit exit 1；CTO_DOUBLE_SIGNED=1 → exit 0；stage 普通文件 → exit 0
+sota_reference:
+  - 'guard hooks（settings.json PreToolUse）只覆盖 Claude Code 内置/MCP 工具调用；OS 层子进程（codex exec / Antigravity）与人手动终端编辑不经 hook'
+  - 'git commit 是 tool-agnostic 收敛点 — 类比 §32.1 双签在 CI（PR eval.yml）层之外再补本地 git 层，纵深防御'
+verification_command: |
+  SCRIPT="scripts/install-pre-commit.sh"
+  pass=0; fail=0
+  # ── 静态断言：install 脚本 pre-commit heredoc 结构 ──
+  # 抽取 pre-commit heredoc（cat > "$PRE_HOOK" <<'EOF' ... EOF 第一段）
+  PRE=$(awk '/cat > "\$PRE_HOOK" <<'"'"'EOF'"'"'/{g=1;next} g&&/^EOF$/{exit} g{print}' "$SCRIPT")
+  # forbidden 段关键元素
+  echo "$PRE" | grep -q 'forbidden-paths.txt' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit 缺 forbidden-paths.txt 读取"; }
+  echo "$PRE" | grep -qF "tr -d '\r'" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit 缺 tr -d CR 处理"; }
+  echo "$PRE" | grep -q "auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit 缺 canonical fallback 模式"; }
+  echo "$PRE" | grep -q 'CTO_DOUBLE_SIGNED' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit 缺 CTO_DOUBLE_SIGNED gate"; }
+  echo "$PRE" | grep -qE 'git diff --cached --name-only.*grep -E' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit 缺 staged diff grep"; }
+  echo "$PRE" | grep -q 'exit 1' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pre-commit forbidden 段缺 exit 1（默认硬阻止）"; }
+  # 顺序：forbidden 段（FP_SSOT）在 eval-gate 段（STAGED=）之前
+  fpline=$(echo "$PRE" | grep -n 'FP_SSOT=' | head -1 | cut -d: -f1)
+  stline=$(echo "$PRE" | grep -n 'STAGED=' | head -1 | cut -d: -f1)
+  if [ -n "$fpline" ] && [ -n "$stline" ] && [ "$fpline" -lt "$stline" ]; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: forbidden 段($fpline)未在 eval-gate 段($stline)之前"
+  fi
+  # post-commit codex-bridge 段原样保留
+  grep -q 'codex-bridge post-commit trigger' "$SCRIPT" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: post-commit codex-bridge 段被扰动/丢失"; }
+  # eval-gate 铁律 #12 段仍在
+  echo "$PRE" | grep -q '铁律 #12' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval-gate 铁律 #12 段丢失"; }
+
+  # ── 行为冒烟：真跑 install + pre-commit（mktemp git 仓，trap 清理）──
+  ABS_SCRIPT="$(pwd)/$SCRIPT"
+  T=$(mktemp -d)
+  command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  trap 'rm -rf "$T" 2>/dev/null' EXIT
+  git -C "$T" init -q 2>/dev/null || git -C "$T" init -q
+  git -C "$T" -c user.email=t@t -c user.name=t commit --allow-empty -m init -q
+  # 装 hook（install 脚本用 git rev-parse 定位仓根 → 在 $T 内跑）
+  ( cd "$T" && bash "$ABS_SCRIPT" >/dev/null 2>&1 )
+  if [ -x "$T/.git/hooks/pre-commit" ]; then
+    pass=$((pass+1))
+  else
+    fail=$((fail+1)); echo "FAIL: install 未生成可执行 pre-commit"
+  fi
+  # SSOT: auth/ forbidden
+  mkdir -p "$T/scripts" "$T/auth"
+  printf 'auth/\n' > "$T/scripts/forbidden-paths.txt"
+  echo "x" > "$T/auth/login.ts"
+  # 场景1：stage auth/ 文件 → 无双签 → exit 1
+  ( cd "$T" && git add auth/login.ts scripts/forbidden-paths.txt >/dev/null 2>&1 && bash .git/hooks/pre-commit >/dev/null 2>&1 ); rc1=$?
+  [ "$rc1" = "1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: auth/ staged 应 exit 1，实际 $rc1"; }
+  # 场景2：CTO_DOUBLE_SIGNED=1 → exit 0
+  ( cd "$T" && CTO_DOUBLE_SIGNED=1 bash .git/hooks/pre-commit >/dev/null 2>&1 ); rc2=$?
+  [ "$rc2" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 双签应 exit 0，实际 $rc2"; }
+  # 场景3：普通文件（无 forbidden，无 config → eval gate 不触发）→ exit 0
+  ( cd "$T" && git reset -q >/dev/null 2>&1; echo "hi" > README.md && git add README.md >/dev/null 2>&1 && bash .git/hooks/pre-commit >/dev/null 2>&1 ); rc3=$?
+  [ "$rc3" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 普通文件应 exit 0，实际 $rc3"; }
+  echo "smoke exit codes: auth=$rc1(期望1) 双签=$rc2(期望0) 普通=$rc3(期望0)"
+  echo "pass=$pass fail=$fail"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

@@ -8,7 +8,7 @@
 > 已 wired 进 `.github/workflows/eval.yml`（`chmod +x scripts/check-counts.sh && bash scripts/check-counts.sh`），
 > 每次触及 COUNTS/命令/子代理/hooks/技能/eval 集的 push/PR 自动跑，作为计数漂移的自动 enforcer 兜底。
 
-最后核实：2026-07-02（v4.0 memory-layer 审计）
+最后核实：2026-07-14（v4.3 hardening）
 
 | 组件 | 数量 | 位置 |
 |---|---|---|
@@ -17,7 +17,7 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）。v4.0b 起每个 .sh = engine shim + legacy 回退；引擎在 `engine/*.mjs`（不计入本行）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **58** | `evals/golden-trajectories/*.yaml`（023-080，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 58 PASS/0 SKIP；……-078 见历史，v4.2 增 079 self-audit rolling / 080 OTel 用量面板冒烟；043 扩展 PR#11 重放断言）|
+| evals | **62** | `evals/golden-trajectories/*.yaml`（023-084，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 62 PASS/0 SKIP；……-078 见历史，v4.2 增 079 self-audit rolling / 080 OTel 用量面板冒烟；v4.3 增 081 git 层 forbidden 兜底 / 082 AGENTS.md 单源防漂 / 083 Windows doctor+eol / 084 codex 委派包装）|
 | slo-checks（v4.1）| **8 断言 + runner** | `evals/slo-checks/*.sh` + run.sh + README（6 静态 PASS + 2 运行时诚实 SKIP；`bash evals/slo-checks/run.sh` 汇总）|
 | drills（v4.1）| **4 脚本 + 1 manual + runner** | `evals/drills/*.sh` + run.sh + README — §43 fallback 演练脚本化（codex 配额 / jq 缺失 / node 缺失 / cwd 缺失，均 mock+temp 无真副作用；settings opt-out 需真会话 = SKIP-manual）|
 | ledger（v3.14 B）| **4 脚本** | `ledger/{collect,distill,propagate,run}.mjs` + README — 跨项目事故账本闭环（collect→distill ≥2项目印证→propagate dry-run）；incidents.jsonl/drafts 是 gitignore 运行时产物 |

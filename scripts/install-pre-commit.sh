@@ -42,7 +42,46 @@ fi
 # ── pre-commit：铁律 #12 本地 eval gate（v3.13 A3，逻辑原样保留）──
 cat > "$PRE_HOOK" <<'EOF'
 #!/usr/bin/env bash
-# 铁律 #12 本地 eval gate (v3.13 A3) — 必须在 commit 前跑（拦 staged 内容）
+# 铁律 #13 / §32.1 forbidden 路径兜底 + 铁律 #12 本地 eval gate — 必须在 commit 前跑（拦 staged 内容）
+
+# ── 铁律 #13 / §32.1 forbidden 路径硬拦截（git 层兜底，拦所有工具）──
+# 为什么在这里：guard hooks 只能拦 Claude Code 的工具调用；codex / Antigravity 子进程，
+# 以及终端里直接编辑再 commit 的场景，全都绕过 guard hook。git commit 是所有工具（无论哪个
+# agent 或人手动）的收敛点 —— 在此对 staged diff 做 forbidden 检查，等于给所有 agent
+# （不只 Claude Code）补一道无法绕过的底。forbidden 是 L1（安全），故默认 exit 1 硬阻止
+# （区别于下方 eval gate 默认仅警告）。
+# 正则构建方式与 forbidden-guard 一致：SSOT 存在则 tr -d '\r' → 去注释/空行 → join '|'；否则 canonical fallback。
+FP_SSOT="scripts/forbidden-paths.txt"
+if [ -f "$FP_SSOT" ]; then
+  FP=$(tr -d '\r' < "$FP_SSOT" | grep -vE '^\s*(#|$)' | tr '\n' '|' | sed 's/|$//')
+else
+  FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+fi
+if [ -n "$FP" ]; then
+  HITS=$(git diff --cached --name-only 2>/dev/null | grep -E "($FP)")
+  GRC=$?
+  # fail closed：grep rc>=2 = 正则本身坏了（SSOT 被误编辑等）→ 阻止 commit 而非静默放行
+  if [ "$GRC" -ge 2 ]; then
+    echo "🛑 §32.1 forbidden 正则构建失败（grep rc=$GRC）— fail closed，请检查 $FP_SSOT 内容"
+    exit 1
+  fi
+  if [ -n "$HITS" ]; then
+    if [ "${CTO_DOUBLE_SIGNED:-0}" = "1" ]; then
+      echo "✓ §32.1 forbidden 路径命中，但 CTO_DOUBLE_SIGNED=1 → 双签放行："
+      echo "$HITS" | sed 's/^/     /'
+    else
+      echo "🛑 §32.1 / 铁律 #13：本次 commit 触及 forbidden 路径（禁止 vibe coding）："
+      echo "$HITS" | sed 's/^/     /'
+      echo "   这些路径（auth / 支付 / secrets / migration / crypto / infra / CI）必须走 spec-driven："
+      echo "     1. /cto-spec specify → 先写 SPEC 并经人审"
+      echo "     2. 双签：CTO + 第二模型独立审（/cto-review --cross）"
+      echo "     3. PR 打 requires-double-review 标签"
+      echo "   完成真双签后单次放行：export CTO_DOUBLE_SIGNED=1 再 git commit。"
+      echo "   注：此 git 层兜底拦所有工具（codex / Antigravity / 终端直接编辑），不只 Claude Code。"
+      exit 1
+    fi
+  fi
+fi
 
 # 铁律 #12（本地硬约束）：改 agent 配置但无 evals/ 配套 → 警告（STRICT 模式阻止）。
 # 背景：此前铁律 #12 仅靠 PR eval.yml 兜底；不开 PR 直接 push（branch-guard 只拦 main 上 Edit
@@ -78,7 +117,7 @@ EOF
 chmod +x "$POST_HOOK"
 
 echo "✓ git hooks 已安装："
-echo "    $PRE_HOOK  — 铁律 #12 本地 eval gate（commit 前拦 staged 配置无 eval）"
+echo "    $PRE_HOOK  — §32.1 forbidden 路径兜底（拦所有工具，默认硬阻止）+ 铁律 #12 本地 eval gate"
 echo "    $POST_HOOK — §48 codex-bridge 异步 review（commit 后审新 HEAD）"
 echo ""
 echo "下次 git commit 时（无论通过 Claude Code 还是终端），"
