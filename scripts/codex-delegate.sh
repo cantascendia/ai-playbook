@@ -52,10 +52,12 @@ TOKENS=$(printf '%s\n' "$OUT" | grep -A1 '^tokens used' | tail -1 | tr -d ', ' |
 DATA_DIR="${TELEMETRY_DATA_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)/telemetry/data}"
 if [ -n "$TOKENS" ] && [ "$TOKENS" -gt 0 ] 2>/dev/null; then
   mkdir -p "$DATA_DIR"
-  REPO_NAME=$(basename "$REPO")
+  # JSON 安全：repo 名/sandbox 只保留安全字符集（防引号/反斜杠/换行破坏 JSONL）
+  REPO_NAME=$(basename "$REPO" | tr -cd 'A-Za-z0-9._-')
+  SANDBOX_SAFE=$(printf '%s' "$SANDBOX" | tr -cd 'A-Za-z0-9._-')
   TS=$(date -Iseconds 2>/dev/null || date)
   printf '{"ts":"%s","metric":"codex.token.usage","value":%s,"unit":"tokens","attrs":{"model":"gpt-5.5","tool":"codex-cli","sandbox":"%s"},"resource":{"repo":"%s"}}\n' \
-    "$TS" "$TOKENS" "$SANDBOX" "$REPO_NAME" >> "$DATA_DIR/metrics-$(date +%Y-%m-%d).jsonl"
+    "$TS" "$TOKENS" "$SANDBOX_SAFE" "$REPO_NAME" >> "$DATA_DIR/metrics-$(date +%Y-%m-%d).jsonl"
   echo "📊 codex 用量已入账: $TOKENS tokens → telemetry (repo=$REPO_NAME)"
 else
   echo "📊 未能从输出解析 tokens used（不入账）"

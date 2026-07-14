@@ -69,12 +69,28 @@ function enroll(projDir) {
   settings.env = settings.env || {};
   const env = settings.env;
   let changed = [];
+  // marker：记录本脚本实际注入了哪些键（区分用户既有配置），--remove 只删 marker 内的
+  const MARKER = '_aiPlaybookTelemetryManaged';
 
   if (REMOVE) {
-    for (const k of MANAGED_KEYS) { if (k in env) { delete env[k]; changed.push(`-${k}`); } }
-    if (typeof env.OTEL_RESOURCE_ATTRIBUTES === 'string' && env.OTEL_RESOURCE_ATTRIBUTES === `repo=${repo}`) {
-      delete env.OTEL_RESOURCE_ATTRIBUTES; changed.push('-OTEL_RESOURCE_ATTRIBUTES');
+    // 有 marker → 精确回滚；无 marker（老 enroll）→ 退化为"值等于我们注入值才删"
+    const managed = Array.isArray(settings[MARKER]) ? settings[MARKER] : null;
+    const removable = managed ?? MANAGED_KEYS;
+    for (const k of removable) {
+      if (k === 'OTEL_RESOURCE_ATTRIBUTES' || k === 'OTEL_RESOURCE_ATTRIBUTES(+repo)') continue;
+      if (k in env) { delete env[k]; changed.push(`-${k}`); }
     }
+    if (typeof env.OTEL_RESOURCE_ATTRIBUTES === 'string') {
+      if (managed?.includes('OTEL_RESOURCE_ATTRIBUTES') || env.OTEL_RESOURCE_ATTRIBUTES === `repo=${repo}`) {
+        delete env.OTEL_RESOURCE_ATTRIBUTES; changed.push('-OTEL_RESOURCE_ATTRIBUTES');
+      } else if (managed?.includes('OTEL_RESOURCE_ATTRIBUTES(+repo)')) {
+        // 只剥离我们追加的 repo= 段，保留用户原有属性串
+        env.OTEL_RESOURCE_ATTRIBUTES = env.OTEL_RESOURCE_ATTRIBUTES
+          .split(',').filter((s) => s !== `repo=${repo}`).join(',');
+        changed.push('~OTEL_RESOURCE_ATTRIBUTES(-repo)');
+      }
+    }
+    if (MARKER in settings) { delete settings[MARKER]; changed.push(`-${MARKER}`); }
   } else {
     const wanted = {
       CLAUDE_CODE_ENABLE_TELEMETRY: '1',
@@ -84,14 +100,18 @@ function enroll(projDir) {
       OTEL_EXPORTER_OTLP_ENDPOINT: ENDPOINT,
       OTEL_METRIC_EXPORT_INTERVAL: '10000',
     };
+    const injected = new Set(Array.isArray(settings[MARKER]) ? settings[MARKER] : []);
     for (const [k, v] of Object.entries(wanted)) {
-      if (!(k in env)) { env[k] = v; changed.push(`+${k}`); } // 不覆盖既有
+      if (!(k in env)) { env[k] = v; injected.add(k); changed.push(`+${k}`); } // 不覆盖既有
     }
     if (!env.OTEL_RESOURCE_ATTRIBUTES) {
-      env.OTEL_RESOURCE_ATTRIBUTES = `repo=${repo}`; changed.push('+OTEL_RESOURCE_ATTRIBUTES');
+      env.OTEL_RESOURCE_ATTRIBUTES = `repo=${repo}`; injected.add('OTEL_RESOURCE_ATTRIBUTES');
+      changed.push('+OTEL_RESOURCE_ATTRIBUTES');
     } else if (!/(^|,)repo=/.test(env.OTEL_RESOURCE_ATTRIBUTES)) {
-      env.OTEL_RESOURCE_ATTRIBUTES += `,repo=${repo}`; changed.push('~OTEL_RESOURCE_ATTRIBUTES(+repo)');
+      env.OTEL_RESOURCE_ATTRIBUTES += `,repo=${repo}`; injected.add('OTEL_RESOURCE_ATTRIBUTES(+repo)');
+      changed.push('~OTEL_RESOURCE_ATTRIBUTES(+repo)');
     }
+    if (changed.length) settings[MARKER] = [...injected].sort();
   }
 
   if (!changed.length) return { repo, action: 'NOOP', reason: '已就绪' };

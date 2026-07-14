@@ -58,7 +58,13 @@ else
   FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
 fi
 if [ -n "$FP" ]; then
-  HITS=$(git diff --cached --name-only 2>/dev/null | grep -E "($FP)" || true)
+  HITS=$(git diff --cached --name-only 2>/dev/null | grep -E "($FP)")
+  GRC=$?
+  # fail closed：grep rc>=2 = 正则本身坏了（SSOT 被误编辑等）→ 阻止 commit 而非静默放行
+  if [ "$GRC" -ge 2 ]; then
+    echo "🛑 §32.1 forbidden 正则构建失败（grep rc=$GRC）— fail closed，请检查 $FP_SSOT 内容"
+    exit 1
+  fi
   if [ -n "$HITS" ]; then
     if [ "${CTO_DOUBLE_SIGNED:-0}" = "1" ]; then
       echo "✓ §32.1 forbidden 路径命中，但 CTO_DOUBLE_SIGNED=1 → 双签放行："
