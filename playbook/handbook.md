@@ -428,6 +428,35 @@ user-invocable: true
 **Agent 模式：** Planning（先规划后执行）/ Fast（直接执行）
 **审核策略：** Artifact Review + Terminal Command（Request Review / Always Proceed）
 
+**⓪ Antigravity CLI（`agy`）— headless 委派通道（v4.4，2026-07-16 实测）**
+
+Antigravity 不再只有 IDE：官方 CLI `agy`（winget `Google.AntigravityCLI`，实测 v1.1.3）
+支持 **`agy -p "<prompt>"` 非交互 print 模式**——纯文本 prompt 往返仅 **~7s**，
+没有 codex exec 的 37s/shell 进程 Windows 沙箱税（learned rule 2026-07-10），也不要求 git 仓库。
+这把 Antigravity 从「人手切 IDE 粘贴委派指令」升级为**可脚本化的 headless 执行者**。
+
+- 关键 flag：`-p/--print`（非交互）· `--model <名>` · `--print-timeout`（默认 5m）·
+  `--mode plan|accept-edits` · `--sandbox` · `--add-dir`
+- CLI 模型阵容（`agy models` 实测 2026-07-16）：Gemini 3.5 Flash (Low/Medium/High) /
+  Gemini 3.1 Pro (Low/High) / Claude Sonnet 4.6 (Thinking) / Claude Opus (Thinking，CLI 侧
+  标注为 4.6 代，落后上表 IDE 阵容的 4.8) / GPT-OSS 120B —— CLI 与 IDE 阵容存在版本差
+  （CLI 另有 3.5 Flash），以各自运行时实测为准（铁律 #2）
+- 一键委派：`bash scripts/agy-delegate.sh "<自包含 prompt>"`（lint + telemetry 入账，
+  与 codex-delegate.sh 对称）
+- 约束：print 模式无交互授权界面 → prompt 必须**自包含**（diff/文件内容贴入），
+  只要文本产出；需要 agent 动文件时用 `--mode accept-edits`（产物走分支 + review，
+  agy 子进程不经本仓 Claude guard hooks，git 层 pre-commit forbidden 兜底仍生效）
+
+**codex vs agy 适才适用速查（§48.5.1 fallback 链同源）：**
+
+| 任务 | 首选 | 原因（实测依据） |
+|---|---|---|
+| 会话内委派 codex | codex MCP（`mcp__codex__codex`） | 常驻 server 无进程税（32s vs >110s） |
+| 终端写作型多文件产出 | `scripts/codex-delegate.sh`（gpt-5.5） | apply_patch 语义 + tokens 入账 |
+| 快速问答 / 摘要 / 草稿 / 二审 | `scripts/agy-delegate.sh`（Gemini） | ~7s 往返、无沙箱税、不要求 git 仓库 |
+| codex 配额耗尽时跨模型 review | agy 补位（codex-bridge 自动） | Gemini ≠ GPT ≠ Claude，**保留跨模型价值** |
+| 浏览器视频验证 / Stitch / 图像 | Antigravity IDE（Manager Surface） | CLI 无浏览器/Stitch 面 |
+
 **原生配置能力：**
 
 **① 配置文件优先级（2026 跨工具标准）**
@@ -4033,19 +4062,28 @@ restrict_push: true
 
 **问题**：Codex（即使 ChatGPT Plus/Pro 订阅）有额度限制，触发后会返回 `rate_limit_exceeded` / `quota` / `429` / `402` 等错误。原本"全自动跨模型 review"链路会断。
 
-**降级策略**（4 段 fallback chain）：
+**降级策略**（v4.4 起 5 段 fallback chain — agy 补位档保留跨模型价值）：
 
 ```
 codex review --commit HEAD
   ↓ 成功 → REVIEW-QUEUE.md 写入，Reviewer: codex-gpt5.5
   ↓ 失败 + 检测到额度耗尽关键词
   ↓ → 写 cooldown 文件（unix 时间戳，1h 失效）
+  ↓ → 走 Antigravity CLI headless（agy -p "<八维 prompt + diff 自包含>"）    ← v4.4 新档
+  ↓ 成功 → REVIEW-QUEUE.md 写入，Reviewer: agy-gemini
+  ↓        + ℹ️ "跨模型价值保留"（Gemini ≠ GPT ≠ Claude）
+  ↓ agy 也失败 / 未装
   ↓ → 走 Claude headless（claude -p "<八维 review prompt>"）
   ↓ 成功 → REVIEW-QUEUE.md 写入，Reviewer: claude-fallback-opus
   ↓        + ⚠️ 警告"失去跨模型价值"
   ↓ Claude 也失败 / 未装
   ↓ → 仅 audit log，REVIEW-QUEUE 不写
 ```
+
+> v4.4 要点：codex(GPT) 掉线时**先 Gemini 后 Claude** —— agy 补位仍是真跨模型审
+> （模型家族不同），只有落到 Claude 档才触发"失去跨模型价值"警告。
+> 指定补位模型：`export AGY_REVIEW_MODEL="Gemini 3.1 Pro (High)"`（默认用 agy 默认模型）。
+> cost cap 计数（宪法 $20/月）v4.4 起仅 codex 主路径入账——agy/claude 补位不烧 codex 配额。
 
 **冷却机制**：
 - 检测到额度耗尽 → 1 小时内**直接走 Claude**，跳过 codex（不浪费时间反复失败）

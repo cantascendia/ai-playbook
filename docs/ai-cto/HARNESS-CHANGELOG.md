@@ -13,7 +13,24 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
-## [2026-07-14] v4.3 — 跨工具 enforcement 收敛 + Windows 硬化 + 遥测全量入网
+## [2026-07-16] v4.4 — Antigravity CLI 接入：headless 委派 + 跨模型 review 补位
+
+- 改了什么：
+  ① **agy 委派包装**（eval 085）：scripts/agy-delegate.sh 固化 `agy -p` headless 委派范式
+  （自包含 lint + `--print-timeout` + `</dev/null` + AGY_MODEL 可选）+ 时长入 telemetry JSONL
+  （metric=agy.cli.duration，与 codex.token.usage 同构账本）。
+  ② **codex-bridge fallback 链 4→5 段**：codex(GPT) 配额耗尽/不可用时先走 **agy(Gemini) 补位**
+  再落 claude —— Gemini ≠ GPT ≠ Claude，agy 补位**保留跨模型价值**；仅落到 claude 档才警告
+  "失去跨模型价值"。补位 prompt 自包含（git show diff 贴入，print 模式无交互授权不能让 agent 跑 git）。
+  ③ **cost cap 计数修正**：`.evolve-cost-month.json` 仅 codex 主路径入账 —— 原实现 claude 补位
+  字节也计入 codex_token_cents，虚增 $20/月 cap 触发过早降级。
+  ④ **handbook §5.1 新增 ⓪ agy CLI 块 + 适才适用速查表**；§48.5.1 fallback 链图更新。
+- 为什么：2026-07-16 实测 agy v1.1.3（winget Google.AntigravityCLI）`agy -p` 纯文本往返仅
+  **7.3s** —— 无 codex 37s/shell 沙箱税、不要求 git 仓库。Antigravity 从「人手切 IDE 粘贴」
+  升级为可脚本化 headless 执行者，补上了 §48.5.1 降级链"codex 掉线即失去跨模型价值"的结构洞。
+- Eval 跑分前/后：62 PASS → 63 PASS（新增 085；regression 无回归）。
+- 影响范围：终端快速委派（问答/摘要/二审 → agy 秒级）、codex 配额耗尽场景的 review 质量
+  （跨模型价值保留）、月度 cost cap 精度。
 
 - 改了什么：
   ① **git 层 forbidden 兜底**（eval 081）：install-pre-commit.sh 的 pre-commit 在 eval-gate 前加

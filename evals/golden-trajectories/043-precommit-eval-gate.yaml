@@ -58,8 +58,8 @@ verification_command: |
     fail=$((fail+1)); echo "FAIL: pre-commit 段仍含 codex 触发（应在 post-commit — PR#11 review 对象错误）"
   fi
 
-  # 7. run.sh debounce 覆盖 fallback 模式（PR#11 修复 2）
-  grep -qE 'mode=\(success\|claude-only\|fallback-to-claude\)' .agents/skills/codex-bridge/run.sh \
+  # 7. run.sh debounce 覆盖 fallback 模式（PR#11 修复 2；v4.4 集合扩为含 agy 补位档 — 见 eval 085）
+  grep -qE 'mode=\(success\|claude-only\|fallback-to-claude(\|agy-only\|fallback-to-agy)?\)' .agents/skills/codex-bridge/run.sh \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: debounce 未覆盖 claude-only/fallback-to-claude"; }
 
   # 8. 边界：codex-failed+claude-failed 不在 debounce 集合（没落 review 应允许重试）

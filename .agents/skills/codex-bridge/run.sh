@@ -102,17 +102,19 @@ fi
 # 同 SHA 会被反复重审（实证：CODEX-REVIEW-LOG 里 ba74d2a 记了 16 次）。
 # 边界：codex-failed+claude-failed **不算**已审（没落 review，应允许下次重试）。
 if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ] && \
-   grep -qE "sha=${SHORT_SHA}\b.*mode=(success|claude-only|fallback-to-claude)" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
+   grep -qE "sha=${SHORT_SHA}\b.*mode=(success|claude-only|fallback-to-claude|agy-only|fallback-to-agy)" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null; then
   echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=skipped-debounce | reason=already_reviewed" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
   exit 0
 fi
 
-# 4. 检测 codex / claude / gh 可用性
+# 4. 检测 codex / agy / claude / gh 可用性
 HAS_CODEX=0
+HAS_AGY=0
 HAS_CLAUDE=0
 HAS_GH=0
 command -v codex >/dev/null 2>&1 && HAS_CODEX=1
+command -v agy >/dev/null 2>&1 && HAS_AGY=1
 command -v claude >/dev/null 2>&1 && HAS_CLAUDE=1
 command -v gh >/dev/null 2>&1 && HAS_GH=1
 
@@ -127,7 +129,7 @@ if [ -f "$COOLDOWN_FILE" ]; then
   fi
 fi
 
-if [ "$HAS_CODEX" = "0" ] && [ "$HAS_CLAUDE" = "0" ]; then
+if [ "$HAS_CODEX" = "0" ] && [ "$HAS_AGY" = "0" ] && [ "$HAS_CLAUDE" = "0" ]; then
   echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=ci_pending | reason=no_local_reviewer" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
   exit 0
@@ -157,6 +159,35 @@ fi
     fi
   fi
 
+  # 5a2. Fallback 到 Antigravity CLI（agy · Gemini）— v4.4：跨模型价值保留档
+  # codex(GPT) 不可用时先走 agy(Gemini) 再走 claude —— Gemini ≠ GPT ≠ Claude，
+  # agy 补位仍是跨模型审；claude 补位才是「失去跨模型价值」的最后档。
+  # 自包含 prompt（diff 直接贴入）：print 模式无交互授权，不能让 agent 自己跑 git。
+  if [ -z "$REVIEWER" ] && [ "$HAS_AGY" = "1" ]; then
+    DIFF_CONTENT=$(git show --stat --patch "$SHA" 2>/dev/null | head -c 60000)
+    AGY_PROMPT="你是跨模型代码审阅者。按八维（架构/代码质量/性能/安全/测试/DX/功能完整性/UX）逐条 ✅⚠️🔴 + 文件:行号 评审以下 commit ${SHORT_SHA} 的 diff。仅输出 markdown 报告，不要调用任何工具、不要读文件。
+
+${DIFF_CONTENT}"
+    if [ -n "${AGY_REVIEW_MODEL:-}" ]; then
+      AGY_OUTPUT=$(agy -p "$AGY_PROMPT" --model "$AGY_REVIEW_MODEL" </dev/null 2>&1)
+    else
+      AGY_OUTPUT=$(agy -p "$AGY_PROMPT" </dev/null 2>&1)
+    fi
+    AGY_STATUS=$?
+    if [ $AGY_STATUS -eq 0 ] && [ -n "$AGY_OUTPUT" ]; then
+      OUTPUT="$AGY_OUTPUT"
+      REVIEWER="agy-gemini"
+      if [ "$MODE" = "codex-quota-exhausted" ] || [ "$SKIP_CODEX" = "1" ]; then
+        MODE="fallback-to-agy"
+      else
+        MODE="agy-only"
+      fi
+      STATUS=0
+    else
+      MODE="${MODE:+${MODE}+}agy-failed"
+    fi
+  fi
+
   # 5b. Fallback 到 Claude
   if [ -z "$REVIEWER" ] && [ "$HAS_CLAUDE" = "1" ]; then
     PROMPT="按手册 §10.5 八维评审 commit ${SHORT_SHA} 的改动。先用 Bash 跑 'git show ${SHA}' 看 diff，再按八维（架构/代码质量/性能/安全/测试/DX/功能/UX）逐条 ✅⚠️🔴 + 行号。仅输出 markdown 报告，不修改任何文件。"
@@ -165,7 +196,8 @@ fi
     if [ $CLAUDE_STATUS -eq 0 ]; then
       OUTPUT="$CLAUDE_OUTPUT"
       REVIEWER="claude-fallback-opus"
-      if [ "$MODE" = "codex-quota-exhausted" ] || [ "$SKIP_CODEX" = "1" ]; then
+      # v4.4: MODE 可能带 +agy-failed 后缀 → 用子串匹配判断配额场景
+      if echo "$MODE" | grep -q "codex-quota-exhausted" || [ "$SKIP_CODEX" = "1" ]; then
         MODE="fallback-to-claude"
       else
         MODE="claude-only"
@@ -185,6 +217,9 @@ fi
       if [ "$MODE" = "fallback-to-claude" ]; then
         echo ""
         echo "> ⚠️ Codex 额度耗尽（1h 冷却中），本次由 Claude 完成。**失去跨模型价值**（Claude 自审有相同认知偏差）。"
+      elif [ "$MODE" = "fallback-to-agy" ] || [ "$MODE" = "agy-only" ]; then
+        echo ""
+        echo "> ℹ️ 本次由 Antigravity CLI（Gemini）补位完成。**跨模型价值保留**（Gemini ≠ GPT ≠ Claude）。"
       fi
       echo ""
       echo '```markdown'
@@ -197,8 +232,10 @@ fi
       >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
     # v3.10.1 fix: 计量回写 .evolve-cost-month.json（飞轮发现 cost counter 死）
+    # v4.4: 仅 codex 主路径入账 codex_token_cents —— agy/claude 补位不烧 codex 配额，
+    #       混入会虚增月度 cost cap（宪法 $20/月）触发过早降级。
     COST_FILE="docs/ai-cto/.evolve-cost-month.json"
-    if [ -f "$COST_FILE" ]; then
+    if [ -f "$COST_FILE" ] && [ "$REVIEWER" = "codex-gpt5.5" ]; then
       MONTH=$(date +%Y-%m 2>/dev/null || echo unknown)
       # bytes → cents: 估算 $0.01/KB（gpt-5.5 input 价格 ~$1.25/M token，约 4 字节/token）
       ADD_CENTS=$(( ${#OUTPUT} / 100 ))
@@ -289,6 +326,9 @@ fi
             if [ "$MODE" = "fallback-to-claude" ]; then
               echo ""
               echo "> ⚠️ Codex 额度耗尽，本次由 Claude 完成。失去跨模型价值（同模型自审）。"
+            elif [ "$MODE" = "fallback-to-agy" ] || [ "$MODE" = "agy-only" ]; then
+              echo ""
+              echo "> ℹ️ 本次由 Antigravity CLI（Gemini）补位完成。跨模型价值保留（Gemini ≠ GPT ≠ Claude）。"
             elif [ "$MODE" = "claude-only" ]; then
               echo ""
               echo "> ℹ️ codex 未装/未登录，本次由 Claude 完成。"
