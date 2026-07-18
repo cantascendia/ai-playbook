@@ -190,6 +190,10 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
   当前已卸载不影响分发。保持已知限制。
 
 ### Resolved
+- ✅ **REVIEW-QUEUE 反复膨胀（341KB）**（2026-07-15 Health 审计 top-gap #4 → 2026-07-16 v4.4c 修根因）：
+  codex-bridge post-commit §48 审每次 append 整份八维报告（#59 一 PR +2683 行）。修：全文分流 `reviews/<sha>.md`
+  （lineage 保全），REVIEW-QUEUE 只留摘要+严重度计数+指针；pattern-detector/cto-evolve 扫 reviews/*.md。
+  eval 086。check-counts >200KB 软警告仍在作 tripwire（存量旧格式全文待季度轮转，不影响新 append）。
 - ✅ **bypass-guard core.hooksPath 读写不分 FP**（2026-07-03 发现 → 2026-07-15 v4.4b **裁决 WONTFIX-as-carve-out + 硬化**）：
   尝试「只拦写」carve-out 修误拦只读的 FP，**3 轮对抗验证（9 agent）逐轮击穿**（轮1 前缀锚被 `git -C .` 击穿 /
   轮2 空引号对逃逸 / 轮3 引号包 metachar 值族 `'>x'`+`${IFS}`+续行）→ 坐实 **static regex 不可安全区分读/写**。

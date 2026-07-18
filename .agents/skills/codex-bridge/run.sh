@@ -208,23 +208,32 @@ ${DIFF_CONTENT}"
     fi
   fi
 
-  # 6. 写 REVIEW-QUEUE.md（仅成功）
+  # 6. 写 review（仅成功）—— v4.4c 防膨胀：全文 → reviews/<sha>.md（lineage 保全），
+  #    REVIEW-QUEUE.md 只留摘要 + 严重度计数 + 指针（原实现每次 append 全量八维报告，
+  #    单 PR 曾 +2683 行 → 341KB，SessionStart 注入/人工审阅/pattern-detector 扫描全受累）。
   if [ $STATUS -eq 0 ] && [ -n "$OUTPUT" ]; then
+    mkdir -p docs/ai-cto/reviews
+    REVIEW_FILE="docs/ai-cto/reviews/${SHORT_SHA}.md"
+    {
+      echo "# §48 跨模型 Review — $SHORT_SHA"
+      echo "**$TS** · Reviewer: $REVIEWER · Mode: $MODE"
+      echo ""
+      echo "$OUTPUT"
+    } > "$REVIEW_FILE"
+    # 严重度计数（从全文提取，供摘要 + pattern-detector 快速分诊）。wc -l 恒 exit 0，避免 grep -c 空匹配双 0。
+    R_CRIT=$(printf '%s' "$OUTPUT" | grep -o '🔴' | wc -l | tr -d ' ')
+    R_MAJ=$(printf '%s' "$OUTPUT" | grep -o '🟠' | wc -l | tr -d ' ')
+    R_MIN=$(printf '%s' "$OUTPUT" | grep -o '🟡' | wc -l | tr -d ' ')
     {
       echo ""
       echo "## $TS — Review for $SHORT_SHA"
-      echo "**Reviewer**: $REVIEWER | **Mode**: $MODE"
+      echo "**Reviewer**: $REVIEWER | **Mode**: $MODE | **判定**: 🔴 ${R_CRIT} / 🟠 ${R_MAJ} / 🟡 ${R_MIN}"
       if [ "$MODE" = "fallback-to-claude" ]; then
-        echo ""
         echo "> ⚠️ Codex 额度耗尽（1h 冷却中），本次由 Claude 完成。**失去跨模型价值**（Claude 自审有相同认知偏差）。"
       elif [ "$MODE" = "fallback-to-agy" ] || [ "$MODE" = "agy-only" ]; then
-        echo ""
         echo "> ℹ️ 本次由 Antigravity CLI（Gemini）补位完成。**跨模型价值保留**（Gemini ≠ GPT ≠ Claude）。"
       fi
-      echo ""
-      echo '```markdown'
-      echo "$OUTPUT"
-      echo '```'
+      echo "全文 → [reviews/${SHORT_SHA}.md](reviews/${SHORT_SHA}.md)（Sakana lineage 保全；pattern-detector / cto-evolve 扫 reviews/ 目录）"
       echo ""
       echo "---"
     } >> docs/ai-cto/REVIEW-QUEUE.md
