@@ -12,9 +12,9 @@ model: sonnet
 1. **`.claude/agent-logs/*.jsonl`** — trajectory（最近 30 天）
    - schema v3.8: ts, event, tool, file, cmd, session
    - 看 PreToolUse/PostToolUse 模式，识别工具调用频次 / 失败 / 误拦
-2. **`docs/ai-cto/REVIEW-QUEUE.md`** + **`docs/ai-cto/archive/REVIEW-QUEUE-*.md`** — codex 历史 review 全文
-   - 已是 lineage archive（Sakana DGM 启发）；主文件保近期尾部，历史按季度轮转到 `docs/ai-cto/archive/`
-   - 扫描范围必须**同时含主文件 + archive/**（只轮转不删除，谱系全保留）
+2. **`docs/ai-cto/reviews/*.md`**（v4.4c 起 codex review **全文**在此，每 sha 一文件）+ **`docs/ai-cto/REVIEW-QUEUE.md`**（摘要+严重度计数+指针，快速分诊入口）+ **`docs/ai-cto/archive/REVIEW-QUEUE-*.md`**（历史全文，轮转前的旧格式）
+   - 已是 lineage archive（Sakana DGM 启发）；v4.4c 防膨胀：REVIEW-QUEUE 只留摘要，全文分流到 `reviews/`（只分流不删除，谱系全保留）
+   - 扫描范围必须**同时含 reviews/ 全文 + REVIEW-QUEUE 摘要 + archive/**（找复现关键词靠 reviews/ 全文；快速分诊靠 REVIEW-QUEUE 的 🔴/🟠 计数）
    - 每条 review 含 sha + reviewer + mode + 八维报告
 3. **`docs/ai-cto/CODEX-REVIEW-LOG.md`** — audit log
    - 含 mode=success/failed/skipped-{reason} 等状态
@@ -103,7 +103,7 @@ model: sonnet
 1. **Read** `docs/ai-cto/EVOLUTION-LOG.md`（如不存在则空）
 2. **Glob** `.claude/agent-logs/*.jsonl` 取最近 30 天
 3. **Read + Grep** 这些文件抽取 pattern signals
-4. **Read + Glob** `docs/ai-cto/REVIEW-QUEUE.md` 及 `docs/ai-cto/archive/REVIEW-QUEUE-*.md` 看 codex 历史发现（主文件 + 轮转 archive 都要扫）
+4. **Read + Glob** `docs/ai-cto/reviews/*.md`（v4.4c 起全文在此）+ `docs/ai-cto/REVIEW-QUEUE.md`（摘要/严重度计数）+ `docs/ai-cto/archive/REVIEW-QUEUE-*.md`（旧格式历史全文）看 codex 历史发现（三处都要扫）
 5. **Read** `docs/ai-cto/CODEX-REVIEW-LOG.md` 看失败 / 跳过模式
 6. **Bash** `git log --since='30 days ago' --pretty=format:'%h %s'` 看 commit 模式
 7. **分析** → 抽 K 个 pattern（按置信度过滤 ≥ 60%）

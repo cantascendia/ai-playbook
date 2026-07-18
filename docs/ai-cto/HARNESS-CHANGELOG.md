@@ -13,6 +13,23 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-16] v4.4c — codex-bridge REVIEW-QUEUE 摘要化防膨胀
+
+- 改了什么：`.agents/skills/codex-bridge/run.sh` 的 post-commit §48 审写入重构（eval 086）：
+  ① 全文八维报告 → `docs/ai-cto/reviews/<sha>.md`（每 commit 一文件，Sakana lineage 保全）；
+  ② REVIEW-QUEUE.md 只 append **摘要**（reviewer/mode + 从全文 grep 出的 🔴/🟠/🟡 严重度计数 +
+  指回 reviews/<sha>.md 的指针），不再转储整份 markdown 围栏全文；
+  ③ lineage 消费方同步：pattern-detector.md + cto-evolve.md 扫描范围加 `reviews/*.md`（全文找复现模式）+
+  REVIEW-QUEUE 摘要（快速分诊）；④ reviews/README.md 使目录入 git。
+- 为什么：原实现每次把整份报告（单次 ~100-2600 行）append 进 REVIEW-QUEUE，#59 一个 PR 就 +2683 行 →
+  341KB，拖累 SessionStart 注入 / 人工审阅 / pattern-detector 全文扫描（v4.4b Health 审计 top-gap #4，
+  check-counts 已加 >200KB 软警告作 tripwire，本轮修根因）。CODEX-REVIEW-LOG.md 早已是每次一行摘要，
+  本轮让 REVIEW-QUEUE 对齐同样的"摘要+全文分离"。
+- Eval 跑分前/后：64 PASS → **64 PASS**（+086；无回归）。086 = 结构断言（run.sh 分流逻辑）+ 行为 mock
+  （伪造 2🔴1🟠1🟡 OUTPUT 验证全文进 reviews/、REVIEW-QUEUE 只得摘要与计数）+ 消费方引用断言。
+- 影响范围：所有后续 commit 的 §48 审写入（REVIEW-QUEUE 不再膨胀）；飞轮 lineage 消费方读取路径；
+  存量 REVIEW-QUEUE 旧格式全文不动（只影响新 append）。
+
 ## [2026-07-16] v4.4 — Antigravity CLI 接入：headless 委派 + 跨模型 review 补位
 
 - 改了什么：

@@ -1,0 +1,70 @@
+id: 086-review-queue-summarize
+description: v4.4c codex-bridge 防膨胀 — post-commit §48 审的**全文八维报告**写到 docs/ai-cto/reviews/<sha>.md（每 commit 一文件，Sakana lineage 保全），REVIEW-QUEUE.md 只留摘要（reviewer/mode + 🔴/🟠/🟡 严重度计数 + 指回 reviews/ 的指针）。修根因：原实现每次把整份报告 append 进 REVIEW-QUEUE，单 PR +2683 行→341KB。lineage 消费方（pattern-detector / cto-evolve）扫描范围同步加 reviews/*.md。
+priority: P1
+input:
+  - "post-commit codex-bridge 跑完 §48 跨模型审，写 review 结果时应全文分文件、REVIEW-QUEUE 只留摘要"
+expected_steps:
+  - run.sh 成功分支 mkdir -p docs/ai-cto/reviews 并把 $OUTPUT 全文写到 docs/ai-cto/reviews/${SHORT_SHA}.md
+  - 从 $OUTPUT 用 grep -o 计 🔴/🟠/🟡 数量（wc -l 恒 exit 0，不用 grep -c 避免空匹配双 0）
+  - REVIEW-QUEUE.md 只 append 摘要块：## TS — Review for sha / Reviewer|Mode|判定 严重度计数 / 全文指针 reviews/<sha>.md
+  - REVIEW-QUEUE.md 不再 append 整份 ```markdown $OUTPUT``` 全文（防膨胀）
+  - pattern-detector.md + cto-evolve.md 扫描范围含 docs/ai-cto/reviews/*.md（否则断 lineage 全文找模式）
+forbidden_actions:
+  - 把全文继续 append 进 REVIEW-QUEUE.md（膨胀根因未修）
+  - 删除/不保留全文（断 Sakana DGM lineage —— 必须分流到 reviews/ 不是丢弃）
+  - 严重度计数用 grep -c 且 || echo 0（空匹配时 grep -c 输出 0 exit 1 → 叠加第二个 0，污染计数）
+  - 改了 codex-bridge 写入但没同步 pattern-detector/cto-evolve 扫描范围（消费方读不到全文）
+  - reviews/ 目录不入 git（README 缺失 → 目录不被跟踪 → 全文不进 lineage）
+acceptance_criteria:
+  - run.sh 含 'mkdir -p docs/ai-cto/reviews' + 'REVIEW_FILE=' 指向 reviews/${SHORT_SHA}.md
+  - run.sh 把 $OUTPUT 写入 $REVIEW_FILE，REVIEW-QUEUE 段含 '判定' + 'reviews/' 指针且无 '```markdown' 全文转储
+  - 行为 mock：伪造含 2🔴1🟠1🟡 的 OUTPUT，全文进 reviews/<sha>.md、REVIEW-QUEUE 只得摘要（判定 🔴 2 / 🟠 1 / 🟡 1 + 指针，无全文体）
+  - docs/ai-cto/reviews/README.md 存在（目录入 git）
+  - pattern-detector.md 与 cto-evolve.md 均含 'reviews/'
+verification_command: |
+  pass=0; fail=0
+  RUN=.agents/skills/codex-bridge/run.sh
+  # ── 结构断言 ──
+  grep -qF 'mkdir -p docs/ai-cto/reviews' "$RUN" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh 缺 mkdir reviews"; }
+  grep -qF 'REVIEW_FILE="docs/ai-cto/reviews/${SHORT_SHA}.md"' "$RUN" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh 缺 REVIEW_FILE 指向 reviews/<sha>.md"; }
+  # $OUTPUT 全文写入 REVIEW_FILE（重定向到该文件）
+  grep -qE 'echo "\$OUTPUT"' "$RUN" && grep -qF '} > "$REVIEW_FILE"' "$RUN" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh 未把 OUTPUT 全文写入 REVIEW_FILE"; }
+  # REVIEW-QUEUE 段有严重度判定 + 指针
+  grep -qF '判定' "$RUN" && grep -qF 'reviews/${SHORT_SHA}.md' "$RUN" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: REVIEW-QUEUE 摘要缺 判定/指针"; }
+  # REVIEW-QUEUE 不再转储全文（旧 markdown 围栏 + echo OUTPUT 到 REVIEW-QUEUE 的模式已移除）
+  FENCE='```markdown'
+  if grep -qF "$FENCE" "$RUN"; then fail=$((fail+1)); echo 'FAIL: run.sh 仍含 markdown 全文围栏（膨胀根因残留）'; else pass=$((pass+1)); fi
+  # grep -c || echo 0 反模式不应存在（用 wc -l）
+  if grep -qE "grep -c '🔴'.*\|\| echo 0" "$RUN"; then fail=$((fail+1)); echo "FAIL: 严重度计数用了 grep -c ||echo0 双 0 反模式"; else pass=$((pass+1)); fi
+  # reviews/README 入 git
+  [ -f docs/ai-cto/reviews/README.md ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: reviews/README.md 缺失（目录不入 git）"; }
+  # 消费方扫描范围
+  grep -qF 'reviews/' .claude/agents/pattern-detector.md && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: pattern-detector 未加 reviews/ 扫描"; }
+  grep -qF 'reviews/' .claude/commands/cto-evolve.md && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cto-evolve 未加 reviews/"; }
+  # ── 行为 mock：忠实复刻写入逻辑，验证摘要/全文拆分 + 严重度计数 ──
+  T=$(mktemp -d); command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
+  ( cd "$T" && mkdir -p docs/ai-cto
+    SHORT_SHA=deadbee; TS="2026-07-16T00:00:00"; REVIEWER=codex-gpt5.5; MODE=success
+    OUTPUT=$'# 八维报告\n## 安全 🔴 严重问题\n## 性能 🔴 又一个\n## 架构 🟠 建议\n## 测试 🟡 minor'
+    mkdir -p docs/ai-cto/reviews
+    REVIEW_FILE="docs/ai-cto/reviews/${SHORT_SHA}.md"
+    { echo "# §48 跨模型 Review — $SHORT_SHA"; echo "**$TS** · Reviewer: $REVIEWER · Mode: $MODE"; echo ""; echo "$OUTPUT"; } > "$REVIEW_FILE"
+    R_CRIT=$(printf '%s' "$OUTPUT" | grep -o '🔴' | wc -l | tr -d ' ')
+    R_MAJ=$(printf '%s' "$OUTPUT" | grep -o '🟠' | wc -l | tr -d ' ')
+    R_MIN=$(printf '%s' "$OUTPUT" | grep -o '🟡' | wc -l | tr -d ' ')
+    { echo ""; echo "## $TS — Review for $SHORT_SHA"; echo "**Reviewer**: $REVIEWER | **Mode**: $MODE | **判定**: 🔴 ${R_CRIT} / 🟠 ${R_MAJ} / 🟡 ${R_MIN}"; echo "全文 → [reviews/${SHORT_SHA}.md](reviews/${SHORT_SHA}.md)"; echo ""; echo "---"; } >> docs/ai-cto/REVIEW-QUEUE.md
+  )
+  # 断言：全文进 reviews/<sha>.md
+  grep -qF '八维报告' "$T/docs/ai-cto/reviews/deadbee.md" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: mock 全文未进 reviews/deadbee.md"; }
+  # 断言：REVIEW-QUEUE 得摘要（判定 🔴 2 / 🟠 1 / 🟡 1）
+  grep -qF '🔴 2 / 🟠 1 / 🟡 1' "$T/docs/ai-cto/REVIEW-QUEUE.md" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: mock 严重度计数错（期望 🔴2/🟠1/🟡1）"; cat "$T/docs/ai-cto/REVIEW-QUEUE.md"; }
+  # 断言：REVIEW-QUEUE 有指针
+  grep -qF 'reviews/deadbee.md' "$T/docs/ai-cto/REVIEW-QUEUE.md" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: mock REVIEW-QUEUE 缺指针"; }
+  # 断言：REVIEW-QUEUE 不含全文体（防膨胀）
+  if grep -qF '八维报告' "$T/docs/ai-cto/REVIEW-QUEUE.md"; then fail=$((fail+1)); echo "FAIL: 全文体漏进 REVIEW-QUEUE（膨胀）"; else pass=$((pass+1)); fi
+  rm -rf "$T" 2>/dev/null || true
+  echo "pass=$pass fail=$fail (期望 13/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - 'Sakana DGM lineage：全文不删只分流（reviews/ + archive/），飞轮谱系完整'
+  - 'CODEX-REVIEW-LOG.md 早已是每次一行摘要（sha|mode|bytes）；本 eval 让 REVIEW-QUEUE 也摘要化，全文归 reviews/'
