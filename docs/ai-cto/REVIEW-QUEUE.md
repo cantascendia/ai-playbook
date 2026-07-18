@@ -17852,3 +17852,15 @@ Full review comments:
 ```
 
 ---
+
+## 2026-07-18T15:12:19+09:00 — Review for 025edd3
+**Reviewer**: codex-gpt5.5 | **Mode**: success | **判定**: 🔴 0 / 🟠 0 / 🟡 0
+全文 → [reviews/025edd3.md](reviews/025edd3.md)（Sakana lineage 保全；pattern-detector / cto-evolve 扫 reviews/ 目录）
+
+---
+
+## 2026-07-18T15:14:57+09:00 — Review for 29b4932
+**Reviewer**: codex-gpt5.5 | **Mode**: success | **判定**: 🔴 ? / 🟠 ? / 🟡 ?（见全文，v4.4d 前旧格式无 SEVERITY_SUMMARY；全文扫全 transcript 的 🔴51 系 emoji 污染，非真实——codex 真结论 0 Critical / 4 P1 / 12 P2，见 ADR + v4.4d）
+全文 → [reviews/29b4932.md](reviews/29b4932.md)（Sakana lineage 保全；pattern-detector / cto-evolve 扫 reviews/ 目录）
+
+---

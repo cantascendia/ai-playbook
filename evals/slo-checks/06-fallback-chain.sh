@@ -37,5 +37,13 @@ else
   fail=$((fail+1)); echo "MISS no-reviewer terminal fallback in codex-bridge"
 fi
 
-echo "pass=$pass fail=$fail (guard node回退+jq降级+codex→claude+→no-reviewer = 4 断言)"
+# 5) codex-bridge：agy(Gemini) 中间档存在（codex→agy→claude，v4.4d FIX5）
+#    此前 06 只查 codex→claude，agy 中间档删了也测不出 → 补 agy 关键词断言。
+if [ -f "$BRIDGE" ] && grep -qiE 'agy-only|fallback-to-agy' "$BRIDGE" 2>/dev/null; then
+  pass=$((pass+1))
+else
+  fail=$((fail+1)); echo "MISS agy(Gemini) 中间 fallback 档 in codex-bridge"
+fi
+
+echo "pass=$pass fail=$fail (guard node回退+jq降级+codex→claude+→no-reviewer+agy中间档 = 5 断言)"
 if [ "$fail" = "0" ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; fi

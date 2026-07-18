@@ -13,6 +13,32 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-16] v4.4d — fallback/cost 可靠性修复 + v4.4c 自身两缺陷（双审揪出，Opus 编码 Fable 5 验）
+
+- 背景：v4.4b/c 落地后 harness+reliability **双审重评**（Health 85→80 / ARE 82→79），揪出 5 个**已核实真 bug**
+  （非 cargo-cult）——其中 2 个在**本仓刚合并的 v4.4c 自己**里，且被 codex 对该 commit 的 §48 自审独立印证。
+  Fable 5 指挥，Opus 子代理编码 5 修，Fable 5 独立沙箱 + 对抗验证后提交。
+- 改了什么（`.agents/skills/codex-bridge/run.sh` + evals）：
+  ① **FIX1 严重度计数污染**（v4.4c 引入）：`grep -o '🔴' | wc -l` 扫**全量 codex transcript**，把
+  SKILL.md/handbook 里的 ✅⚠️🔴 格式范例回显也计入 → 29b4932 摘要虚报 🔴51/🟠43/🟡42（codex 真结论
+  0 Critical/4 P1/12 P2）。改为 rubric 要求 reviewer 末行输出 `SEVERITY_SUMMARY: P0=n P1=n P2=n`，
+  解析**最后一条**（sed 捕获组避开标签数字）；缺行（codex 主路径无法带自定义 prompt）诚实标 `?（见全文）`，
+  **绝不回退扫全文 emoji**。独立对抗测试 7/7（30🔴 污染无视 / 双汇总取末 / 零处理 / 畸形→未知）。
+  ② **FIX2 reviews/<sha>.md 从不 git add**（v4.4c 引入）：写完加 `git add`（软失败），否则 lineage 断链
+  （实证 025edd3/29b4932 曾 untracked）。
+  ③ **FIX3 cost cap 裸奔 32 天**：`.evolve-cost-month.json` gitignore 排除 + run.sh 只在文件存在时更新 →
+  从不 bootstrap。加缺失即用 0 值初始化。
+  ④ **FIX4 MODE 覆写吞真失败**：codex+agy 双真失败落 `claude-only` → PR comment 假报"codex 未装"掩盖复发
+  bug。放宽 fallback 判定（codex-failed/agy-failed 也走 fallback-to-claude）+ 新 `FAIL_CHAIN` 保留失败链。
+  ⑤ **FIX5 agy 补位档零动态测试**：新增 drill 06（mock codex✗→agy✓=agy-only / codex✗→agy✗→claude✓=
+  fallback-to-claude 带 failchain）+ slo-check 06 加 agy 关键词断言 + slo-check 02 cost 文件运行时断言。
+- 为什么：v4.4 最新代码（#59 fallback 链 + #61 摘要化）是最可能藏真 bug 的地方——双审精准命中。这轮实证
+  「合并的代码有 bug、审计+codex 自审独立抓到、系统性修」的自纠闭环，比「没找到问题所以停」诚实。
+- Eval 跑分前/后：64 PASS → **64 PASS**（086 原地改 + drill 06 新增 + slo-check 06 加断言；无新 golden 文件）；
+  drills 5 ok/1 manual；slo-checks 6 ok/2 SKIP；引擎 42 单测；run.sh 语法 OK。
+- 影响范围：cost cap 全新工作区激活；fallback 链失败可诊断（不再假报"codex 未装"）；严重度摘要不再虚高危；
+  agy 档有回归保护；reviews/ 全文入 git。
+
 ## [2026-07-16] v4.4c — codex-bridge REVIEW-QUEUE 摘要化防膨胀
 
 - 改了什么：`.agents/skills/codex-bridge/run.sh` 的 post-commit §48 审写入重构（eval 086）：
