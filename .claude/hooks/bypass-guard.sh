@@ -31,7 +31,13 @@ maybe_run_override "bypass-guard"
 # 单源：pattern 由 common.sh bypass_patterns() 提供（防 legacy/engine 漂移，O7）
 BYPASS_PATTERNS="$(bypass_patterns)"
 
-if echo "$HOOK_BASH_CMD" | grep -qE -- "$BYPASS_PATTERNS"; then
+# v4.4b 引号插入逃逸硬化：剥引号/反斜杠「字符」后匹配（与 engine guards.mjs scanCmd 逐字节同步）。
+# shell 执行前会吃掉这些字符 —— core.hooks'Path' / "core.hooksPath" / core\.hooksPath 归一后才可命中。
+# 广义 core.hooksPath token + 本剥字符 = 对 3 轮对抗验证的引号/续行逃逸免疫。只删不增 → 严格超集。
+# \047=' \042=" \134=\
+SCAN_CMD=$(printf '%s' "$HOOK_BASH_CMD" | tr -d '\047\042\134')
+
+if echo "$SCAN_CMD" | grep -qE -- "$BYPASS_PATTERNS"; then
   # Opt-out: 紧急情况下手动设 CTO_BYPASS_ALLOWED=1
   if [ "${CTO_BYPASS_ALLOWED:-0}" = "1" ]; then
     audit_log "bypass-allowed-emergency" "cmd=$HOOK_BASH_CMD"

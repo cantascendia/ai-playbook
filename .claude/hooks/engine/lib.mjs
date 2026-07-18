@@ -20,6 +20,8 @@ export const FORBIDDEN_FALLBACK_PATTERN =
 export const DESTRUCTIVE_SQL_CORE =
   '\\bDROP\\s+(TABLE|DATABASE|SCHEMA|INDEX)\\b|\\bTRUNCATE\\b|DELETE\\s+FROM\\s+[a-z_]+\\s*(;|$)';
 // hook 绕过模式：必须与 common.sh bypass_patterns() 输出逐字节相等（eval 073 锁定）。
+// v4.4b core.hooksPath = 广义 token（拦一切提及）—— 读/写 carve-out 经 3 轮对抗验证证明
+// static regex 不可安全区分，回退广义 + 消费方剥引号归一化（见 common.sh 注释 / DECISIONS ADR-010）。
 export const BYPASS_PATTERNS =
   '--no-verify|git\\s+commit\\s+-n($|\\s)|core\\.hooksPath|HUSKY=0|hooks-disable|chmod\\s+-x.*husky|git\\s+stash[^|]*&&[^|]*commit|SKIP=|--allow-empty\\s+--dry-run|git\\s+config.*hooksPath';
 

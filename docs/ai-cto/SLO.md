@@ -1,4 +1,4 @@
-# SLO — ai-playbook 自身 (v3.15，2026-06-25 刷新)
+# SLO — ai-playbook 自身 (v4.4，2026-07-15 刷新)
 
 > Agent Reliability Engineering (§43) — 每个核心组件的 success_rate / latency / cost / fallback 四字段。
 > ⚠️ v3.10–v3.15 新增组件 SLO 见下「v3.10+ 组件」节（reliability-auditor 2026-06-25 审计标 P1：此前 SLO.md 冻结 v3.9.1 零覆盖新组件）。
@@ -106,9 +106,9 @@
 
 | 指标 | 目标 |
 |---|---|
-| harness health score | ≥ 90 / 100（v3.15 实测 79，低于目标 — 见 STATUS P1 欠账）|
-| ARE score | ≥ 85 / 100（v3.15 实测 78 — 四维全 warn，见下）|
-| eval 集 pass rate | ≥ 90%（31 条 golden trajectory，实测 31/31 = 100%）|
+| harness health score | ≥ 90 / 100（**v4.4 实测 85**，v3.15 为 79；欠 5 分见 STATUS top-gaps）|
+| ARE score | ≥ 85 / 100（**v4.4 实测 82**，v3.15 为 78；欠 3 分见 STATUS top-gaps）|
+| eval 集 pass rate | ≥ 90%（62 条 golden trajectory，实测 62/62 = 100%）|
 | Cost 月度 | < $30（codex + Claude API + GH Actions）|
 
 ## 机器可执行断言（v4.1 — `evals/slo-checks/`）
@@ -139,3 +139,4 @@
 
 - 2026-05-11 v3.9.1：首次创建（reliability-auditor 飞轮发现 ARE 72/100，SLO.md 缺失为 P0）
 - 2026-06-25 v3.15：补 v3.10+ 组件（mcp-guard / deny_with_reason / run-evals / check-counts / ledger）；修 eval 计数 28→31；全局加 ARE 目标行。reliability-auditor 实测 ARE 78（四维全 warn）。**仍欠**：`evals/slo-checks/` 机器断言 + 季度演练实跑（Q2 过期）。
+- 2026-07-15 v4.4：补 v4.2/v4.3 组件 SLO 叙述（telemetry OTel 面板 / git 层 forbidden+eval 兜底 / branch protection 真激活 / AGENTS.md 漂移锁）；回填 Health 85 / ARE 82（harness+reliability 双审实测）；eval 计数 31→62。**仍欠**（→ ≥90 目标）：sub-agent frontmatter 补 success_rate/cost/fallback 三字段（ARE gap#3）；FP-rate SLO 需 block 事件语义标注才能真闭环（长期 SKIP-manual）；telemetry/data 跑真实会话验证落盘。

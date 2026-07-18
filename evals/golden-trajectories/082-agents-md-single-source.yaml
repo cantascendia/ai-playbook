@@ -41,9 +41,12 @@ verification_command: |
     return 0 2>/dev/null || exit 0
   fi
 
-  # 2. 生成后 --check 立即通过（幂等 + 无漂移）。先跑一次 write 确保基线已同步。
-  node "$SCRIPT" >/dev/null 2>&1
-  node "$SCRIPT" --check >/dev/null 2>&1 && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 生成后 --check 仍报漂移"; }
+  # 2. 【v4.4 反自愈】已提交模板必须已同步：直接 --check（绝不先 write），漂移即 FAIL。
+  #    旧版先 `node $SCRIPT`（write）再 --check → 静默重生成屏蔽真漂移（Health 审计 + codex §48 抓到）。
+  node "$SCRIPT" --check >/dev/null 2>&1 && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 已提交 AGENTS/GEMINI 与源漂移（跑 node $SCRIPT 重新生成后提交，勿在 eval 里 write）"; }
+
+  # 2b. 【v4.4 CI 接线断言】漂移锁必须真的在 CI 已跑的脚本里被调用，否则是摆设。
+  grep -q 'sync-agents-md.mjs --check' scripts/check-counts.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts.sh 未接入 sync-agents-md --check（漂移锁未上 CI）"; }
 
   # 3. 两模板各含两对标记
   for t in AGENTS.md GEMINI.md; do
@@ -76,5 +79,5 @@ verification_command: |
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 真 templates/GEMINI.md 被误改"; }
   rm -rf "$T" 2>/dev/null || true
 
-  echo "pass=$pass fail=$fail (期望 12/0)"
+  echo "pass=$pass fail=$fail (期望 13/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
