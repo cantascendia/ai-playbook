@@ -85,6 +85,28 @@ LRULE_N=$(ls .claude/rules/learned/*.md 2>/dev/null | grep -vc 'README' | tr -d 
 assert_count "learned-rules" "$LRULE_N" "learned-rules"
 
 echo ""
+echo "=== TIER 1.5：AGENTS.md/GEMINI.md 单源漂移锁（硬 gate，v4.4）==="
+# v4.3 造了 sync-agents-md.mjs 漂移锁但从未接 CI（全仓 grep 零命中）→ 摆设。
+# v4.4 把「已提交模板 vs CLAUDE.md 铁律段+forbidden-paths.txt 生成物」的 --check 接进 CI 已跑的 check-counts。
+# 关键：--check 只读比对已提交文件，绝不先 write（否则会像 eval 082 test#2 那样自愈屏蔽真漂移）。
+if [ -f scripts/sync-agents-md.mjs ]; then
+  if command -v node >/dev/null 2>&1; then
+    if node scripts/sync-agents-md.mjs --check >/dev/null 2>&1; then
+      echo "✓ AGENTS.md/GEMINI.md 与 CLAUDE.md 铁律段/forbidden-paths.txt 无漂移"
+    else
+      echo "❌ AGENTS.md/GEMINI.md 已漂移 —— 跑 'node scripts/sync-agents-md.mjs' 重新生成后提交"
+      FAIL=$((FAIL+1))
+    fi
+  else
+    echo "⚠️  node 缺失 — 跳过 AGENTS/GEMINI 漂移锁（legacy 环境；CI 有 node）"
+    WARN=$((WARN+1))
+  fi
+else
+  echo "⚠️  scripts/sync-agents-md.mjs 不存在 — 跳过漂移锁"
+  WARN=$((WARN+1))
+fi
+
+echo ""
 echo "=== TIER 2：散落过时数字扫描（软警告）==="
 # 已知会漂移的硬编码数字。命中即提示改为引用 COUNTS.md。
 scan_stale() {
@@ -100,6 +122,17 @@ scan_stale "CLAUDE.md" '(^|[^0-9])17 ?(个)?(命令|commands)' "commands 实 ${C
 # v3.13 O3：防 eval 门禁硬编码数字回潮（门禁应"全部可执行 eval pass"，数量引 COUNTS.md）
 scan_stale "playbook/handbook.md" '12\+ *(trajectory|golden)' "eval 门禁不应硬编码数字"
 scan_stale ".claude/commands/cto-eval.md" '总计：12 条' "eval 报告模板不应硬编码 12 条"
+
+# v4.4 N4：REVIEW-QUEUE.md 轮转是纯手动动作、无阈值告警 → 反复胀到 300KB+（本轮审计发现 349KB）。
+# 加体积软警告：> 200KB 提示按季度轮转到 archive/（SessionStart 注入已限流不受影响，但人工审阅成本高）。
+RQ="docs/ai-cto/REVIEW-QUEUE.md"
+if [ -f "$RQ" ]; then
+  RQ_BYTES=$(wc -c < "$RQ" | tr -d ' ')
+  if [ "$RQ_BYTES" -gt 204800 ]; then
+    echo "⚠️  $RQ 已达 $((RQ_BYTES/1024))KB（>200KB）→ 建议按季度轮转历史到 docs/ai-cto/archive/（手册记忆系统约定）"
+    WARN=$((WARN+1))
+  fi
+fi
 
 echo ""
 echo "═══════════════════════════════════════"

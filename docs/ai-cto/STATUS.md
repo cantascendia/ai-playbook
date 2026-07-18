@@ -59,7 +59,8 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 
 | 版本 | Health | ARE | 关键 |
 |---|---|---|---|
-| v4.0a (进行中) | TBD | TBD | **v4.0a 重测排队中** — agent-native runtime PR-A（分发+记忆层）；分数待 PR-A 落定后 harness+reliability 重测 |
+| **v4.4** (当前) | **85** | **82** | 2026-07-15 harness+reliability 双审重测（v4.0-v4.3 首次回填，实测非轻信）。加分=branch protection 真激活/eval 31→63/引擎 42 单测/changelog 续档/演练脚本化。欠 ≥90=drift锁+pre-commit 未激活（本轮修）/SLO 文档滞后/REVIEW-QUEUE 复胀/telemetry 未产真数据 |
+| v4.0a→v4.3 | —（见 v4.4） | —（见 v4.4） | agent-native runtime + 分发 + 跨工具 enforcement 收敛 + Windows 硬化 + 遥测；累计态即 v4.4 分数 |
 | v3.15 | **79** | **78** | Claude 模型阵容对齐；扣分=changelog 断档 + pre-commit 未装 + 7 skill 无 paths + SLO 冻结 v3.9.1 + 季度演练 Q2 过期未跑 |
 | v3.14 (bold-audit) | —（见 v3.15） | —（见 v3.15） | guard exit-2→deny JSON + ledger 闭环 + 命令 23→18 + INDEX grep 化 |
 | v3.13 | —（见 v3.15） | —（见 v3.15） | 平台默认 Claude-only + 14 铁律 4 层 + check-counts SSOT enforcer 落地 |
@@ -176,18 +177,38 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 ## 已知问题
 
 ### Open
-- **plugin loader Agents(0)**（🟡 minor，2026-07-14 v4.3 发现）：`.claude-plugin/plugin.json` 的
-  `agents: ["./.claude/agents/*.md"]` 数组路径 `claude plugin validate` 通过、cache 内 5 个 agent 文件
-  确认存在，但 loader details 报 Agents(0) —— validate ≠ load。修复候选：改标准 `agents/` 根目录布局。
-  plugin 通道验证后已卸载（避免与文件拷贝版 hooks 双跑），不影响现行分发。
-- **bypass-guard FP：读 config 与写 config 同拦**（🟡 minor，2026-07-03 v4.0e 过程发现）：`BYPASS_PATTERNS`
-  含裸 `core.hooksPath` 字面量 + `git\s+config.*hooksPath`，导致 `git config --get core.hooksPath`（只读检查）
-  也被 deny。应给无赋值的 `--get` / 读取场景做 carve-out（改 hooks → 需配 eval，独立 PR）。
-- 4 条 hooks 文案与 rules 内容重复（双源漂移风险，harness-auditor 标⚠️）
-- audit 类命令（review / audit --vibe / audit --harness）有功能交叠（待 CLAUDE.md 决策树文档化）
-- v4.0a 质量分数（Health/ARE）未重跑（标 TBD），排队待 PR-A 落定后 harness / reliability 回填
+- **4 条 hooks 文案与 rules 内容重复**（🟡 minor，defer — 2026-07-15 v4.4 复核）：guard 运行时提示（engine/guards.mjs）
+  与 rules/*.md 权威内容重叠，v4.1 eval 076 只单源化了 legacy .sh 兜底、未覆盖 engine 运行时路径。
+  **裁决 defer（by-design 可接受）**：guard 提示合法承载即时可操作文本 + hook 专属 opt-out env
+  （CTO_DOUBLE_SIGNED/CTO_TEST_LOCK_ACK/CTO_EVAL_GATE_ACK，rules 里没有），不宜降为纯指针。
+  真单源方案（提取 engine/lib.mjs 的 FORBIDDEN_MSG/TESTLOCK_MSG 常量供 guards.mjs 消费）是 nice-to-have，
+  非紧急，留待触及 guards 文案时顺手做。
+- **plugin loader Agents(0)**（🟡 minor，defer — 2026-07-15 v4.4 复核修正前提）：`.claude-plugin/plugin.json`
+  的 agents 字段是 **5 条显式文件路径数组**（非单 glob），`claude plugin validate` 通过、cache 内 5 文件在，
+  但 loader details 报 Agents(0)（validate ≠ load）。修复候选（挪 root `agents/` 布局）会引入 .claude/agents
+  SSOT 的双源拷贝，比 Agents(0) 现状更糟，且 root 自动发现是否真 load 未实测；plugin 是 opt-in 实验通道
+  当前已卸载不影响分发。保持已知限制。
 
 ### Resolved
+- ✅ **bypass-guard core.hooksPath 读写不分 FP**（2026-07-03 发现 → 2026-07-15 v4.4b **裁决 WONTFIX-as-carve-out + 硬化**）：
+  尝试「只拦写」carve-out 修误拦只读的 FP，**3 轮对抗验证（9 agent）逐轮击穿**（轮1 前缀锚被 `git -C .` 击穿 /
+  轮2 空引号对逃逸 / 轮3 引号包 metachar 值族 `'>x'`+`${IFS}`+续行）→ 坐实 **static regex 不可安全区分读/写**。
+  **决断（ADR-010）**：放弃 carve-out，保持广义 token（拦一切提及 fail-safe，读 FP 理论性无真实消费方），
+  但**保留新增的剥引号归一化**——这让广义 token 严格更强，闭合旧 pattern 漏的引号插入写逃逸（`core.hooks'Path'`/
+  引号包操作符值）+ 修复续行的 engine/legacy parity 破裂。eval 024 锁 29 断言，行为矩阵 54/54，byte-parity 相等，轮4 SAFE。
+- ✅ **AGENTS.md/GEMINI.md 漂移锁是摆设**（2026-07-14 codex §48 + 2026-07-15 Health 审计发现 → v4.4 修）：
+  v4.3 sync-agents-md.mjs 未接任何 CI（全仓 grep 零命中）+ eval 082 test#2 先 write 后 --check 自愈屏蔽真漂移。
+  修：漂移锁 `--check`（只读比对已提交文件，绝不先 write）接进 CI 已跑的 check-counts.sh TIER1.5 硬 gate；
+  eval 082 改直接 --check + 加 CI 接线断言。
+- ✅ **git 层 pre-commit 兜底本仓未安装**（2026-07-15 Health/ARE 审计发现 → v4.4 修）：v4.3「唯一对
+  codex/终端一致生效」的兜底脚本存在但 `.git/hooks/pre-commit` 缺失=零保护。已 `install-pre-commit.sh` 激活 +
+  doctor-windows.sh 加 5b 检测（未装则 warn+fix hint）+ eval 083 断言。
+- ✅ **audit 命令交叠「待文档化」STATUS stale**（2026-07-15 v4.4 复核）：决策树早已在 CLAUDE.md:124-136
+  （eval 074 守），STATUS 同文件一处 [x] done 一处仍挂 Open = 纯陈旧漂移。已删该 Open 条目。
+- ✅ **v4.0a 质量分数 TBD 回填**（2026-07-15 v4.4）：harness-auditor 重评 **Health 79→85**、reliability-auditor
+  重评 **ARE 78→82**（均实测验证非轻信文档）。改善项：changelog 断档解除 / 演练脚本化 / branch protection 真激活 /
+  eval 31→62 / 42 引擎单测。新扣分：drift 锁+pre-commit 未激活（本轮已修）/ SLO.md 文档滞后 / REVIEW-QUEUE 复胀 /
+  telemetry 未产真数据。距 ≥90 目标仍差，欠账见 top-gaps。
 - ✅ **CONSTITUTION 安全宪法 #4 branch protection vaporware**（2026-07-04 发现 → 2026-07-14 v4.3 落地）：
   gh api PUT main 保护 = require PR / 0 approvals（单维护者不能自批own PR）/ enforce_admins=false（逃生门）/
   **无 required checks**（Eval Gate paths-filtered，设 required 会让不触发的 PR 永卡 Expected—Waiting，有意取舍）。

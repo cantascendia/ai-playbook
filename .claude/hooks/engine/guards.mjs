@@ -426,7 +426,12 @@ const BYPASS_PATTERNS = new RegExp(BYPASS_PATTERNS_SRC, 'm');
 export function bypassGuard(ctx) {
   if (ctx.toolName !== 'Bash') process.exit(0);
   if (!ctx.cmd) process.exit(0);
-  if (BYPASS_PATTERNS.test(ctx.cmd)) {
+  // v4.4b 引号插入逃逸硬化：shell 执行前吃掉引号/反斜杠字符，guard 必须看到 shell 看到的形态 ——
+  // `core.hooks'Path'` / `"core.hooksPath"` / `core\.hooksPath` / 引号包 metachar 值 都归一为可命中串。
+  // 广义 core.hooksPath token + 本剥字符 = 对全部 3 轮对抗验证的引号/续行逃逸免疫（子串仍在即命中）。
+  // 只删不增 → 匹配面严格超集，原命中不丢失。与 legacy bypass-guard.sh tr -d 逐字节同步。DECISIONS ADR-010。
+  const scanCmd = ctx.cmd.replace(/['"\\]/g, '');
+  if (BYPASS_PATTERNS.test(scanCmd)) {
     if (env().CTO_BYPASS_ALLOWED === '1') {
       auditLog(ctx, 'bypass-guard', 'bypass-allowed-emergency', `cmd=${ctx.cmd}`);
       process.exit(0);

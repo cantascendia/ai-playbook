@@ -32,6 +32,34 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 - 影响范围：终端快速委派（问答/摘要/二审 → agy 秒级）、codex 配额耗尽场景的 review 质量
   （跨模型价值保留）、月度 cost cap 精度。
 
+## [2026-07-15] v4.4b — activate & verify：激活并验证 v4.3 headline + guard 读写分离
+
+- 改了什么：
+  ① **bypass-guard core.hooksPath 硬化 + carve-out 裁决 WONTFIX**（eval 024 扩 6→29 断言 / ADR-010）：
+  尝试「只拦写」carve-out 修误拦只读 FP，**3 轮对抗验证（9 agent）逐轮击穿**——轮1 前缀锚被 `git -C .`/`--git-dir=`
+  击穿；轮2 空引号对 `core.hooksPath'' /evil` 逃逸；轮3 引号包 metachar 值族 `'>x'/';h'/'|h'` + `${IFS}` 注入 +
+  反斜杠续行（还破 engine/legacy parity）→ 坐实 static regex 不可安全区分读/写。**决断**：放弃 carve-out，
+  回广义 token（拦一切提及 fail-safe，读 FP 理论性无真实消费方），但**保留剥引号/反斜杠归一化**（guards.mjs
+  scanCmd + bypass-guard.sh SCAN_CMD 双路径 byte 同步）——广义 token + 剥字符严格更强，闭合旧 pattern 漏的引号插入
+  写逃逸 + 修复续行 parity 破裂。行为矩阵 54/54，byte-parity 相等，轮4 复验 SAFE。
+  ② **AGENTS/GEMINI 漂移锁真上 CI**（eval 082 反自愈）：v4.3 的 sync-agents-md.mjs 从未接 CI（零命中）+
+  eval 082 先 write 后 --check 自愈屏蔽真漂移。修：`--check`（只读比对已提交文件）接进 check-counts.sh
+  TIER1.5 硬 gate（CI 已跑）；eval 082 改直接 --check + 加 CI 接线断言。
+  ③ **git 层 pre-commit 兜底本仓激活**：v4.3「唯一跨工具生效」脚本存在但 `.git/hooks/pre-commit` 缺失=零保护。
+  已 install + doctor-windows.sh 加 5b 检测（未装 warn+fix hint）+ eval 083 断言。
+  ④ **REVIEW-QUEUE 体积软警告**：check-counts TIER2 加 >200KB 提示轮转（防 349KB 静默复胀）。
+  ⑤ **质量分回填 + STATUS 对账**：Health 79→**85** / ARE 78→**82**（harness+reliability 双审实测）；
+  删 audit-overlap stale Open（决策树早在 CLAUDE.md）；hooks-rules-dup + plugin-agents-zero 裁 defer（附依据）。
+- 为什么：v4.3 两个 headline（跨工具 pre-commit 兜底、AGENTS 漂移锁）经 Health 审计 + codex §48 发现
+  **实际未激活/自愈=摆设**。v4.4b 主题 = 激活并验证已造的东西，而非造新的。bypass-guard FP 是 v4.0e 起
+  挂了 3 个月的 Open，本轮用「对抗验证 gate 合并」范式根治（3 轮把安全敏感改动逼到 SAFE 才落）。
+- Eval 跑分前/后：63 PASS → **63 PASS**（024 17→23 / 082 +反自愈+CI接线 / 083 +5b 断言；无新增文件，故 COUNTS 不变）；
+  引擎 42 单测不变；guard 行为矩阵 66/66（engine+legacy）；byte-parity 相等。
+- 影响范围：所有工具的 git config 只读检查（不再误拦）+ 引号插入写逃逸（现拦）；AGENTS/GEMINI 消费者
+  （漂移真被 CI 拦）；本仓 commit 路径（兜底激活）；质量分 SSOT。
+
+## [2026-07-14] v4.3 — 跨工具 enforcement 收敛 + Windows 硬化 + 遥测全量入网
+
 - 改了什么：
   ① **git 层 forbidden 兜底**（eval 081）：install-pre-commit.sh 的 pre-commit 在 eval-gate 前加
   forbidden-path 段——从 forbidden-paths.txt（`tr -d '\r'`）建正则扫 staged 文件，命中硬 exit 1，
@@ -65,6 +93,8 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 - Eval 跑分前/后：58 → **62 PASS / 0 FAIL**（+081/082/083/084）；引擎单测 42/42；check-counts 绿。
 - 影响范围：所有工具的 commit 路径（forbidden 兜底）；codex/AG 配置模板消费者；Windows 开发环境；
   跨项目用量报表（`node telemetry/report.mjs --by repo,model`）。
+
+## [2026-07-10] v4.2 — PR#11 重放 + Self-Audit rolling issue + ADR-009 三层定位 + OTel 用量面板
 
 - 改了什么：① **PR#11 最小重放**（Fable 5 裁决 + 亲自编码）：run.sh debounce 认全部落 review 模式
   （success|claude-only|fallback-to-claude，边界排除 codex-failed+claude-failed）——修同 SHA 重复审

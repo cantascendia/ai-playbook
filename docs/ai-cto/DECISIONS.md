@@ -154,3 +154,49 @@ settings.local.json（transient opt-out，红线不长期敞开）。
 语义内；若未来正式改述需人发起 amendment，非本 ADR 范围）。
 
 来源：用户 2026-07-10 方向指示 + Claude Code 原生能力对照（workflows/后台代理/OTel 遥测均已官方文档化）
+
+---
+
+## ADR-010: bypass-guard core.hooksPath 保持广义 token（放弃读/写 carve-out）+ 剥引号硬化（2026-07-15）
+
+**Status**: Accepted（v4.4b，3 轮对抗验证裁决）
+
+**Context**: STATUS 长期挂 🟡 Open —— bypass-guard 的广义 hooksPath token 读写不分，误拦只读
+`git config --get core.hooksPath`。v4.4 尝试改为「只拦写」的 carve-out（读放行）。
+
+**Decision**: **放弃 carve-out，保持广义 token（拦一切 core.hooksPath 提及，fail-safe），
+但保留新增的「消费方剥引号/反斜杠字符归一化」（真安全增益）。**
+
+依据 —— 3 轮对抗验证（9 个独立 skeptic agent，逐轮用 node 对真实 pattern replay 坐实）：
+- **轮1**：初版「子串锚定只拦写 token」被 `git -C .` / `--git-dir=` 前缀击穿（设想的 git→config 相邻锚失效）→ 0/3 SAFE。
+- **轮2**：改前缀无关后，被空引号对 `git config core.hooksPath'' /evil` 逃逸（shell 吃掉空引号对，
+  guard 的单字符可选量吃不下两字符）→ 0/3。加剥引号归一化补救。
+- **轮3**：剥引号后，被**引号包 metachar 值族**（值首字符是 shell 操作符 `> ; | & <`，被 token 的 value
+  排除类放行）+ `${IFS}` 注入 + 反斜杠续行（还破坏 engine/legacy parity）逐一击穿 → 0/3。
+
+**根因**：static regex 无法安全区分 hooksPath 的读/写 —— 区分依赖「key 后是否有值」，而 shell 剥引号后
+引号包的操作符值与「读 + shell 操作符」字节不可区分；`${IFS}`/续行/变量展开进一步让「有无空白分隔」
+不可静态判定。每堵一个洞就冒出结构等价的新洞，不收敛。
+
+广义 token「拦一切提及」是**唯一 adversarial-proof 的姿势**：不做值检测 → 无「值伪装成操作符」的攻击面；
+剥引号后任何含子串 core.hooksPath 的命令（含全部 3 轮逃逸族）都命中。代价 = 读也拦（FP），但该 FP
+**理论性无真实消费方**（doctor 直接查 .git/hooks/pre-commit 不走 git config；真需读用 `git rev-parse
+--git-path hooks` 或 CTO_BYPASS_ALLOWED=1）。
+
+**净收益（相对 v4.4 前）**：剥引号归一化让广义 token 严格更强 —— 闭合了旧 pattern 漏的引号插入写逃逸
+（`core.hooks'Path'` / 引号包 key / 引号包操作符值），修复续行输入的 engine/legacy parity 破裂。
+eval 024 锁 29 断言（3 轮逃逸族 BLOCK + 只读 fail-safe BLOCK + 普通命令 ALLOW），guard 行为矩阵 54/54
+（engine+legacy），byte-parity 相等，轮4 复验 SAFE。
+
+**残留（static-match 理论边界，原 pattern 亦漏，非本决策回归）**：大小写变体 `core.hookspath`、
+直接 `printf >> .git/config`、ANSI-C 十六进制隐藏 key、`rm/chmod .git/hooks/pre-commit`（destructive-guard 管辖）。
+
+**已知副作用（minor，fail-safe）**：剥引号硬化后，含 core.hooksPath 字面量的 **bash heredoc 文档写**（如写本 ADR）
+也会被拦——用 Write/Edit 工具写文件（不走 bash bypass-guard）即可绕开。未来若频繁，可仿 destructive-action-guard
+（learned rule 2026-05-20）在 bypass scanCmd 加 heredoc body 剥离（heredoc 内容是数据非执行命令，剥离安全）。
+
+**Consequences**: ① 对抗验证「gate 合并」范式实证价值——3 轮拦下 3 个会进 main 的净安全回归；
+② 确立准则：**安全敏感的 regex 匹配，宁可 fail-safe 过度拦截，不做"聪明"的读/写区分**（区分逻辑=新攻击面）；
+③ learned rule 存档（2026-07-15-static-regex-cannot-separate-hookspath-rw）。
+
+来源：v4.4b 3 轮对抗验证 workflow（wf_625a44f7 / wf_e5da5df4 / wf_7f9dc01f）+ 轮4 确认（wf_9230005b）

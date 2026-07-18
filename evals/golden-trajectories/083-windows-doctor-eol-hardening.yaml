@@ -45,5 +45,7 @@ verification_command: |
   rcE=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/x.ts"},"cwd":"."}' | env -u CTO_DOUBLE_SIGNED bash .claude/hooks/forbidden-guard.sh >/dev/null 2>&1; echo $?)
   rcL=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"src/auth/x.ts"},"cwd":"."}' | env -u CTO_DOUBLE_SIGNED CTO_GUARD_ENGINE=legacy bash .claude/hooks/forbidden-guard.sh >/dev/null 2>&1; echo $?)
   if [ "$rcE" = "2" ] && [ "$rcL" = "2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: guard smoke engine=$rcE legacy=$rcL（期望 2/2）"; fi
-  echo "pass=$pass fail=$fail (expect 9/0)"
+  # ── 断言 5（v4.4）：doctor 含 pre-commit 兜底安装检测（section 5b）──
+  if grep -q '\.git/hooks/pre-commit' scripts/doctor-windows.sh; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: doctor 缺 pre-commit 兜底安装检测（5b）"; fi
+  echo "pass=$pass fail=$fail (expect 10/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

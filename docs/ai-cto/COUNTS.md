@@ -23,7 +23,7 @@
 | ledger（v3.14 B）| **4 脚本** | `ledger/{collect,distill,propagate,run}.mjs` + README — 跨项目事故账本闭环（collect→distill ≥2项目印证→propagate dry-run）；incidents.jsonl/drafts 是 gitignore 运行时产物 |
 | test-plans | **22** | `docs/test-plans/*.yaml`（001-022 trajectory 类规约，无 vc 不自动跑，需人工/Claude 周期验证；v3.14 从 evals/ 移出，计数诚实化）|
 | rules | **3** | `.claude/rules/*.md`（eval-gate / forbidden-paths / test-lock）|
-| learned-rules | **8** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）|
+| learned-rules | **9** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）；v4.4b 增 2026-07-15 static-regex 不可区分 hooksPath 读写 |
 | handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
 | plugin 清单（v4.0d 实验）| **1 plugin + 1 marketplace** | `.claude-plugin/{plugin,marketplace}.json` + `hooks.json`（`claude plugin validate` 通过；打包 commands/agents/skills/output-style/guard-hooks；rules/statusline/记忆种子仍留 cto-init）|
 | 已部署项目 | **29** | 实测 `find /c/projects -name immutable-guard.sh`：21 独立项目 + nilou-network monorepo（root + 6 子应用）+ hoyokit（root + 1 嵌套）= 29 guard 安装。**2026-07-09 全部升级到 v4 guard engine**（bash→Node shim + legacy 回退），29/29 行为验证通过 + `.bak` 备份 |

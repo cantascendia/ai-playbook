@@ -183,6 +183,16 @@ else
   printf '  GUARD-SMOKE: FAIL (engine=exit%s legacy=exit%s)\n' "$rcE" "$rcL"
 fi
 
+# ── 5b. pre-commit 兜底是否已安装（v4.4）──────────────
+sec "5b. git 层 forbidden/eval 兜底（.git/hooks/pre-commit）"
+# v4.3 造了 install-pre-commit.sh（唯一对 codex/终端一致生效的层），但 fresh clone 不自动装
+# → 本地终端/codex commit 可绕过。装了才算激活（warn 非 fail：新克隆未装是预期，给 fix hint）。
+if [ -f "$REPO_ROOT/.git/hooks/pre-commit" ] && [ -x "$REPO_ROOT/.git/hooks/pre-commit" ]; then
+  ok "pre-commit 兜底已安装（forbidden 路径 + 铁律#12 eval gate 对所有工具生效）"
+else
+  warn "pre-commit 兜底未安装 — 本地终端/codex commit 可绕过 forbidden 检查" "跑 bash scripts/install-pre-commit.sh 激活（GitHub branch protection 只补 push 层，不补 commit 前拦截）"
+fi
+
 # ── 6. PowerShell 版本 ─────────────────────────────
 sec "6. PowerShell"
 
