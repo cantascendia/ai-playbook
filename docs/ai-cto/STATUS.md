@@ -190,6 +190,12 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
   当前已卸载不影响分发。保持已知限制。
 
 ### Resolved
+- ✅ **v4.4 fallback/cost 5 个可靠性 bug**（2026-07-16 v4.4b/c 后双审揪出 → v4.4d 修，含 2 个我 v4.4c 自带缺陷）：
+  ① 严重度计数扫全量 transcript 被 emoji 范例污染（🔴51 vs 真 0 Critical）→ 改 SEVERITY_SUMMARY 解析 + 诚实未知；
+  ② reviews/<sha>.md 从不 git add（lineage 断链）→ 加 git add；③ cost cap 文件从不 bootstrap（裸奔 32 天）→ 缺失即建；
+  ④ MODE 覆写吞 codex/agy 真失败（PR 假报"codex 未装"）→ FAIL_CHAIN 保留失败链；⑤ agy 补位档零动态测试 → drill 06 +
+  slo-check 断言。Opus 编码 + Fable 5 独立沙箱/对抗验证（严重度解析 7/7）。**Health 85→80 / ARE 82→79 的扣分项本轮解**。
+  eval 086 强化（反污染 mock）+ drill 06 + slo-check 06。
 - ✅ **REVIEW-QUEUE 反复膨胀（341KB）**（2026-07-15 Health 审计 top-gap #4 → 2026-07-16 v4.4c 修根因）：
   codex-bridge post-commit §48 审每次 append 整份八维报告（#59 一 PR +2683 行）。修：全文分流 `reviews/<sha>.md`
   （lineage 保全），REVIEW-QUEUE 只留摘要+严重度计数+指针；pattern-detector/cto-evolve 扫 reviews/*.md。

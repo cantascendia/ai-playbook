@@ -140,6 +140,7 @@ fi
   TS=$(date -Iseconds 2>/dev/null || date)
   REVIEWER=""
   MODE=""
+  FAIL_CHAIN=""   # v4.4d FIX4: 保留 codex/agy 真实失败链（fallback 时不丢，防"claude-only 假诊断"掩盖复发 bug）
   OUTPUT=""
   STATUS=1
 
@@ -166,6 +167,8 @@ fi
   if [ -z "$REVIEWER" ] && [ "$HAS_AGY" = "1" ]; then
     DIFF_CONTENT=$(git show --stat --patch "$SHA" 2>/dev/null | head -c 60000)
     AGY_PROMPT="你是跨模型代码审阅者。按八维（架构/代码质量/性能/安全/测试/DX/功能完整性/UX）逐条 ✅⚠️🔴 + 文件:行号 评审以下 commit ${SHORT_SHA} 的 diff。仅输出 markdown 报告，不要调用任何工具、不要读文件。
+报告**最后单独一行**输出机器可解析的严重度汇总（n 为你本次实际判定的各级问题数，非格式范例）：
+SEVERITY_SUMMARY: P0=<n> P1=<n> P2=<n>
 
 ${DIFF_CONTENT}"
     if [ -n "${AGY_REVIEW_MODEL:-}" ]; then
@@ -190,17 +193,21 @@ ${DIFF_CONTENT}"
 
   # 5b. Fallback 到 Claude
   if [ -z "$REVIEWER" ] && [ "$HAS_CLAUDE" = "1" ]; then
-    PROMPT="按手册 §10.5 八维评审 commit ${SHORT_SHA} 的改动。先用 Bash 跑 'git show ${SHA}' 看 diff，再按八维（架构/代码质量/性能/安全/测试/DX/功能/UX）逐条 ✅⚠️🔴 + 行号。仅输出 markdown 报告，不修改任何文件。"
+    PROMPT="按手册 §10.5 八维评审 commit ${SHORT_SHA} 的改动。先用 Bash 跑 'git show ${SHA}' 看 diff，再按八维（架构/代码质量/性能/安全/测试/DX/功能/UX）逐条 ✅⚠️🔴 + 行号。仅输出 markdown 报告，不修改任何文件。报告最后单独一行输出机器可解析的严重度汇总（n 为你实际判定的各级问题数）：SEVERITY_SUMMARY: P0=<n> P1=<n> P2=<n>"
     CLAUDE_OUTPUT=$(claude -p "$PROMPT" --max-turns 5 2>&1)
     CLAUDE_STATUS=$?
     if [ $CLAUDE_STATUS -eq 0 ]; then
       OUTPUT="$CLAUDE_OUTPUT"
       REVIEWER="claude-fallback-opus"
-      # v4.4: MODE 可能带 +agy-failed 后缀 → 用子串匹配判断配额场景
-      if echo "$MODE" | grep -q "codex-quota-exhausted" || [ "$SKIP_CODEX" = "1" ]; then
+      # v4.4d FIX4: codex/agy **真报错**也算 fallback（不只配额）——旧逻辑只认 quota/SKIP，
+      # codex-failed / agy-failed 一律落 claude-only → PR comment 输出"codex 未装"假诊断掩盖复发 bug。
+      # 放宽判定：MODE 含 codex-quota-exhausted / codex-failed / agy-failed 或 SKIP_CODEX=1 → fallback-to-claude。
+      # 保留原始失败链到 FAIL_CHAIN（另存变量，不污染 MODE，避免破坏下游 [ "$MODE" = "fallback-to-claude" ] 等值判定）。
+      if echo "$MODE" | grep -qE "codex-quota-exhausted|codex-failed|agy-failed" || [ "$SKIP_CODEX" = "1" ]; then
+        FAIL_CHAIN="$MODE"
         MODE="fallback-to-claude"
       else
-        MODE="claude-only"
+        MODE="claude-only"   # 真·从未试 codex/agy（都未装/未登录）—— 唯一诚实的 claude-only
       fi
       STATUS=0
     else
@@ -220,16 +227,28 @@ ${DIFF_CONTENT}"
       echo ""
       echo "$OUTPUT"
     } > "$REVIEW_FILE"
-    # 严重度计数（从全文提取，供摘要 + pattern-detector 快速分诊）。wc -l 恒 exit 0，避免 grep -c 空匹配双 0。
-    R_CRIT=$(printf '%s' "$OUTPUT" | grep -o '🔴' | wc -l | tr -d ' ')
-    R_MAJ=$(printf '%s' "$OUTPUT" | grep -o '🟠' | wc -l | tr -d ' ')
-    R_MIN=$(printf '%s' "$OUTPUT" | grep -o '🟡' | wc -l | tr -d ' ')
+    git add "$REVIEW_FILE" 2>/dev/null || true   # v4.4d FIX2: 入 git，否则 reviews/<sha>.md 永远 untracked → Sakana lineage 断链（软失败，非 git 仓/无权限不阻断）
+    # 严重度计数（v4.4d FIX1 反污染）：从 reviewer 输出的机器可解析 SEVERITY_SUMMARY 行解析，
+    # **不再扫全文 emoji** —— 旧 bug：codex transcript 把 SKILL.md/handbook 里的 ✅⚠️🔴 格式范例原样回显，
+    # 全文 grep 计出 🔴51 等虚高危（29b4932 实证：写 🔴51/🟠43/🟡42，codex 真结论仅 4×P1+12×P2 零 Critical）。
+    # 取**最后一条** SEVERITY_SUMMARY（reviewer 终判，非文中范例）。
+    SEV_LINE=$(printf '%s' "$OUTPUT" | grep -oE 'SEVERITY_SUMMARY:[[:space:]]*P0=[0-9]+[[:space:]]+P1=[0-9]+[[:space:]]+P2=[0-9]+' | tail -1)
+    if [ -n "$SEV_LINE" ]; then
+      # sed 捕获组只取 =后的值（不能用 grep -oE '[0-9]+'：会连 P0/P1/P2 标签里的 0/1/2 一起抓 → 多行污染）
+      R_CRIT=$(printf '%s' "$SEV_LINE" | sed -nE 's/.*P0=([0-9]+).*/\1/p')   # P0→🔴
+      R_MAJ=$(printf '%s' "$SEV_LINE" | sed -nE 's/.*P1=([0-9]+).*/\1/p')    # P1→🟠
+      R_MIN=$(printf '%s' "$SEV_LINE" | sed -nE 's/.*P2=([0-9]+).*/\1/p')    # P2→🟡
+      SEV_NOTE=""
+    else
+      # 缺行（codex 主路径用自带 rubric / reviewer 没照做）：诚实标"未知"，绝不回退扫全文 emoji（那正是污染源）
+      R_CRIT="?"; R_MAJ="?"; R_MIN="?"; SEV_NOTE="（见全文）"
+    fi
     {
       echo ""
       echo "## $TS — Review for $SHORT_SHA"
-      echo "**Reviewer**: $REVIEWER | **Mode**: $MODE | **判定**: 🔴 ${R_CRIT} / 🟠 ${R_MAJ} / 🟡 ${R_MIN}"
+      echo "**Reviewer**: $REVIEWER | **Mode**: $MODE | **判定**: 🔴 ${R_CRIT} / 🟠 ${R_MAJ} / 🟡 ${R_MIN}${SEV_NOTE}"
       if [ "$MODE" = "fallback-to-claude" ]; then
-        echo "> ⚠️ Codex 额度耗尽（1h 冷却中），本次由 Claude 完成。**失去跨模型价值**（Claude 自审有相同认知偏差）。"
+        echo "> ⚠️ 跨模型补位链未成功（\`${FAIL_CHAIN:-codex 不可用}\`），本次由 Claude 自审补位。**失去跨模型价值**（Claude 自审有相同认知偏差）。若 failchain 非额度耗尽，可能是复发 bug 需排查。"
       elif [ "$MODE" = "fallback-to-agy" ] || [ "$MODE" = "agy-only" ]; then
         echo "> ℹ️ 本次由 Antigravity CLI（Gemini）补位完成。**跨模型价值保留**（Gemini ≠ GPT ≠ Claude）。"
       fi
@@ -237,14 +256,18 @@ ${DIFF_CONTENT}"
       echo ""
       echo "---"
     } >> docs/ai-cto/REVIEW-QUEUE.md
-    echo "$TS | sha=${SHORT_SHA} | mode=$MODE | reviewer=$REVIEWER | bytes=${#OUTPUT}" \
+    echo "$TS | sha=${SHORT_SHA} | mode=$MODE | reviewer=$REVIEWER | bytes=${#OUTPUT}${FAIL_CHAIN:+ | failchain=$FAIL_CHAIN}" \
       >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
     # v3.10.1 fix: 计量回写 .evolve-cost-month.json（飞轮发现 cost counter 死）
     # v4.4: 仅 codex 主路径入账 codex_token_cents —— agy/claude 补位不烧 codex 配额，
     #       混入会虚增月度 cost cap（宪法 $20/月）触发过早降级。
     COST_FILE="docs/ai-cto/.evolve-cost-month.json"
-    if [ -f "$COST_FILE" ] && [ "$REVIEWER" = "codex-gpt5.5" ]; then
+    if [ "$REVIEWER" = "codex-gpt5.5" ]; then
+      # v4.4d FIX3: bootstrap 计量文件 —— 主工作区 .gitignore 排除该文件 → 从不存在 →
+      # 旧 `[ -f "$COST_FILE" ]` 守卫使写回从不触发 → cost cap（宪法 $20/月）静默失效 32+ 天。
+      # 缺则先建当月零账本（放 codex reviewer 分支内，非 codex 路径不建 —— 它们不烧 codex 配额）。
+      [ -f "$COST_FILE" ] || printf '{"month":"%s","codex_token_cents":0,"cap_cents":2000,"reviews_count":0,"exceeded":false,"schema":"v3.10.1"}\n' "$(date +%Y-%m 2>/dev/null || echo unknown)" > "$COST_FILE"
       MONTH=$(date +%Y-%m 2>/dev/null || echo unknown)
       # bytes → cents: 估算 $0.01/KB（gpt-5.5 input 价格 ~$1.25/M token，约 4 字节/token）
       ADD_CENTS=$(( ${#OUTPUT} / 100 ))
@@ -334,13 +357,13 @@ ${DIFF_CONTENT}"
             echo "**Reviewer**: \`$REVIEWER\` | **Mode**: \`$MODE\` | $TS"
             if [ "$MODE" = "fallback-to-claude" ]; then
               echo ""
-              echo "> ⚠️ Codex 额度耗尽，本次由 Claude 完成。失去跨模型价值（同模型自审）。"
+              echo "> ⚠️ codex/agy 均报错（\`${FAIL_CHAIN:-codex 不可用}\`），本次由 Claude 补位。失去跨模型价值（同模型自审）；若非额度耗尽，可能是复发问题需排查。"
             elif [ "$MODE" = "fallback-to-agy" ] || [ "$MODE" = "agy-only" ]; then
               echo ""
               echo "> ℹ️ 本次由 Antigravity CLI（Gemini）补位完成。跨模型价值保留（Gemini ≠ GPT ≠ Claude）。"
             elif [ "$MODE" = "claude-only" ]; then
               echo ""
-              echo "> ℹ️ codex 未装/未登录，本次由 Claude 完成。"
+              echo "> ℹ️ codex 未装/未登录（从未尝试 codex/agy），本次由 Claude 完成。"
             fi
             echo ""
             echo "$OUTPUT"
