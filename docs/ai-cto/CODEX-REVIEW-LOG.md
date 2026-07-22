@@ -132,3 +132,18 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-18T15:33:34+09:00 | sha=29b4932 | mode=skipped-debounce | reason=already_reviewed
 2026-07-18T15:41:14+09:00 | sha=29b4932 | mode=review-triggered | reason=security_relevant_change
 2026-07-18T15:41:14+09:00 | sha=29b4932 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T16:16:22+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T16:16:22+09:00 | sha=bc34809 | mode=success | reviewer=codex-gpt5.5 | bytes=248418
+2026-07-18T16:14:10+09:00 | sha=f80913f | mode=success | reviewer=codex-gpt5.5 | bytes=228076
+2026-07-18T16:42:26+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T16:42:26+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T16:44:34+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T16:44:34+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T16:48:56+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T16:48:56+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T17:02:33+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T17:02:33+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T17:10:49+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T17:10:49+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed
+2026-07-18T17:16:07+09:00 | sha=bc34809 | mode=review-triggered | reason=security_relevant_change
+2026-07-18T17:16:07+09:00 | sha=bc34809 | mode=skipped-debounce | reason=already_reviewed

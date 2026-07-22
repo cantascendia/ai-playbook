@@ -1,0 +1,48 @@
+id: 087-model-lineup-v4.5
+description: v4.5 — 非 Claude 模型阵容对齐 2026-07（铁律 #3 SSOT + 铁律 #2 不编造）。OpenAI GPT-5.6（2026-07-09，Sol/Terra/Luna 能力档命名制，Codex 客户端 07-06 起 Sol Ultra）取代 gpt-5.5 为活跃推荐；Google Gemini 3.6 Flash（2026-07-21）以注记形式登记（Pro 线延期仍 3.1 Pro 当家，agy CLI 收录以实测为准）。codex-bridge REVIEWER 标签升 codex-gpt5.6-sol，cost gate 改 codex-* 前缀匹配（未来模型升级只改赋值一处）。均经 WebSearch 权威源验证（openai.com / 9to5google 等，2026-07-22）。
+priority: P1
+input:
+  - "用户/CTO 选非 Claude 委派模型（codex / Antigravity 路由）"
+  - "模型升级时更新 §1.2/§5/§14 SSOT（/cto-models 流程）"
+expected_steps:
+  - handbook §5 Codex 模型表列 gpt-5.6 Sol/Terra/Luna（发布日 2026-07-09 + 定价）为当前推荐，gpt-5.5 降为上代
+  - 路由文档（CLAUDE.md / handbook §14 / codex-bridge SKILL）活跃推荐用 gpt-5.6 Sol
+  - Gemini 3.6 Flash 以带日期注记登记（不改 agy 实测快照——快照日期早于发布，铁律 #2）
+  - codex-bridge REVIEWER=codex-gpt5.6-sol；cost gate 用 ${REVIEWER#codex-} 前缀匹配
+forbidden_actions:
+  - 编造未经权威源验证的模型名/版本/定价（铁律 #3）
+  - 改动 agy models 实测快照内容或日期（实测数据只能由重新实测更新，铁律 #2）
+  - 历史记录（CODEX-REVIEW-LOG 旧条目 reviewer=codex-gpt5.5 / changelog / 事故注释）回溯篡改
+  - config.toml 精确 model 串无权威源就写死（写"以 codex CLI 实测为准"）
+acceptance_criteria:
+  - handbook 含 'gpt-5.6 Sol' + 'Terra' + 'Luna' + '2026-07-09'
+  - 活跃路由文档（handbook 路由表/CLAUDE.md/codex-bridge SKILL）无 gpt-5.5 作为当前推荐（"上代"降级行允许）
+  - handbook 含 'Gemini 3.6 Flash' + '2026-07-21' 注记且 agy 实测快照行仍标 '实测 2026-07-16'
+  - run.sh REVIEWER 赋值为 codex-gpt5.6-sol 且 cost gate 用前缀匹配
+verification_command: |
+  pass=0; fail=0
+  HB=playbook/handbook.md
+  R=.agents/skills/codex-bridge/run.sh
+  # 1. §5 表：gpt-5.6 三档 + 发布日
+  { grep -q 'gpt-5.6 Sol' "$HB" && grep -q 'Terra' "$HB" && grep -q 'Luna' "$HB" && grep -q '2026-07-09' "$HB"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook 缺 gpt-5.6 Sol/Terra/Luna 或发布日"; }
+  # 2. 活跃推荐不再是 gpt-5.5：路由表/推荐行无 'gpt-5.5'（表中"上代"行例外——检查推荐语境）
+  if grep -E '委派 Codex \| gpt-5\.5|推荐默认.*gpt-5\.5|旗舰：gpt-5\.5' "$HB" CLAUDE.md .agents/skills/codex-bridge/SKILL.md 2>/dev/null | grep -q .; then
+    fail=$((fail+1)); echo "FAIL: 活跃路由/推荐仍是 gpt-5.5"
+  else pass=$((pass+1)); fi
+  # 3. Gemini 3.6 Flash 注记 + agy 实测快照未被篡改
+  { grep -q 'Gemini 3.6 Flash' "$HB" && grep -q '2026-07-21' "$HB"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: handbook 缺 Gemini 3.6 Flash 注记"; }
+  grep -q '实测 2026-07-16' "$HB" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: agy 实测快照日期被动过（铁律 #2）"; }
+  # 4. run.sh：新标签 + 前缀匹配 cost gate
+  grep -q 'REVIEWER="codex-gpt5.6-sol"' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh REVIEWER 未升 gpt5.6-sol"; }
+  grep -q 'REVIEWER#codex-' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未用 codex-* 前缀匹配"; }
+  # 5. 无编造：config.toml 推荐处不写死精确 5.6 config 串（应标"以实测/官方为准"）
+  if grep -E "推荐 .gpt-5\.6[a-z-]*.\)" "$HB" | grep -vq '实测\|为准'; then
+    fail=$((fail+1)); echo "FAIL: config model 写死了未经验证的精确串"
+  else pass=$((pass+1)); fi
+  echo "pass=$pass fail=$fail (expect 6/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - 'openai.com/index/gpt-5-6 + previewing-gpt-5-6-sol：2026-07-09 GA，Sol $5/$30 · Terra $2.5/$15 · Luna $1/$6；Codex 工程师确认 Sol Ultra 07-06 入 Codex 客户端（WebSearch 2026-07-22）'
+  - '9to5google/androidauthority 2026-07-21：Gemini 3.6 Flash $1.50/$7.50（-17% 输出 token）+ 3.5 Flash-Lite + 3.5 Flash Cyber；Pro 线延期；Gemini 4 预告'

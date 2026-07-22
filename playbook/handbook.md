@@ -38,7 +38,7 @@
 当 Claude Code 本地执行不够时，可委派给以下平台：
 
 **Antigravity**（Google Agent-First IDE）— 浏览器视频验证、Stitch 2.0 UI 设计、Manager Surface 多代理编排、AI 图像生成（旗舰：Gemini 3.1 Pro High）
-**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation 跨会话长任务、Plugins 生态、Computer Use、**图像生成 image_gen + gpt-image-2**（旗舰：gpt-5.5 编码 / gpt-image-2 生图）
+**Codex App**（OpenAI 桌面端）— 隔离并行 Worktree、定时 Automation 跨会话长任务、Plugins 生态、Computer Use、**图像生成 image_gen + gpt-image-2**（旗舰：gpt-5.6 Sol 编码 / gpt-image-2 生图；Codex 客户端 2026-07-06 起搭载 Sol Ultra）
 
 详细规范见 §5。
 
@@ -441,6 +441,9 @@ Antigravity 不再只有 IDE：官方 CLI `agy`（winget `Google.AntigravityCLI`
   Gemini 3.1 Pro (Low/High) / Claude Sonnet 4.6 (Thinking) / Claude Opus (Thinking，CLI 侧
   标注为 4.6 代，落后上表 IDE 阵容的 4.8) / GPT-OSS 120B —— CLI 与 IDE 阵容存在版本差
   （CLI 另有 3.5 Flash），以各自运行时实测为准（铁律 #2）
+- 📌 2026-07-21 Google 发布 **Gemini 3.6 Flash**（工作马 Flash，-17% 输出 token，$1.50/$7.50）+
+  3.5 Flash-Lite（$0.30/$2.50）+ 3.5 Flash Cyber（安全漏洞专用）；**Pro 线延期仍以 3.1 Pro 当家**，
+  Gemini 4 已预告。agy CLI 是否已收录 3.6 Flash **以 `agy models` 重新实测为准**（上行快照日期早于该发布）
 - 一键委派：`bash scripts/agy-delegate.sh "<自包含 prompt>"`（lint + telemetry 入账，
   与 codex-delegate.sh 对称）
 - 约束：print 模式无交互授权界面 → prompt 必须**自包含**（diff/文件内容贴入），
@@ -452,7 +455,7 @@ Antigravity 不再只有 IDE：官方 CLI `agy`（winget `Google.AntigravityCLI`
 | 任务 | 首选 | 原因（实测依据） |
 |---|---|---|
 | 会话内委派 codex | codex MCP（`mcp__codex__codex`） | 常驻 server 无进程税（32s vs >110s） |
-| 终端写作型多文件产出 | `scripts/codex-delegate.sh`（gpt-5.5） | apply_patch 语义 + tokens 入账 |
+| 终端写作型多文件产出 | `scripts/codex-delegate.sh`（gpt-5.6 Sol） | apply_patch 语义 + tokens 入账 |
 | 快速问答 / 摘要 / 草稿 / 二审 | `scripts/agy-delegate.sh`（Gemini） | ~7s 往返、无沙箱税、不要求 git 仓库 |
 | codex 配额耗尽时跨模型 review | agy 补位（codex-bridge 自动） | Gemini ≠ GPT ≠ Claude，**保留跨模型价值** |
 | 浏览器视频验证 / Stitch / 图像 | Antigravity IDE（Manager Surface） | CLI 无浏览器/Stitch 面 |
@@ -572,16 +575,18 @@ npx add-skill google-labs-code/stitch-skills --skill <skill-name> --global
 
 **委派场景**：隔离并行 Worktree、定时 Automation、跨会话长任务、最强外部推理
 
-**可选模型（截至 2026-04）：**
+**可选模型（截至 2026-07，WebSearch 验证 2026-07-22）：**
 
 | 模型 | 特点 | 备注 |
 |---|---|---|
-| **gpt-5.5** | **当前旗舰，推荐默认**（编码 / 推理） | 2026 新发布 |
-| gpt-5.4 | 次旗舰 / 通用 | 仍可用 |
-| gpt-5.4-mini | 轻量快速，省配额 | |
-| gpt-5.3-codex | 编码专精（gpt-5.4 的编码底座） | |
-| gpt-5.3-codex-spark | Pro 用户研究预览，近实时迭代 | 实验性 |
+| **gpt-5.6 Sol** | **当前旗舰，推荐默认**（最强智能档；Codex 客户端搭载 Sol Ultra） | 2026-07-09 发布；API $5/$30 每 M token |
+| gpt-5.6 Terra | 中间档（智能/速度/成本平衡） | $2.50/$15 |
+| gpt-5.6 Luna | 快速/省配额档 | $1/$6 |
+| gpt-5.5 | 上代旗舰 | 仍可用 |
+| gpt-5.3-codex | 编码专精（旧代底座） | |
 | **gpt-image-2** | **图像生成 + 4K + 文字渲染 + reasoning** | 2026-04-21 新增 |
+
+> 命名规则变更（2026-07-09 起）：数字 = 世代，**Sol/Terra/Luna = 可独立演进的能力档**（智能/均衡/速度）。
 
 **推理强度：** low / medium / high / xhigh
 **线程模式：** Local / Worktree / Cloud
@@ -614,7 +619,7 @@ AGENTS.md 已成为 **跨平台事实标准**，被 Codex / Cursor / Copilot / A
 **③ config.toml — 全局配置**
 路径：`~/.codex/config.toml`
 关键项：
-- `model` — 默认模型（推荐 `gpt-5.5`）
+- `model` — 默认模型（推荐 gpt-5.6 系；Codex 客户端 2026-07-06 起默认 Sol Ultra，config 精确取值以 `codex --help`/官方 release notes 为准）
 - `model_reasoning_effort` — low / medium / high / xhigh
 - `plan_mode_reasoning_effort` — 计划模式的推理强度
 - `approval_policy` — auto / on-request
@@ -1106,10 +1111,10 @@ Codex App 侧（如需委派）：
 | 实时数据驱动图像（含最新事件 / 真实地图） | 委派 Antigravity | Nano Banana Pro | grounding |
 | 批量风格一致资产（icon 套装 / 游戏精灵）| 委派 Codex | gpt-image-2 | 同会话风格连贯 |
 | 数据可视化图表 | Claude Code | Sonnet | 直接（用代码 D3/recharts，**不用 LLM 生图**） |
-| 独立隔离并行 | 委派 Codex | gpt-5.5 | Worktree ×N |
+| 独立隔离并行 | 委派 Codex | gpt-5.6 Sol | Worktree ×N |
 | 定时自动化 | 委派 Codex | — | Automation |
-| 最强外部推理 | 委派 Codex | gpt-5.5 xhigh | Worktree |
-| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.5 | 直接 / $skill-creator |
+| 最强外部推理 | 委派 Codex | gpt-5.6 Sol xhigh | Worktree |
+| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 | 直接 / $skill-creator |
 | CI/CD 流水线搭建 | Claude Code | Sonnet 4.6 | 直接 |
 | 发布前合规检查 | Claude Code | Opus 4.8 | 直接 |
 | 安全交叉审核 | Claude Code + 委派 | 多模型 | 交叉 |
@@ -2568,7 +2573,7 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 
 **触发规则**：变更涉及上述黑名单中的文件 → CI 自动添加 `requires-double-review` 标签 → 必须满足：
 1. **Human Review**：CODEOWNERS 中指定的安全 / 资深工程师 approve
-2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 4.8 ↔ gpt-5.5）独立审一遍
+2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 4.8 ↔ gpt-5.6 Sol）独立审一遍
 
 ### 32.3 CODEOWNERS 配置示例
 
@@ -3925,7 +3930,7 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
 - 触发条件：改动 commands / agents / skills / CLAUDE.md / handbook
 
 **模式 B：LLM-as-Judge 评分**
-- PR description / commit message 送给 Judge（gpt-5.5 或 Opus）评分
+- PR description / commit message 送给 Judge（gpt-5.6 Sol 或 Opus）评分
 - 维度：clarity（描述是否清晰）/ risk（改动是否触及高风险）/ cost（潜在成本影响）/ 八维 mapping
 - Judge 评分 < 阈值 → request changes
 
@@ -3952,7 +3957,7 @@ GH Actions trigger
   ↓
 run-evals.sh（全部可执行 golden trajectory，数量见 COUNTS.md）
   ↓ pass
-LLM-as-Judge（双 Judge：Opus + gpt-5.5）
+LLM-as-Judge（双 Judge：Opus + gpt-5.6 Sol）
   ↓ avg score > 7
 Branch protection 允许 merge
   ↓
@@ -3989,7 +3994,7 @@ restrict_push: true
 
 ## 48. Cross-Platform Auto-Review Bridge — Claude Code → Codex 自动 review
 
-> 真正落地手册 §19 多模型交叉审核理念。Claude Code 完成任务 → Stop hook 自动触发 Codex（gpt-5.5）跨模型 review → 结果写入 `docs/ai-cto/REVIEW-QUEUE.md` 等下次会话读取。异步、自动、不打断主线。
+> 真正落地手册 §19 多模型交叉审核理念。Claude Code 完成任务 → Stop hook 自动触发 Codex（gpt-5.6 Sol）跨模型 review → 结果写入 `docs/ai-cto/REVIEW-QUEUE.md` 等下次会话读取。异步、自动、不打断主线。
 
 ### 48.1 为什么需要跨模型自动 review
 
@@ -4005,7 +4010,7 @@ restrict_push: true
 | B：GitHub Actions + `openai/codex-action@v1` | ✅ | 低 | ✅ | ⭐⭐⭐ 生产稳定 |
 | C：Codex MCP server（app-server JSON-RPC）| ✅ | 低 | ✅ | ⭐⭐⭐⭐ **本地最优** |
 | D：文件信号量 + Codex Automation 监听 | ✅ | 中 | ✅ | ⭐ 易出错 |
-| E：OpenAI API 直调 gpt-5.5 | ✅ | 低 | ✅ | ⭐⭐ 不用 Codex 生态 |
+| E：OpenAI API 直调 gpt-5.6 | ✅ | 低 | ✅ | ⭐⭐ 不用 Codex 生态 |
 
 ### 48.3 推荐双轨方案
 
@@ -4016,7 +4021,7 @@ restrict_push: true
   Claude Code 完成任务 → Stop hook
     → 调用 .agents/skills/codex-bridge
     → MCP server（codex serve --mcp-port 8723）
-    → Codex agent (gpt-5.5) 跑 review
+    → Codex agent (gpt-5.6 Sol) 跑 review
     → 结果追加到 docs/ai-cto/REVIEW-QUEUE.md
   下次 Claude Code SessionStart hook
     → 自动加载 REVIEW-QUEUE.md
@@ -4040,7 +4045,7 @@ restrict_push: true
    - CONSTITUTION.md（如存在）
    - §10.5 八维评审模板
 5. skill 通过 MCP 发给 Codex（异步）
-6. Codex agent 用 gpt-5.5 按八维评审 → 输出 markdown
+6. Codex agent 用 gpt-5.6 Sol 按八维评审 → 输出 markdown
 7. skill 写入 docs/ai-cto/REVIEW-QUEUE.md（追加，时间戳标识）
 8. 用户下次会话 SessionStart hook 自动读 REVIEW-QUEUE.md → 显示在 context
 9. 用户决定：接受建议 / 反驳 / 修改

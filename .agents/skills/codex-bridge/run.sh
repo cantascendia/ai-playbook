@@ -149,7 +149,7 @@ fi
     OUTPUT=$(codex review --commit "$SHA" --title "ai-playbook §48 cross-model review" 2>&1)
     STATUS=$?
     if [ $STATUS -eq 0 ]; then
-      REVIEWER="codex-gpt5.5"
+      REVIEWER="codex-gpt5.6-sol"   # v4.5: Codex 客户端 2026-07-06 起 GPT-5.6 Sol（WebSearch 验证）
       MODE="success"
     elif echo "$OUTPUT" | grep -qiE "(rate.?limit|quota|exceeded|insufficient|usage.?limit|429|402)"; then
       echo "$(date +%s 2>/dev/null || echo 0)" > "$COOLDOWN_FILE"
@@ -263,13 +263,14 @@ ${DIFF_CONTENT}"
     # v4.4: 仅 codex 主路径入账 codex_token_cents —— agy/claude 补位不烧 codex 配额，
     #       混入会虚增月度 cost cap（宪法 $20/月）触发过早降级。
     COST_FILE="docs/ai-cto/.evolve-cost-month.json"
-    if [ "$REVIEWER" = "codex-gpt5.5" ]; then
+    # v4.5: 前缀匹配（codex-*）替代精确模型名 —— 模型升级只改上面的赋值，不再 4 处联动
+    if [ "$REVIEWER" != "${REVIEWER#codex-}" ]; then
       # v4.4d FIX3: bootstrap 计量文件 —— 主工作区 .gitignore 排除该文件 → 从不存在 →
       # 旧 `[ -f "$COST_FILE" ]` 守卫使写回从不触发 → cost cap（宪法 $20/月）静默失效 32+ 天。
       # 缺则先建当月零账本（放 codex reviewer 分支内，非 codex 路径不建 —— 它们不烧 codex 配额）。
       [ -f "$COST_FILE" ] || printf '{"month":"%s","codex_token_cents":0,"cap_cents":2000,"reviews_count":0,"exceeded":false,"schema":"v3.10.1"}\n' "$(date +%Y-%m 2>/dev/null || echo unknown)" > "$COST_FILE"
       MONTH=$(date +%Y-%m 2>/dev/null || echo unknown)
-      # bytes → cents: 估算 $0.01/KB（gpt-5.5 input 价格 ~$1.25/M token，约 4 字节/token）
+      # bytes → cents: 估算 $0.01/KB（gpt-5.6 Sol output $30/M token ≈ $0.0075/KB @4字节/token，取整保守）
       ADD_CENTS=$(( ${#OUTPUT} / 100 ))
       [ "$ADD_CENTS" -lt 1 ] && ADD_CENTS=1  # 至少 1 cent/次
 

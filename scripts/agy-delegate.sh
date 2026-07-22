@@ -5,12 +5,13 @@
 #   agy -p（print 模式）headless 可用，纯文本 prompt 往返仅 ~7s ——
 #   没有 codex exec 的 37s/shell 进程 Windows 沙箱税（learned rule 2026-07-10），
 #   也不要求目标目录是 git 仓库。
-#   模型阵容（`agy models` 实测 2026-07-16）：Gemini 3.5 Flash (Low/Medium/High) /
+#   模型阵容（`agy models` 实测 2026-07-16；📌 2026-07-21 Google 已发 Gemini 3.6 Flash/3.5
+#   Flash-Lite，agy 是否收录以重新实测为准）：Gemini 3.5 Flash (Low/Medium/High) /
 #   Gemini 3.1 Pro (Low/High) / Claude Sonnet 4.6 (Thinking) / Claude Opus 4.6 (Thinking) /
 #   GPT-OSS 120B。
 #
 # 适才适用（与 codex-delegate.sh 分工，手册 §5.1 / §48.5.1）：
-#   - 写作型多文件产出（apply_patch 语义）      → codex-delegate.sh（gpt-5.5）
+#   - 写作型多文件产出（apply_patch 语义）      → codex-delegate.sh（gpt-5.6 Sol）
 #   - 快速问答 / 摘要 / 草稿 / 跨模型二审（自包含）→ 本脚本（Gemini，秒级往返）
 #   - codex 配额耗尽时的跨模型 review 补位        → 本脚本（Gemini ≠ GPT ≠ Claude，保留跨模型价值）
 #   - Claude Code 会话内委派 codex               → 仍首选 MCP codex 通道（常驻 server 无进程税）

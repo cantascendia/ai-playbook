@@ -49,7 +49,7 @@ verification_command: |
   # ── 行为 mock：忠实复刻写入逻辑，验证摘要/全文拆分 + 严重度计数 ──
   T=$(mktemp -d); command -v cygpath >/dev/null 2>&1 && T=$(cygpath -m "$T")
   ( cd "$T" && mkdir -p docs/ai-cto
-    SHORT_SHA=deadbee; TS="2026-07-16T00:00:00"; REVIEWER=codex-gpt5.5; MODE=success
+    SHORT_SHA=deadbee; TS="2026-07-16T00:00:00"; REVIEWER=codex-gpt5.6-sol; MODE=success
     # 正文塞 6 个 🔴 噪声 emoji（模拟 transcript 回显）；真判定在末尾 SEVERITY_SUMMARY（P0=2）
     OUTPUT=$'# 八维报告\n范例回显 🔴🔴🔴🔴🔴 transcript 噪声\n## 安全 🔴\n## 架构 🟠\n## 测试 🟡\nSEVERITY_SUMMARY: P0=2 P1=1 P2=1'
     mkdir -p docs/ai-cto/reviews
