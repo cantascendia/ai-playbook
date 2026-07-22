@@ -40,7 +40,7 @@ paths:
 
 ### 2. 第二模型独立 review
 
-- 改完后运行 `/cto-review` 让 codex (gpt-5.5) 或 claude headless 独立审一遍
+- 改完后运行 `/cto-review` 让 codex (gpt-5.6 Sol) 或 claude headless 独立审一遍
 - 重点维度：架构 / 安全 / 边界条件 / 数据完整性
 - review 结果写入 `docs/ai-cto/REVIEW-QUEUE.md`
 

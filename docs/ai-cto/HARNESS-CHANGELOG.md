@@ -13,6 +13,23 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-07-22] v4.5 — 非 Claude 模型阵容对齐 2026-07（GPT-5.6 Sol/Terra/Luna + Gemini 3.6 Flash）
+
+- 改了什么：① handbook §5 Codex 模型表改版：**gpt-5.6 Sol/Terra/Luna**（2026-07-09 发布，
+  新命名制=世代号+能力档；Sol $5/$30 · Terra $2.5/$15 · Luna $1/$6；Codex 客户端 07-06 起 Sol Ultra）
+  为当前推荐，gpt-5.5 降"上代"；②路由文档全 sweep（CLAUDE.md 路由表 / §14 决策框架 / §19 交叉审 /
+  llm-judge 引用 / codex-bridge SKILL / forbidden-policy skill / codex-delegate 引用）gpt-5.5→gpt-5.6 Sol；
+  ③ **Gemini 3.6 Flash**（2026-07-21，$1.50/$7.50，-17% 输出 token）+ 3.5 Flash-Lite/Flash Cyber 以带日期
+  注记登记；Pro 线延期仍 3.1 Pro 当家（不改）；**agy 实测快照不动**（快照日期早于发布，铁律 #2，
+  加"以重新实测为准"注）；④ codex-bridge REVIEWER 标签→`codex-gpt5.6-sol`，cost gate 改
+  `${REVIEWER#codex-}` **前缀匹配**（未来模型升级只改赋值一处，不再 4 处联动）；config.toml model
+  推荐不写死精确串（无权威 config 值，标"以 codex CLI 实测为准"）。
+- 为什么：用户指示同步 Claude 以外模型更新。铁律 #3 全程 WebSearch 权威源验证（openai.com 官方 +
+  9to5google 等，2026-07-22），不编造版本/定价；铁律 #2 实测快照/历史 log 不回溯篡改。
+- Eval 跑分前/后：64 → **65 PASS**（+087 非 Claude 阵容守护；085/086 标签引用同步；053 Claude 阵容守护不变仍绿）。
+- 影响范围：codex 委派路由推荐、cost 计量标签（新条目 reviewer=codex-gpt5.6-sol，旧 log 不改）、
+  Antigravity Flash 档认知。
+
 ## [2026-07-16] v4.4d — fallback/cost 可靠性修复 + v4.4c 自身两缺陷（双审揪出，Opus 编码 Fable 5 验）
 
 - 背景：v4.4b/c 落地后 harness+reliability **双审重评**（Health 85→80 / ARE 82→79），揪出 5 个**已核实真 bug**

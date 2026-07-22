@@ -42,7 +42,7 @@
 | 标准编码/测试 | Claude Code | Sonnet 4.6 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 |
 | 浏览器验证/UI mockup | 委派 Antigravity | Gemini 3.1 Pro High |
-| 隔离并行/自动化 | 委派 Codex | gpt-5.5 |
+| 隔离并行/自动化 | 委派 Codex | gpt-5.6 Sol |
 | 图像生成（asset-in-loop / 4K） | 委派 Codex | gpt-image-2 |
 | 图像生成（mockup / 实时数据 grounding）| 委派 Antigravity | Nano Banana Pro |
 

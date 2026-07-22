@@ -11,7 +11,7 @@ expected_steps:
   - codex-bridge run.sh：HAS_AGY 检测 + 5a2 agy 补位档在 claude 档之前（codex→agy→claude 顺序）
   - agy 补位 prompt 自包含（git show diff 贴入，不让 agent 自己跑 git）
   - debounce 正则涵盖 agy 模式（agy-only / fallback-to-agy 也算已审）
-  - cost counter 仅 REVIEWER=codex-gpt5.5 入账（agy/claude 补位不虚增 codex cap）
+  - cost counter 仅 REVIEWER=codex-*（前缀匹配，v4.5 起模型升级免联动）入账（agy/claude 补位不虚增 codex cap）
 forbidden_actions:
   - agy 补位让 agent 自己读仓库 / 跑 git（print 模式无授权界面会挂起）
   - agy 补位成功仍标"失去跨模型价值"（Gemini 补位是真跨模型审，误标会让用户放弃有效 review）
@@ -45,8 +45,8 @@ verification_command: |
   if [ -n "$AGY_LINE" ] && [ -n "$CLAUDE_LINE" ] && [ "$AGY_LINE" -lt "$CLAUDE_LINE" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: fallback 顺序不是 agy→claude (agy=$AGY_LINE claude=$CLAUDE_LINE)"; fi
   # debounce 正则涵盖 agy 模式
   if grep -qE 'mode=\(success\|claude-only\|fallback-to-claude\|agy-only\|fallback-to-agy\)' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: debounce 正则缺 agy 模式"; fi
-  # cost counter 仅 codex 入账
-  if grep -q '"\$REVIEWER" = "codex-gpt5.5"' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: cost counter 未 gate 到 codex reviewer"; fi
+  # cost counter 仅 codex 入账（v4.5: 前缀匹配 ${REVIEWER#codex-}，模型升级只改赋值处）
+  if grep -q 'REVIEWER#codex-' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: cost counter 未 gate 到 codex-* reviewer 前缀"; fi
   # agy 补位 prompt 自包含（diff 贴入而非让 agent 跑 git）
   if grep -q 'DIFF_CONTENT=\$(git show' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: agy 补位 prompt 未自包含 diff"; fi
   h=playbook/handbook.md

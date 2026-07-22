@@ -1,6 +1,6 @@
 ---
 name: codex-bridge
-description: Claude Code → Codex (gpt-5.5) 跨模型 review 桥接（手册 §48）。被 Stop hook 自动调用，或 /cto-review --cross 手动触发。准备 prompt（git diff + SPEC + CONSTITUTION + 八维 rubric） → 通过 MCP/CLI 调 Codex → 结果追加到 docs/ai-cto/REVIEW-QUEUE.md。
+description: Claude Code → Codex (gpt-5.6 Sol) 跨模型 review 桥接（手册 §48）。被 Stop hook 自动调用，或 /cto-review --cross 手动触发。准备 prompt（git diff + SPEC + CONSTITUTION + 八维 rubric） → 通过 MCP/CLI 调 Codex → 结果追加到 docs/ai-cto/REVIEW-QUEUE.md。
 when_to_use: 任务完成后异步跨模型 review，或主动复审历史 commit
 allowed-tools: ["Read", "Write", "Bash"]
 user-invocable: true
@@ -8,7 +8,7 @@ user-invocable: true
 
 # Codex Bridge Skill（手册 §48）
 
-把 Claude Code 任务产物送给 Codex（gpt-5.5）做跨模型八维评审。
+把 Claude Code 任务产物送给 Codex（gpt-5.6 Sol，Codex 客户端 2026-07-06 起）做跨模型八维评审。
 
 ## 触发链路（v3.7 autopilot）
 
@@ -182,7 +182,7 @@ mkdir -p docs/ai-cto
 
 | 场景 | Reviewer | Mode 标记 | REVIEW-QUEUE 处理 |
 |---|---|---|---|
-| Codex 正常返回 | Codex (gpt-5.5) | `success` | 写入 |
+| Codex 正常返回 | Codex (gpt-5.6 Sol) | `success` | 写入 |
 | Codex 配额耗尽 + Claude CLI 可用 | Claude (Opus) | `fallback-to-claude` | 写入 + ⚠️ 警告"失去跨模型价值" |
 | Codex 配额耗尽 + Claude 不可用 | 无 | `codex-quota-exhausted+claude-failed` | 仅 audit log，REVIEW-QUEUE 不写 |
 | Codex 其他错误（网络/版本）| 无（不降级，避免错误掩盖）| `codex-failed` | 仅 audit log |
