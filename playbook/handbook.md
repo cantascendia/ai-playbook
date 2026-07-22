@@ -437,16 +437,17 @@ Antigravity 不再只有 IDE：官方 CLI `agy`（winget `Google.AntigravityCLI`
 
 - 关键 flag：`-p/--print`（非交互）· `--model <名>` · `--print-timeout`（默认 5m）·
   `--mode plan|accept-edits` · `--sandbox` · `--add-dir`
-- CLI 模型阵容（`agy models` 实测 2026-07-16）：Gemini 3.5 Flash (Low/Medium/High) /
-  Gemini 3.1 Pro (Low/High) / Claude Sonnet 4.6 (Thinking) / Claude Opus (Thinking，CLI 侧
-  标注为 4.6 代，落后上表 IDE 阵容的 4.8) / GPT-OSS 120B —— CLI 与 IDE 阵容存在版本差
-  （CLI 另有 3.5 Flash），以各自运行时实测为准（铁律 #2）
+- CLI 模型阵容（`agy models` 实测 2026-07-22，agy **1.1.5**，登录后；模型 ID 为 **dash 形式**，
+  直接喂 `--model`）：**gemini-3.6-flash-{high,medium,low}**（✅ 实跑验证：`--model gemini-3.6-flash-low`
+  9s 返回）/ gemini-3.5-flash-{high,medium,low} / gemini-3.1-pro-{high,low} / claude-sonnet-4-6 /
+  claude-opus-4-6-thinking（CLI 侧仍 4.6 代，落后 IDE 阵容的 4.8）/ gpt-oss-120b-medium ——
+  CLI 与 IDE 阵容存在版本差，以各自运行时实测为准（铁律 #2）。历史快照：2026-07-16（1.1.3，无 3.6 Flash）
 - 📌 2026-07-21 Google 发布 **Gemini 3.6 Flash**（工作马 Flash，-17% 输出 token，$1.50/$7.50）+
   3.5 Flash-Lite（$0.30/$2.50）+ 3.5 Flash Cyber（安全漏洞专用）；**Pro 线延期仍以 3.1 Pro 当家**，
-  Gemini 4 已预告。agy CLI 是否已收录 3.6 Flash **以 `agy models` 重新实测为准**（上行快照日期早于该发布）
-- 📌 2026-07-22 实测补：本机重装 agy CLI **1.1.5**（较快照期 1.1.3 已升两版），`agy models` **需 Google
-  登录后才可列**（跑一次无参 `agy` 完成浏览器授权）—— 登录属账号认证，须人本人操作；登录后重跑
-  `agy models` 即可确认 3.6 Flash 收录情况并回填本表
+  Gemini 4 已预告。✅ 2026-07-22 实测确认 **3.6 Flash 已入 agy CLI（三档）**；Flash-Lite/Cyber 未入
+- 📌 agy 登录前置：`agy models`/委派需 Google 登录（跑一次无参 `agy` 完成浏览器授权，人本人操作）；
+  winget 装的 `agy` PATH 别名需新 shell 生效，脚本可用完整路径
+  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Google.AntigravityCLI_*\agy.exe`
 - 一键委派：`bash scripts/agy-delegate.sh "<自包含 prompt>"`（lint + telemetry 入账，
   与 codex-delegate.sh 对称）
 - 约束：print 模式无交互授权界面 → prompt 必须**自包含**（diff/文件内容贴入），
