@@ -444,6 +444,9 @@ Antigravity 不再只有 IDE：官方 CLI `agy`（winget `Google.AntigravityCLI`
 - 📌 2026-07-21 Google 发布 **Gemini 3.6 Flash**（工作马 Flash，-17% 输出 token，$1.50/$7.50）+
   3.5 Flash-Lite（$0.30/$2.50）+ 3.5 Flash Cyber（安全漏洞专用）；**Pro 线延期仍以 3.1 Pro 当家**，
   Gemini 4 已预告。agy CLI 是否已收录 3.6 Flash **以 `agy models` 重新实测为准**（上行快照日期早于该发布）
+- 📌 2026-07-22 实测补：本机重装 agy CLI **1.1.5**（较快照期 1.1.3 已升两版），`agy models` **需 Google
+  登录后才可列**（跑一次无参 `agy` 完成浏览器授权）—— 登录属账号认证，须人本人操作；登录后重跑
+  `agy models` 即可确认 3.6 Flash 收录情况并回填本表
 - 一键委派：`bash scripts/agy-delegate.sh "<自包含 prompt>"`（lint + telemetry 入账，
   与 codex-delegate.sh 对称）
 - 约束：print 模式无交互授权界面 → prompt 必须**自包含**（diff/文件内容贴入），
@@ -619,7 +622,7 @@ AGENTS.md 已成为 **跨平台事实标准**，被 Codex / Cursor / Copilot / A
 **③ config.toml — 全局配置**
 路径：`~/.codex/config.toml`
 关键项：
-- `model` — 默认模型（推荐 gpt-5.6 系；Codex 客户端 2026-07-06 起默认 Sol Ultra，config 精确取值以 `codex --help`/官方 release notes 为准）
+- `model` — 默认模型：**`gpt-5.6-sol`**（✅ 实测 2026-07-22 有效：`codex exec -c model="gpt-5.6-sol"` 正常返回；⚠️ 裸 `gpt-5.6` 与 `gpt-5.6-codex` 在 ChatGPT 订阅账号态均报 "model is not supported" —— config 串必须带 `-sol` 档后缀）
 - `model_reasoning_effort` — low / medium / high / xhigh
 - `plan_mode_reasoning_effort` — 计划模式的推理强度
 - `approval_policy` — auto / on-request

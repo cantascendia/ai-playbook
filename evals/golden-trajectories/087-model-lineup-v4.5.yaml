@@ -37,10 +37,9 @@ verification_command: |
   # 4. run.sh：新标签 + 前缀匹配 cost gate
   grep -q 'REVIEWER="codex-gpt5.6-sol"' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh REVIEWER 未升 gpt5.6-sol"; }
   grep -q 'REVIEWER#codex-' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未用 codex-* 前缀匹配"; }
-  # 5. 无编造：config.toml 推荐处不写死精确 5.6 config 串（应标"以实测/官方为准"）
-  if grep -E "推荐 .gpt-5\.6[a-z-]*.\)" "$HB" | grep -vq '实测\|为准'; then
-    fail=$((fail+1)); echo "FAIL: config model 写死了未经验证的精确串"
-  else pass=$((pass+1)); fi
+  # 5. config 串已实测（v4.5b 2026-07-22）：gpt-5.6-sol 有效 + 明示裸 gpt-5.6/-codex 无效（防误配）
+  { grep -q 'gpt-5.6-sol' "$HB" && grep -q '实测 2026-07-22' "$HB" && grep -q 'not supported' "$HB"; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: config 串缺实测标注或无效串警告"; }
   echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL
 sota_reference:
