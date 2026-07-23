@@ -156,3 +156,11 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-22T23:28:02+09:00 | sha=61a4c18 | mode=review-triggered | reason=security_relevant_change
 2026-07-22T23:28:02+09:00 | sha=61a4c18 | mode=success | reviewer=codex-gpt5.6-sol | bytes=1374012
 2026-07-22T23:27:23+09:00 | sha=3ddadcc | mode=success | reviewer=codex-gpt5.6-sol | bytes=2054465
+2026-07-16T16:24:10+09:00 | sha=ef1827c | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-16T16:26:23+09:00 | sha=ef1827c | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-16T16:23:57+09:00 | sha=72fb7e4 | mode=success | reviewer=codex-gpt5.5 | bytes=360735
+2026-07-16T16:23:57+09:00 | sha=72fb7e4 | step=pr-comment-check | pr=#59 | marker=<!-- codex-bridge:72fb7e4 -->
+2026-07-16T16:23:57+09:00 | sha=72fb7e4 | step=existing-check | found=0
+2026-07-16T16:23:57+09:00 | sha=72fb7e4 | step=pr-comment-post | status=1 | out=GraphQL: Body is too long (maximum is 65536 characters) (addComment) 
+2026-07-16T16:23:57+09:00 | sha=72fb7e4 | mode=pr-comment-failed | file=/tmp/codex-comment-72fb7e4.md
+2026-07-23T09:15:26+09:00 | sha=45139f5 | mode=skipped-non-business | reason=docs_or_config_only_no_security
