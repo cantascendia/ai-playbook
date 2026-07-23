@@ -163,3 +163,4 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-16T16:23:57+09:00 | sha=72fb7e4 | step=existing-check | found=0
 2026-07-16T16:23:57+09:00 | sha=72fb7e4 | step=pr-comment-post | status=1 | out=GraphQL: Body is too long (maximum is 65536 characters) (addComment) 
 2026-07-16T16:23:57+09:00 | sha=72fb7e4 | mode=pr-comment-failed | file=/tmp/codex-comment-72fb7e4.md
+2026-07-23T09:15:26+09:00 | sha=45139f5 | mode=skipped-non-business | reason=docs_or_config_only_no_security
