@@ -1,0 +1,56 @@
+id: 088-cli-model-pinning
+description: v4.6 CLI 模型显式固定 — codex/agy 委派与 review 不再吃客户端 config 默认（桌面端把 ~/.codex/config.toml 改成 gpt-5.6-terra 后，codex-bridge 实际用 terra 审但 REVIEWER 标签硬写 sol = 标签造假）。修复：codex review 显式 -c model=（CODEX_REVIEW_MODEL 默认 gpt-5.6-sol）、codex exec 显式 -m（CODEX_MODEL 默认 gpt-5.6-sol）、agy 补位默认 gemini-3.6-flash-high（dash 形式 ID，agy 1.1.5 拒绝空格串）+ --print-timeout 防挂起、agy WinGet Links PATH 兜底（父进程先于安装启动时 command -v 找不到）、telemetry 账本记实际模型值。
+priority: P1
+input:
+  - "跨模型 review：Stop hook → codex-bridge run.sh；终端委派：scripts/codex-delegate.sh / scripts/agy-delegate.sh"
+expected_steps:
+  - codex review 调用带 -c model="$CODEX_REVIEW_MODEL"，默认 gpt-5.6-sol，可 env 覆盖
+  - REVIEWER 标签由实际模型拼出（codex-${CODEX_REVIEW_MODEL}），不再硬编码字符串
+  - agy 补位调用带 --model "$AGY_REVIEW_MODEL"（默认 gemini-3.6-flash-high）+ --print-timeout
+  - agy 二进制解析走 AGY_BIN：command -v 失败时兜底探测 $LOCALAPPDATA/Microsoft/WinGet/Links/
+  - codex-delegate.sh 传 -m "$MODEL"（CODEX_MODEL 默认 gpt-5.6-sol），telemetry attrs.model 用实际值
+  - agy-delegate.sh 默认模型 gemini-3.6-flash-high，调用走 "$AGY_BIN"
+forbidden_actions:
+  - codex review 不带模型参数裸调（吃 config.toml 桌面端漂移，标签与实际模型不符）
+  - telemetry 账本硬编码模型名（gpt-5.6-sol 字面量写进 printf 而非取 $MODEL 变量）
+  - agy 模型默认用空格形式串（"Gemini 3.1 Pro (High)" — agy 1.1.5 直接拒绝）
+  - agy 补位调用不带 --print-timeout（print 模式可能无限挂起，锁 60min 才被 stale-clear）
+  - REVIEWER 标签丢失 codex- 前缀（cost gate 用 ${REVIEWER#codex-} 前缀匹配入账）
+acceptance_criteria:
+  - run.sh / codex-delegate.sh / agy-delegate.sh 全部 bash -n 通过
+  - run.sh 含 CODEX_REVIEW_MODEL 默认 gpt-5.6-sol + -c model= 传参 + AGY_REVIEW_MODEL 默认 gemini-3.6-flash-high
+  - codex-delegate.sh 含 -m "$MODEL" 且 telemetry printf 无硬编码模型字面量
+  - 两个 agy 调用点都走 $AGY_BIN（WinGet Links 兜底生效）
+sota_reference:
+  - '2026-07-24 实测：codex exec -m gpt-5.6-sol 10.4s 正常返回；agy -p --model gemini-3.6-flash-high 9.3s 返回 AGY_OK'
+  - '本机 ~/.codex/config.toml 默认 model=gpt-5.6-terra（桌面端改写）— 不固定则 review 实际用 terra，REVIEWER 标签却写 sol'
+verification_command: |
+  pass=0; fail=0
+  r=.agents/skills/codex-bridge/run.sh
+  cd_sh=scripts/codex-delegate.sh
+  ag_sh=scripts/agy-delegate.sh
+  for f in "$r" "$cd_sh" "$ag_sh"; do
+    if [ -f "$f" ] && bash -n "$f"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $f 缺失或语法错误"; fi
+  done
+  # run.sh: codex review 模型钉死 + 标签取实际模型
+  if grep -q 'CODEX_REVIEW_MODEL:-gpt-5.6-sol' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh 缺 CODEX_REVIEW_MODEL 默认 gpt-5.6-sol"; fi
+  if grep -q 'codex review -c model="\$CODEX_REVIEW_MODEL"' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh codex review 未显式传模型"; fi
+  if grep -q 'REVIEWER="codex-\${CODEX_REVIEW_MODEL}"' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh REVIEWER 标签未取实际模型"; fi
+  # run.sh: agy 默认模型 dash 形式 + print-timeout + AGY_BIN 兜底
+  if grep -q 'AGY_REVIEW_MODEL:-gemini-3.6-flash-high' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh 缺 agy 默认模型 gemini-3.6-flash-high"; fi
+  if grep -q -- '--print-timeout' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh agy 调用缺 --print-timeout"; fi
+  if grep -q 'WinGet/Links/agy' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh 缺 agy WinGet Links 兜底"; fi
+  if grep -q '"\$AGY_BIN" -p' "$r"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: run.sh agy 调用未走 AGY_BIN"; fi
+  # codex-delegate: -m 传参 + telemetry 用变量
+  if grep -q 'CODEX_MODEL:-gpt-5.6-sol' "$cd_sh"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: codex-delegate 缺 CODEX_MODEL 默认"; fi
+  if grep -q -- '-m "\$MODEL"' "$cd_sh"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: codex-delegate 未传 -m"; fi
+  if grep -E 'printf.*"model":"gpt-5' "$cd_sh" >/dev/null; then fail=$((fail+1)); echo "FAIL: codex-delegate telemetry 仍硬编码模型字面量"; else pass=$((pass+1)); fi
+  # agy-delegate: 默认模型 + AGY_BIN
+  if grep -q 'AGY_MODEL:-gemini-3.6-flash-high' "$ag_sh"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: agy-delegate 缺默认模型"; fi
+  if grep -q '"\$AGY_BIN" -p' "$ag_sh"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: agy-delegate 未走 AGY_BIN"; fi
+  if grep -q 'WinGet/Links/agy' "$ag_sh"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: agy-delegate 缺 WinGet Links 兜底"; fi
+  # handbook：dash 形式警示 + 双模型 env 文档
+  h=playbook/handbook.md
+  if grep -q 'AGY_REVIEW_MODEL=gemini-3.1-pro-high' "$h" && grep -q 'CODEX_REVIEW_MODEL' "$h"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: handbook 缺 dash 形式模型 env 文档"; fi
+  echo "pass=$pass fail=$fail"
+  [ "$fail" = "0" ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }
