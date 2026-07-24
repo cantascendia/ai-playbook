@@ -18,7 +18,7 @@ acceptance_criteria:
   - handbook 含 'gpt-5.6 Sol' + 'Terra' + 'Luna' + '2026-07-09'
   - 活跃路由文档（handbook 路由表/CLAUDE.md/codex-bridge SKILL）无 gpt-5.5 作为当前推荐（"上代"降级行允许）
   - handbook 含 'Gemini 3.6 Flash' + '2026-07-21' 注记且 agy 实测快照行仍标 '实测 2026-07-16'
-  - run.sh REVIEWER 赋值为 codex-gpt5.6-sol 且 cost gate 用前缀匹配
+  - run.sh REVIEWER 默认档为 gpt-5.6-sol（v4.6 起派生自 CODEX_REVIEW_MODEL）且 cost gate 用前缀匹配
 verification_command: |
   pass=0; fail=0
   HB=playbook/handbook.md
@@ -37,7 +37,8 @@ verification_command: |
   { grep -q '实测 2026-07-22' "$HB" && grep -q 'gemini-3.6-flash' "$HB" && grep -q '2026-07-16（1.1.3' "$HB"; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: agy 快照未反映 07-22 重实测/3.6 收录/历史留痕"; }
   # 4. run.sh：新标签 + 前缀匹配 cost gate
-  grep -q 'REVIEWER="codex-gpt5.6-sol"' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh REVIEWER 未升 gpt5.6-sol"; }
+  # v4.6 起 REVIEWER 派生自实际模型（codex-${CODEX_REVIEW_MODEL}，默认 gpt-5.6-sol）——断言默认值仍是 sol 档（见 eval 088）
+  grep -q 'CODEX_REVIEW_MODEL:-gpt-5.6-sol' "$R" && grep -q 'REVIEWER="codex-\${CODEX_REVIEW_MODEL}"' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh REVIEWER 默认档不是 gpt-5.6-sol"; }
   grep -q 'REVIEWER#codex-' "$R" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未用 codex-* 前缀匹配"; }
   # 5. config 串已实测（v4.5b 2026-07-22）：gpt-5.6-sol 有效 + 明示裸 gpt-5.6/-codex 无效（防误配）
   { grep -q 'gpt-5.6-sol' "$HB" && grep -q '实测 2026-07-22' "$HB" && grep -q 'not supported' "$HB"; } \
