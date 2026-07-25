@@ -30,6 +30,35 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 - 影响范围：codex 委派路由推荐、cost 计量标签（新条目 reviewer=codex-gpt5.6-sol，旧 log 不改）、
   Antigravity Flash 档认知。
 
+## [2026-07-25] v4.7 — branch-guard 跨仓/复合命令感知（修实测两次 FP）+ 全项目升级 v4.6 + 命令全局化
+
+- 改了什么：
+  ① **branch-guard FP 根治**（eval 089）：旧实现只用**会话 cwd** 判 HEAD →
+  `cd /other/repo && git commit`（他仓已在 feature 分支）按本仓 main 误拦；
+  `git checkout -b feat/x && git commit`（同串先切分支）按切换前 HEAD 误拦（TOCTOU）。
+  改为按 segment 顺序跟踪**有效工作目录**（`cd` / `git -C`）与**同串内已切到非保护分支**；
+  目录不存在/非 git 仓 → **fail-safe 回退会话 HEAD**（关键：不能让 `gitBranch` 内部回退到
+  guard 进程 cwd，那会漏拦）。engine 单测 42→44，行为矩阵 8/8（跨仓放行/跨仓 main 仍拦/
+  cd 链末端为准/同串切分支/切回 main 仍拦/目录不存在 fail-safe）。
+  ② **legacy 语义差写明**（防再误判）：legacy branch-guard 是 v3.15 冻结面，**只拦 Edit/Write**；
+  Bash 层 `git commit/merge/push` 拦截是 v4.0c 引擎新语义，engine-only。此前无注释，
+  排查时一度被误判为「legacy 漏拦 bug」——现已在脚本头写明是有意取舍。
+  ③ **全项目升级到 v4.6**（31 个 guard 安装点）：engine 全部从 v4.0 期的 `ebc0b94c` 升到
+  `6d76ba79`（含 v4.4b 剥引号安全硬化 / v4.4d fallback+cost 修复 / v4.6 CLI 模型固定）+
+  codex-bridge v4.6 + 委派脚本。**31/31 行为验证通过**（每项目用**自身** forbidden SSOT 首条目
+  验 engine+legacy 双路径 + 普通路径放行），`.bak-<ts>` 备份齐；各项目自定义 SSOT/记忆/
+  settings.json **未被覆盖**。
+  ④ **cto 命令全局化**：18 个最新命令装进 `~/.claude/commands/`（对所有项目生效），
+  31 个安装点的本地 `cto-*.md` 统一移除（备份留存）——此前各项目本地 21-23 个含 5 个
+  v3.14 已废弃命令（cross-review/harness-audit/refresh/relink-all/vibe-check），且全部落后
+  4 个大版本。**根治逐项目命令漂移**：今后只需更新全局一处。
+- 为什么：①② 是铁律 #4（Agent 犯错→更新配置防再犯）——同一 FP 两次逼我走 ADR-007 opt-out，
+  第二次即修根因。③④ 是用户「所有项目都要最新」指令 + 实测发现 22 个项目 guard 落后至
+  **不含 v4.4b 安全硬化**（引号插入写逃逸未闭合）。
+- Eval 跑分前/后：66 → **67 PASS**（+089）；engine 单测 42 → **44**；check-counts 绿。
+- 影响范围：跨仓/复合 git 命令不再误拦（本会话实测两次的痛点）；31 个项目的 guard 安全面
+  拉齐到 v4.6；全项目命令统一。**已知**：legacy 层仍无 Bash 拦截（设计如此，已注明）。
+
 ## [2026-07-16] v4.4d — fallback/cost 可靠性修复 + v4.4c 自身两缺陷（双审揪出，Opus 编码 Fable 5 验）
 
 - 背景：v4.4b/c 落地后 harness+reliability **双审重评**（Health 85→80 / ARE 82→79），揪出 5 个**已核实真 bug**

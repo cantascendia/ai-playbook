@@ -1,0 +1,58 @@
+id: 089-branch-guard-cross-repo
+description: v4.7 branch-guard 跨仓/复合命令感知 — 修实测两次 FP（① `cd /other/repo && git commit`，他仓已在 feature 分支却按会话 cwd 的 main 误拦；② `git checkout -b feat/x && git commit` 同串先切分支仍按切换前 HEAD 误拦=TOCTOU）。改为按 segment 顺序跟踪「有效工作目录」（cd / git -C）与「同串内已切到非保护分支」，目录不存在/非 git 仓 → fail-safe 回退会话 HEAD（宁可拦）。engine-only（legacy 冻结层不含 Bash 拦截，已在脚本头注明语义差防误判）。
+priority: P1
+input:
+  - "跨仓操作：会话 cwd 在 A 仓（main），命令 cd 到 B 仓（feature 分支）后 git commit"
+  - "同一命令串先建分支再提交：git checkout -b feat/x && git commit -m x"
+expected_steps:
+  - branchGuardBash 遍历 segments 时维护 curDir（遇 cd <dir> 更新，绝对/相对均解析）
+  - git -C <dir> 覆盖该 segment 的判定目录
+  - 同串 checkout/switch 到非保护分支 → 后续 commit 视为安全；切回保护分支 → 复位继续拦
+  - 目录不存在时不得回退到「guard 进程 cwd」（gitBranch 内部会那样做 → 漏拦），须 fail-safe 用会话 HEAD
+forbidden_actions:
+  - 因跨仓就一律放行（`cd /other/main-repo && git commit` 必须仍拦）
+  - cd 链只看首个而不看末端（`cd feat && cd main && commit` 必须按末端 main 拦）
+  - 目录解析失败时放行（fail-safe 必须拦，不是放）
+  - 把 Bash 拦截语义补进 legacy 冻结层（v3.15 面冻结；engine-only 是有意取舍）
+acceptance_criteria:
+  - guards.mjs 含 resolveDir + curDir 跟踪 + switchedToSafe + statSync fail-safe
+  - guard.test.mjs 含 v4.7 跨仓与同串切分支两组用例，node --test 全过
+  - legacy branch-guard.sh 头部注明「Bash 拦截 engine-only」语义差
+verification_command: |
+  pass=0; fail=0
+  G=.claude/hooks/engine/guards.mjs
+  # ── 结构断言 ──
+  grep -q 'function resolveDir' "$G" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺 resolveDir"; }
+  grep -q 'switchedToSafe' "$G" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺同串切分支跟踪"; }
+  grep -q 'curDir' "$G" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺 curDir 跟踪"; }
+  grep -q 'statSync' "$G" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺目录存在性 fail-safe"; }
+  grep -q 'engine-only\|engine 实现' .claude/hooks/branch-guard.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: legacy 未注明语义差"; }
+  # ── 行为断言：真建两个临时仓（一 main 一 feature），跑 engine ──
+  command -v node >/dev/null 2>&1 || { echo "[info] node 缺失，跳过行为断言"; echo "pass=$pass fail=$fail (仅静态)"; [ "$fail" = "0" ] && echo PASS || echo FAIL; exit 0; }
+  M=$(mktemp -d); F=$(mktemp -d)
+  command -v cygpath >/dev/null 2>&1 && { M=$(cygpath -m "$M"); F=$(cygpath -m "$F"); }
+  for d in "$M" "$F"; do
+    git -C "$d" init -q -b main 2>/dev/null
+    git -C "$d" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init 2>/dev/null
+  done
+  git -C "$F" checkout -q -b feat/x 2>/dev/null
+  probe() {
+    local J
+    J=$(node -e 'process.stdout.write(JSON.stringify({tool_name:"Bash",tool_input:{command:process.argv[1]},cwd:process.argv[2]}))' "$1" "$M")
+    printf '%s' "$J" | env -u CTO_MAIN_EDIT_ALLOWED node .claude/hooks/engine/guard.mjs branch-guard 2>/dev/null | grep -q '"deny"' && echo BLOCK || echo ALLOW
+  }
+  chk() { [ "$(probe "$2")" = "$3" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $1 期望$3"; }; }
+  chk "跨仓feature应放行" "cd $F && git commit -m x" ALLOW
+  chk "git -C feature应放行" "git -C $F commit -m x" ALLOW
+  chk "跨仓main仍拦" "cd $M && git commit -m x" BLOCK
+  chk "cd链末端main仍拦" "cd $F && cd $M && git commit -m x" BLOCK
+  chk "同串切分支放行" "git checkout -b feat/z && git commit -m x" ALLOW
+  chk "切回main仍拦" "git checkout -b feat/z && git checkout main && git commit -m x" BLOCK
+  chk "目录不存在fail-safe拦" "cd /no/such/dir && git commit -m x" BLOCK
+  chk "本仓main仍拦" "git commit -m x" BLOCK
+  rm -rf "$M" "$F" 2>/dev/null || true
+  echo "pass=$pass fail=$fail (期望 13/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - '实测 FP 两次（2026-07-22 vokadrop 同步 / 2026-07-25 全项目升级）：hook 用会话 cwd 判 HEAD，跨仓命令被误拦，只能走 ADR-007 opt-out —— 铁律 #4「Agent 犯错→更新配置防再犯」触发本修复'
+  - 'fail-safe 方向与 ADR-010 一致：解析不出就按保守侧（拦），不因"聪明"而放宽'

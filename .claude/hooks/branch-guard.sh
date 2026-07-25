@@ -9,6 +9,13 @@ fi
 # 铁律 #8：先创建 Git 分支再动手 — PreToolUse(Edit|Write|MultiEdit)
 # main / master branch 上直接 Edit → exit 2 阻止
 # Opt-out: CTO_MAIN_EDIT_ALLOWED=1（仅 hotfix 紧急场景）
+#
+# ⚠️ 已知语义差（**设计如此，非 bug** — v4.7 实测澄清，勿误判为 legacy 漏拦）：
+#   本层只拦 Edit/Write/MultiEdit（v3.15 冻结面）。**Bash 层的 `git commit/merge/push` 拦截
+#   是 v4.0c 新增语义，仅在 engine 实现**（engine/guards.mjs branchGuardBash）。
+#   故 node 缺失 / CTO_GUARD_ENGINE=legacy 时，`git commit` 类命令不被本层拦 —— 这是
+#   「应急降级保住核心 Edit/Write 红线」的有意取舍，不是 false-negative。
+#   v4.7 的跨仓 cd / git -C / 同串 checkout -b 感知同理，engine-only。
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"

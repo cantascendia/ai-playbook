@@ -172,3 +172,9 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-24T09:32:56+09:00 | sha=40615bf | step=pr-comment-post | status=0 | out=https://github.com/cantascendia/ai-playbook/pull/68#issuecomment-5064926299 
 2026-07-24T09:32:56+09:00 | sha=40615bf | mode=pr-comment-posted | pr=#68
 2026-07-24T09:39:05+09:00 | sha=40615bf | mode=success | reviewer=codex-gpt-5.6-sol+agy-gemini-3.6-flash-high | bytes=5016 | manual=pr68-dual-review
+2026-07-25T10:35:23+09:00 | sha=30ae3bc | mode=review-triggered | reason=security_relevant_change
+2026-07-25T10:35:23+09:00 | sha=30ae3bc | mode=success | reviewer=codex-gpt-5.6-sol | bytes=112216
+2026-07-25T18:58:43+09:00 | sha=30ae3bc | mode=review-triggered | reason=security_relevant_change
+2026-07-25T18:58:44+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed
+2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=review-triggered | reason=security_relevant_change
+2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed

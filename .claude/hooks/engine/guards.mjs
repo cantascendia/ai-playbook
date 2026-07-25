@@ -255,13 +255,63 @@ function pushTargetsProtected(rest, headProtected) {
   return refspecs.some((r) => new RegExp(`(^|:)${PROTECTED_RE}$`).test(r));
 }
 
+// v4.7 跨仓/复合命令感知（修实测两次 FP）：旧实现只用会话 cwd 判 HEAD，于是
+//   ① `cd /other/repo && git commit`（他仓已在 feature 分支）被按本仓 HEAD=main 误拦；
+//   ② `git checkout -b feat/x && git commit`（同串先切分支）按切换前 HEAD 误拦（TOCTOU）。
+// 修：按 segment 顺序跟踪「有效工作目录」（cd / git -C）与「同串内已切到非保护分支」。
+// fail-safe：目录解析不出 / 非 git 仓 / 任何异常 → 回退会话 cwd 的 HEAD（即旧行为，宁可拦）。
+function resolveDir(base, arg) {
+  if (!arg) return base;
+  const a = arg.replaceAll('\\', '/').replace(/^["']|["']$/g, '');
+  if (/^\/|^[A-Za-z]:\//.test(a)) return a.replace(/\/+$/, '') || a; // 绝对路径
+  const b = String(base || '.').replaceAll('\\', '/').replace(/\/+$/, '');
+  const parts = b.split('/');
+  for (const seg of a.split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') { if (parts.length > 1) parts.pop(); continue; }
+    parts.push(seg);
+  }
+  return parts.join('/') || b;
+}
+
 function branchGuardBash(ctx) {
   if (!ctx.cmd) process.exit(0);
-  const branch = gitBranch(ctx.cwd);
-  const headProtected = PROTECTED_BRANCHES.has(branch);
+  const sessionBranch = gitBranch(ctx.cwd);
   const segments = stripQuotedAndHeredoc(ctx.cmd).split(/&&|\|\||;|\||\n/);
+  let curDir = ctx.cwd;          // 有效工作目录（随 cd 推进）
+  let switchedToSafe = false;    // 同串内已 checkout/switch 到非保护分支
+  const branchCache = new Map();
+  const branchOf = (dir) => {
+    const k = String(dir);
+    if (!branchCache.has(k)) {
+      let b = '';
+      try {
+        // 目录必须真实存在才按它判 —— 否则 gitBranch 内部会回退到「进程 cwd」，
+        // 那是 guard 自己的运行目录，与被检命令无关 → 会漏拦。fail-safe 用会话 HEAD。
+        if (fs.statSync(fsPath(String(dir).replaceAll('\\', '/'))).isDirectory()) b = gitBranch(dir);
+      } catch { b = ''; }
+      branchCache.set(k, b || sessionBranch);
+    }
+    return branchCache.get(k);
+  };
+
   for (const seg of segments) {
+    const toks = seg.trim().split(/\s+/);
+    // cd 跟踪（cd - / 无参 → 不改，保守）
+    if (toks[0] === 'cd' && toks[1] && toks[1] !== '-') { curDir = resolveDir(curDir, toks[1]); continue; }
     const { sub, rest } = gitSubcommand(seg);
+    // 同串内切分支：-b/-c 新建 或 切到非保护分支 → 后续 commit 视为安全；切回保护分支 → 复位
+    if (sub === 'checkout' || sub === 'switch') {
+      const names = rest.filter((t) => !t.startsWith('-'));
+      const target = rest.includes('-b') || rest.includes('-c') || rest.includes('-B') ? names[0] : names[0];
+      if (target) switchedToSafe = !PROTECTED_BRANCHES.has(target);
+      continue;
+    }
+    // -C <dir> 覆盖本 segment 的目录
+    const ci = toks.indexOf('-C');
+    const segDir = ci > 0 && toks[ci + 1] ? resolveDir(curDir, toks[ci + 1]) : curDir;
+    const branch = switchedToSafe ? '' : branchOf(segDir);
+    const headProtected = PROTECTED_BRANCHES.has(branch);
     let hit = '';
     if ((sub === 'commit' || sub === 'merge') && headProtected) hit = `git ${sub}（HEAD=${branch}）`;
     if (sub === 'push' && pushTargetsProtected(rest, headProtected)) hit = `git push → 保护分支 refspec（HEAD=${branch}）`;
