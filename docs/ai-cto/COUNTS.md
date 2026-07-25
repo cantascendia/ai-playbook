@@ -17,7 +17,7 @@
 | hooks (.sh) | **10** | `.claude/hooks/*.sh`（immutable / forbidden / bypass / branch / test-lock / destructive-action / **mcp-guard** / vibe-prompt / eval-gate / trajectory-logger）+ lib/common.sh（不计入）。v4.0b 起每个 .sh = engine shim + legacy 回退；引擎在 `engine/*.mjs`（不计入本行）|
 | skills (.claude) | **11** | `.claude/skills/*/SKILL.md` |
 | skills (.agents) | **6** | `.agents/skills/*/`（跨平台镜像，含 codex-bridge）|
-| evals | **66** | `evals/golden-trajectories/*.yaml`（023-088，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 66 PASS/0 SKIP；……-078 见历史，v4.2 增 079 self-audit rolling / 080 OTel 用量面板冒烟；v4.3 增 081 git 层 forbidden 兜底 / 082 AGENTS.md 单源防漂 / 083 Windows doctor+eol / 084 codex 委派包装；v4.4 增 085 agy 委派 + 跨模型补位 / 086 REVIEW-QUEUE 摘要化防膨胀；v4.5 增 087 非 Claude 模型阵容 2026-07；v4.6 增 088 CLI 模型显式固定）|
+| evals | **67** | `evals/golden-trajectories/*.yaml`（023-089，**全部含 `verification_command` 真执行**，`scripts/run-evals.sh` 跑 67 PASS/0 SKIP；……-078 见历史，v4.2 增 079 self-audit rolling / 080 OTel 用量面板冒烟；v4.3 增 081 git 层 forbidden 兜底 / 082 AGENTS.md 单源防漂 / 083 Windows doctor+eol / 084 codex 委派包装；v4.4 增 085 agy 委派 + 跨模型补位 / 086 REVIEW-QUEUE 摘要化防膨胀；v4.5 增 087 非 Claude 模型阵容 2026-07；v4.6 增 088 CLI 模型显式固定；v4.7 增 089 branch-guard 跨仓/复合命令感知）|
 | slo-checks（v4.1）| **8 断言 + runner** | `evals/slo-checks/*.sh` + run.sh + README（6 静态 PASS + 2 运行时诚实 SKIP；`bash evals/slo-checks/run.sh` 汇总）|
 | drills（v4.1）| **5 脚本 + 1 manual + runner** | `evals/drills/*.sh` + run.sh + README — §43 fallback 演练脚本化（codex 配额 / jq 缺失 / node 缺失 / cwd 缺失 / **agy 补位 v4.4d**，均 mock+temp 无真副作用；settings opt-out 需真会话 = SKIP-manual）|
 | ledger（v3.14 B）| **4 脚本** | `ledger/{collect,distill,propagate,run}.mjs` + README — 跨项目事故账本闭环（collect→distill ≥2项目印证→propagate dry-run）；incidents.jsonl/drafts 是 gitignore 运行时产物 |
@@ -26,7 +26,7 @@
 | learned-rules | **9** | `.claude/rules/learned/*.md`（active，不含 README；archived 见 archived/）；v4.4b 增 2026-07-15 static-regex 不可区分 hooksPath 读写 |
 | handbook 章节 | **§1-§50**（连续无缺号；§49 = 分层分发，v3.13 补）| `playbook/handbook.md` |
 | plugin 清单（v4.0d 实验）| **1 plugin + 1 marketplace** | `.claude-plugin/{plugin,marketplace}.json` + `hooks.json`（`claude plugin validate` 通过；打包 commands/agents/skills/output-style/guard-hooks；rules/statusline/记忆种子仍留 cto-init）|
-| 已部署项目 | **29** | 实测 `find /c/projects -name immutable-guard.sh`：21 独立项目 + nilou-network monorepo（root + 6 子应用）+ hoyokit（root + 1 嵌套）= 29 guard 安装。**2026-07-09 全部升级到 v4 guard engine**（bash→Node shim + legacy 回退），29/29 行为验证通过 + `.bak` 备份 |
+| 已部署项目 | **31** | 实测 `find /c/projects -name immutable-guard.sh`（去 .bak/worktree）：23 独立项目 + nilou-network monorepo（root + 6 子应用）+ hoyokit（root + 1 嵌套）= 31 guard 安装。**2026-07-25 全部升级到 v4.6**（engine 6d76ba79 + codex-bridge v4.6 + 委派脚本），31/31 行为验证通过（各用自身 forbidden SSOT）+ `.bak-<ts>` 备份；本地 cto 命令统一移除 → 由全局 `~/.claude/commands`（18 个最新）接管，根治逐项目命令漂移 |
 
 ## 版本
 

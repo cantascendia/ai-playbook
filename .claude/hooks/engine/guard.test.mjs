@@ -337,6 +337,34 @@ test('branch-Bash: push refspec 判定（HEAD=main 推 feature 必须放行 — 
   assert.equal(run('branch-guard', j('git push -u origin feat/v4.0c-guard-semantics')).stdout, '');
 });
 
+test('branch-Bash: v4.7 跨仓 cd / git -C —— 按目标仓 HEAD 判定（修实测 FP）', () => {
+  const mainDir = mainRepo();      // 会话 cwd（在 main）
+  const featDir = mainRepo();      // 另一仓
+  spawnSync('git', ['checkout', '-b', 'feat/x'], { cwd: featDir });
+  const f = featDir.replaceAll('\\', '/');
+  const m = mainDir.replaceAll('\\', '/');
+  const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: mainDir });
+  // 他仓已在 feature 分支 → 放行（旧实现按会话 cwd 的 main 误拦）
+  assert.equal(run('branch-guard', j(`cd ${f} && git commit -m x`)).stdout, '', 'cd 到 feature 仓应放行');
+  assert.equal(run('branch-guard', j(`git -C ${f} commit -m x`)).stdout, '', 'git -C feature 仓应放行');
+  // 他仓在 main → 仍拦（不能因为跨仓就放水）
+  assert.ok(run('branch-guard', j(`cd ${m} && git commit -m x`)).stdout.includes(DENY_MARK), 'cd 到 main 仓仍拦');
+  assert.ok(run('branch-guard', j(`git -C ${m} commit -m x`)).stdout.includes(DENY_MARK), 'git -C main 仓仍拦');
+  // cd 回 main 仓覆盖前一个 cd → 仍拦（顺序跟踪，防绕过）
+  assert.ok(run('branch-guard', j(`cd ${f} && cd ${m} && git commit -m x`)).stdout.includes(DENY_MARK), 'cd 链末端为 main 仍拦');
+  // 目录不存在 → fail-safe 回退会话 HEAD（main）→ 拦
+  assert.ok(run('branch-guard', j('cd /no/such/dir && git commit -m x')).stdout.includes(DENY_MARK), '目录不存在应 fail-safe 拦');
+});
+
+test('branch-Bash: v4.7 同串 checkout -b 后 commit → 放行；切回保护分支 → 仍拦', () => {
+  const dir = mainRepo();
+  const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir });
+  assert.equal(run('branch-guard', j('git checkout -b feat/x && git commit -m x')).stdout, '', '同串先切分支应放行');
+  assert.equal(run('branch-guard', j('git switch -c feat/y && git commit -m x')).stdout, '', 'switch -c 同理');
+  assert.ok(run('branch-guard', j('git checkout -b feat/x && git checkout main && git commit -m x')).stdout.includes(DENY_MARK), '切回 main 仍拦');
+  assert.ok(run('branch-guard', j('git checkout -b main && git commit -m x')).stdout.includes(DENY_MARK), '新建名为 main 仍拦');
+});
+
 test('branch-Bash: 文本/引号/heredoc/非执行 git 子命令全部放行（learned rule 2026-05-20）', () => {
   const dir = mainRepo();
   const j = (cmd) => ({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir });
