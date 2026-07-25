@@ -30,6 +30,25 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 - 影响范围：codex 委派路由推荐、cost 计量标签（新条目 reviewer=codex-gpt5.6-sol，旧 log 不改）、
   Antigravity Flash 档认知。
 
+## [2026-07-25] v4.8 — Claude 阵容对齐 Claude 5 家族（Opus 5 默认）
+
+- 改了什么：§1.2 模型 SSOT 改版 —— **Claude Opus 5**（`claude-opus-5`，2026-07-24 发布）成为
+  **默认**：接近 Fable 的表现、$5/$25（与 4.8 同价）、新增 **effort dial**（低 effort 省 token
+  仍保大部分能力）、官方称最对齐的 Opus、Max 订阅默认模型；**Sonnet 5**（`claude-sonnet-5`）
+  接替编码档；Fable 5 仍为最强推理 opt-in；Haiku 4.5 ID 补全为 `claude-haiku-4-5-20251001`。
+  上代 **Opus 4.8 / Sonnet 4.6 保留在表内标注「仍可用」**（诚实降级，不删除）。
+  路由全 sweep：CLAUDE.md 路由表 / handbook §14 决策框架 / §19 交叉审 / 三 agent 模式示例
+  （Planner/Generator/Evaluator）/ ReAct·Plan-and-Execute·Reflexion 示例 / templates/CLAUDE.md。
+  eval 053 更名 `053-model-lineup-claude`（去掉版本号锁死），断言改守 Claude 5 家族 + 发布日锚
+  + **铁律#2 双保护**（PocketOS 历史事故的 Opus 4.6 原文、agy CLI 实测快照的
+  `claude-opus-4-6-thinking` 均不可篡改）+ 上代保留断言。
+- 为什么：用户指示「opus 更新了」。铁律#3 全程双证：**environment 会话注入**（Claude 5 家族
+  模型 ID 权威）+ **WebSearch**（anthropic.com 官方 + axios/cnbc/techcrunch，发布日/定价/
+  effort dial/Max 默认）。不编造版本与价格；不动实测快照与历史事故记录（铁律#2）。
+- Eval 跑分前/后：67 PASS → **67 PASS**（053 原地更新，无新增文件）。
+- 影响范围：全部 Claude Code 路由推荐（架构档→Opus 5、编码档→Sonnet 5）；下游项目经
+  templates/CLAUDE.md 分发同步。
+
 ## [2026-07-25] v4.7 — branch-guard 跨仓/复合命令感知（修实测两次 FP）+ 全项目升级 v4.6 + 命令全局化
 
 - 改了什么：
