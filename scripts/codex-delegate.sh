@@ -22,6 +22,9 @@ set -uo pipefail
 PROMPT="${1:-}"
 REPO="${2:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 SANDBOX="${CODEX_SANDBOX:-workspace-write}"
+# v4.6 模型固定：显式 -m，不吃 ~/.codex/config.toml 默认（桌面端会改成 terra 等档位）。
+# 覆盖：CODEX_MODEL=gpt-5.6-terra bash scripts/codex-delegate.sh "..."
+MODEL="${CODEX_MODEL:-gpt-5.6-sol}"
 [ -z "$PROMPT" ] && { echo "用法: bash scripts/codex-delegate.sh \"<prompt>\" [仓库路径]"; exit 1; }
 
 # 前置检查
@@ -37,9 +40,9 @@ echo "$PROMPT" | grep -qiE '先读|读取.*文件|read the|自测|跑测试|run.
 [ "$SANDBOX" = "danger-full-access" ] && \
   warn "danger-full-access：codex 子进程不经本仓 guard hook，仅用于受控 prompt + 产物走 staged+review 的任务"
 
-echo "→ codex exec [$SANDBOX] @ $REPO"
+echo "→ codex exec [$SANDBOX] [model=$MODEL] @ $REPO"
 T0=$(date +%s)
-OUT=$(codex exec -s "$SANDBOX" -C "$REPO" -c service_tier=fast "$PROMPT" </dev/null 2>&1)
+OUT=$(codex exec -s "$SANDBOX" -C "$REPO" -m "$MODEL" -c service_tier=fast "$PROMPT" </dev/null 2>&1)
 RC=$?
 T1=$(date +%s)
 echo "$OUT"
@@ -55,9 +58,10 @@ if [ -n "$TOKENS" ] && [ "$TOKENS" -gt 0 ] 2>/dev/null; then
   # JSON 安全：repo 名/sandbox 只保留安全字符集（防引号/反斜杠/换行破坏 JSONL）
   REPO_NAME=$(basename "$REPO" | tr -cd 'A-Za-z0-9._-')
   SANDBOX_SAFE=$(printf '%s' "$SANDBOX" | tr -cd 'A-Za-z0-9._-')
+  MODEL_SAFE=$(printf '%s' "$MODEL" | tr -cd 'A-Za-z0-9._-')   # v4.6: 账本记实际模型，不再硬编码（防标签造假）
   TS=$(date -Iseconds 2>/dev/null || date)
-  printf '{"ts":"%s","metric":"codex.token.usage","value":%s,"unit":"tokens","attrs":{"model":"gpt-5.6-sol","tool":"codex-cli","sandbox":"%s"},"resource":{"repo":"%s"}}\n' \
-    "$TS" "$TOKENS" "$SANDBOX_SAFE" "$REPO_NAME" >> "$DATA_DIR/metrics-$(date +%Y-%m-%d).jsonl"
+  printf '{"ts":"%s","metric":"codex.token.usage","value":%s,"unit":"tokens","attrs":{"model":"%s","tool":"codex-cli","sandbox":"%s"},"resource":{"repo":"%s"}}\n' \
+    "$TS" "$TOKENS" "$MODEL_SAFE" "$SANDBOX_SAFE" "$REPO_NAME" >> "$DATA_DIR/metrics-$(date +%Y-%m-%d).jsonl"
   echo "📊 codex 用量已入账: $TOKENS tokens → telemetry (repo=$REPO_NAME)"
 else
   echo "📊 未能从输出解析 tokens used（不入账）"

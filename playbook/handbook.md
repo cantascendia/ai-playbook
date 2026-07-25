@@ -4091,7 +4091,9 @@ codex review --commit HEAD
 
 > v4.4 要点：codex(GPT) 掉线时**先 Gemini 后 Claude** —— agy 补位仍是真跨模型审
 > （模型家族不同），只有落到 Claude 档才触发"失去跨模型价值"警告。
-> 指定补位模型：`export AGY_REVIEW_MODEL="Gemini 3.1 Pro (High)"`（默认用 agy 默认模型）。
+> 指定补位模型：`export AGY_REVIEW_MODEL=gemini-3.1-pro-high`（v4.6 起默认 `gemini-3.6-flash-high`；
+> 必须用 dash 形式 ID —— agy 1.1.5 拒绝空格形式串如 "Gemini 3.1 Pro (High)"）。
+> 主路径模型同理钉死：`CODEX_REVIEW_MODEL`（默认 `gpt-5.6-sol`，不吃 config.toml 桌面端漂移）。
 > cost cap 计数（宪法 $20/月）v4.4 起仅 codex 主路径入账——agy/claude 补位不烧 codex 配额。
 
 **冷却机制**：

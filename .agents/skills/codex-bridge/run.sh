@@ -114,7 +114,16 @@ HAS_AGY=0
 HAS_CLAUDE=0
 HAS_GH=0
 command -v codex >/dev/null 2>&1 && HAS_CODEX=1
-command -v agy >/dev/null 2>&1 && HAS_AGY=1
+# agy PATH 兜底（v4.6）：winget 装到 WinGet\Links，父进程在安装前启动时 PATH 里没有 →
+# command -v 找不到但二进制真实存在。兜底探测 Links 目录（LOCALAPPDATA 仅 Windows 有，POSIX 下跳过）。
+AGY_BIN="agy"
+if command -v agy >/dev/null 2>&1; then
+  HAS_AGY=1
+elif [ -n "${LOCALAPPDATA:-}" ]; then
+  for cand in "$LOCALAPPDATA/Microsoft/WinGet/Links/agy.exe" "$LOCALAPPDATA/Microsoft/WinGet/Links/agy"; do
+    [ -x "$cand" ] && AGY_BIN="$cand" && HAS_AGY=1 && break
+  done
+fi
 command -v claude >/dev/null 2>&1 && HAS_CLAUDE=1
 command -v gh >/dev/null 2>&1 && HAS_GH=1
 
@@ -145,11 +154,14 @@ fi
   STATUS=1
 
   # 5a. 主路径：codex review
+  # v4.6 模型固定：不再吃 ~/.codex/config.toml 默认（桌面端会把它改成 terra 等其他档）——
+  # review 档位显式钉死 gpt-5.6-sol（可 env 覆盖），REVIEWER 标签取实际模型（不再硬编码假标签）。
+  CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.6-sol}"
   if [ "$HAS_CODEX" = "1" ] && [ "$SKIP_CODEX" = "0" ]; then
-    OUTPUT=$(codex review --commit "$SHA" --title "ai-playbook §48 cross-model review" 2>&1)
+    OUTPUT=$(codex review -c model="$CODEX_REVIEW_MODEL" --commit "$SHA" --title "ai-playbook §48 cross-model review" 2>&1)
     STATUS=$?
     if [ $STATUS -eq 0 ]; then
-      REVIEWER="codex-gpt5.6-sol"   # v4.5: Codex 客户端 2026-07-06 起 GPT-5.6 Sol（WebSearch 验证）
+      REVIEWER="codex-${CODEX_REVIEW_MODEL}"   # v4.6: 标签=实际调用模型（cost gate 用 codex- 前缀匹配，不受影响）
       MODE="success"
     elif echo "$OUTPUT" | grep -qiE "(rate.?limit|quota|exceeded|insufficient|usage.?limit|429|402)"; then
       echo "$(date +%s 2>/dev/null || echo 0)" > "$COOLDOWN_FILE"
@@ -164,6 +176,9 @@ fi
   # codex(GPT) 不可用时先走 agy(Gemini) 再走 claude —— Gemini ≠ GPT ≠ Claude，
   # agy 补位仍是跨模型审；claude 补位才是「失去跨模型价值」的最后档。
   # 自包含 prompt（diff 直接贴入）：print 模式无交互授权，不能让 agent 自己跑 git。
+  # v4.6 模型固定：默认 gemini-3.6-flash-high（dash 形式 ID，agy 1.1.5 实测有效；
+  # 空格形式 "Gemini 3.1 Pro (High)" 会被拒绝）。加 --print-timeout 防 print 模式无限挂起。
+  AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-gemini-3.6-flash-high}"
   if [ -z "$REVIEWER" ] && [ "$HAS_AGY" = "1" ]; then
     DIFF_CONTENT=$(git show --stat --patch "$SHA" 2>/dev/null | head -c 60000)
     AGY_PROMPT="你是跨模型代码审阅者。按八维（架构/代码质量/性能/安全/测试/DX/功能完整性/UX）逐条 ✅⚠️🔴 + 文件:行号 评审以下 commit ${SHORT_SHA} 的 diff。仅输出 markdown 报告，不要调用任何工具、不要读文件。
@@ -171,11 +186,7 @@ fi
 SEVERITY_SUMMARY: P0=<n> P1=<n> P2=<n>
 
 ${DIFF_CONTENT}"
-    if [ -n "${AGY_REVIEW_MODEL:-}" ]; then
-      AGY_OUTPUT=$(agy -p "$AGY_PROMPT" --model "$AGY_REVIEW_MODEL" </dev/null 2>&1)
-    else
-      AGY_OUTPUT=$(agy -p "$AGY_PROMPT" </dev/null 2>&1)
-    fi
+    AGY_OUTPUT=$("$AGY_BIN" -p "$AGY_PROMPT" --model "$AGY_REVIEW_MODEL" --print-timeout "${AGY_PRINT_TIMEOUT:-5m}" </dev/null 2>&1)
     AGY_STATUS=$?
     if [ $AGY_STATUS -eq 0 ] && [ -n "$AGY_OUTPUT" ]; then
       OUTPUT="$AGY_OUTPUT"

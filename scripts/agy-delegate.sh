@@ -31,8 +31,17 @@ PROMPT="${1:-}"
 WORKDIR="${2:-$(pwd)}"
 [ -z "$PROMPT" ] && { echo "用法: bash scripts/agy-delegate.sh \"<自包含 prompt>\" [工作目录]"; exit 1; }
 
-# 前置检查
-command -v agy >/dev/null 2>&1 || { echo "✗ agy CLI 不在 PATH（winget install Google.AntigravityCLI）"; exit 1; }
+# 前置检查（v4.6：winget 装到 WinGet\Links，父进程先于安装启动时 PATH 里没有 → 兜底探测）
+AGY_BIN="agy"
+if ! command -v agy >/dev/null 2>&1; then
+  AGY_BIN=""
+  if [ -n "${LOCALAPPDATA:-}" ]; then
+    for cand in "$LOCALAPPDATA/Microsoft/WinGet/Links/agy.exe" "$LOCALAPPDATA/Microsoft/WinGet/Links/agy"; do
+      [ -x "$cand" ] && AGY_BIN="$cand" && break
+    done
+  fi
+  [ -z "$AGY_BIN" ] && { echo "✗ agy CLI 不在 PATH（winget install Google.AntigravityCLI）"; exit 1; }
+fi
 [ -d "$WORKDIR" ] || { echo "✗ 工作目录不存在: $WORKDIR"; exit 1; }
 
 # 自包含 lint（警告不阻断）
@@ -42,15 +51,13 @@ echo "$PROMPT" | grep -qiE '先读|读取.*文件|read the|修改.*文件|edit t
 [ "${#PROMPT}" -lt 200 ] && \
   warn "prompt 偏短（${#PROMPT} 字符）—— 委派应贴入全部所需上下文，避免 agent 缺上下文瞎写（§32.5 Context Starvation）"
 
-MODEL="${AGY_MODEL:-}"
+# v4.6 模型固定：默认 gemini-3.6-flash-high（dash 形式 ID；agy 1.1.5 拒绝空格形式串）。
+# 覆盖：AGY_MODEL=gemini-3.6-flash-low bash scripts/agy-delegate.sh "..."
+MODEL="${AGY_MODEL:-gemini-3.6-flash-high}"
 TIMEOUT="${AGY_TIMEOUT:-5m}"
-echo "→ agy -p [model=${MODEL:-default}] [timeout=$TIMEOUT] @ $WORKDIR"
+echo "→ agy -p [model=$MODEL] [timeout=$TIMEOUT] @ $WORKDIR"
 T0=$(date +%s)
-if [ -n "$MODEL" ]; then
-  OUT=$(cd "$WORKDIR" && agy -p "$PROMPT" --model "$MODEL" --print-timeout "$TIMEOUT" </dev/null 2>&1)
-else
-  OUT=$(cd "$WORKDIR" && agy -p "$PROMPT" --print-timeout "$TIMEOUT" </dev/null 2>&1)
-fi
+OUT=$(cd "$WORKDIR" && "$AGY_BIN" -p "$PROMPT" --model "$MODEL" --print-timeout "$TIMEOUT" </dev/null 2>&1)
 RC=$?
 T1=$(date +%s)
 DUR=$((T1-T0))
