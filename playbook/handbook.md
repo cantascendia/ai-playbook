@@ -23,13 +23,17 @@
 
 | 模型 | 模型 ID | 特点 | 适用场景 |
 |---|---|---|---|
-| Claude Opus 4.8 | `claude-opus-4-8` | 最强 Opus，长程 agentic / 深度推理；1M 上下文标准价 | CTO 规划、架构设计、深度审核（**默认**） |
-| Claude Fable 5 | `claude-fable-5` | Opus 之上新档，最强推理（约 2× 价：$10/$50 vs $5/$25）| 极难推理 opt-in；成本敏感时仍用 Opus 4.8 |
-| Claude Sonnet 4.6 | `claude-sonnet-4-6` | 旗舰编码，均衡性能 | 标准编码、测试、日常任务 |
-| Claude Haiku 4.5 | `claude-haiku-4-5` | 最快响应，轻量高效 | 快速查询、配置生成、轻量任务（sub-agent 默认）|
+| **Claude Opus 5** | `claude-opus-5` | **当代 Opus（2026-07-24 发布）**：接近 Fable 的表现、$5/$25（同 4.8 价）；带 **effort dial**（低 effort 省 token 仍保大部分能力）；官方称"最对齐、最难被诱导滥用的 Opus" | CTO 规划、架构设计、深度审核（**默认**）；Max 订阅默认模型 |
+| Claude Fable 5 | `claude-fable-5` | 最强推理档（约 2× 价：$10/$50） | 极难推理 opt-in；成本敏感时用 Opus 5 |
+| Claude Sonnet 5 | `claude-sonnet-5` | 当代 Sonnet（2026-06） | 标准编码、测试、日常任务 |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 最快响应，轻量高效 | 快速查询、配置生成、轻量任务（sub-agent 默认）|
+| Claude Opus 4.8 | `claude-opus-4-8` | 上代 Opus（Opus 5 发布前的默认） | 仍可用；新工作走 Opus 5 |
+| Claude Sonnet 4.6 | `claude-sonnet-4-6` | 上代 Sonnet | 仍可用 |
 
 > 模型 ID 完整列表与最新别名：`https://platform.claude.com/docs/en/about-claude/models/overview`
-> 切换：会话内 `/model`，启动时 `--model <id>`；`/fast` 切快速模式（Opus 加速输出，支持 4.8/4.7/4.6，**不降级到小模型**）。
+> 切换：会话内 `/model`，启动时 `--model <id>`；`/fast` 切快速模式（Opus 加速输出，**不降级到小模型**）。
+> 阵容更新（2026-07-25 核实，铁律 #3）：Claude 5 家族 = Opus 5 / Fable 5 / Sonnet 5（+ Haiku 4.5）。
+> Opus 5 于 2026-07-24 发布，是 Anthropic 两个月内第四个模型（Mythos 5 → Fable 5 → Sonnet 5 → Opus 5）。
 > **Claude Code 运行形态**（v3.15 对齐）：CLI 终端 / 桌面 App（Mac + Windows）/ web（claude.ai/code）/ IDE 扩展（VS Code、JetBrains）——同一套配置（CLAUDE.md / settings / commands / hooks / skills）跨形态通用。
 > **effort**：Claude Code 默认 `xhigh`（编码/agentic 最佳）；最强外部推理用 `max`；轻量 sub-agent 用 `low`。4.8/4.7/Fable 5 只支持 adaptive thinking（`budget_tokens` 已移除）。
 
@@ -1102,10 +1106,10 @@ Codex App 侧（如需委派）：
 
 | 任务 | 执行者 | 模型 | 模式 |
 |---|---|---|---|
-| CTO 规划/架构设计 | Claude Code | Opus 4.8 | 直接 |
-| 深度代码审核 | Claude Code | Opus 4.8 | 直接 |
-| 标准全栈开发 | Claude Code | Sonnet 4.6 | 直接 |
-| 日常编码 | Claude Code | Sonnet 4.6 | 直接 |
+| CTO 规划/架构设计 | Claude Code | Opus 5 | 直接 |
+| 深度代码审核 | Claude Code | Opus 5 | 直接 |
+| 标准全栈开发 | Claude Code | Sonnet 5 | 直接 |
+| 日常编码 | Claude Code | Sonnet 5 | 直接 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 | 直接 |
 | 多任务并行 | Claude Code | Sonnet ×N | Sub-agent |
 | 浏览器验证 UI | 委派 Antigravity | Gemini 3.1 Pro High | Planning |
@@ -1119,8 +1123,8 @@ Codex App 侧（如需委派）：
 | 定时自动化 | 委派 Codex | — | Automation |
 | 最强外部推理 | 委派 Codex | gpt-5.6 Sol xhigh | Worktree |
 | 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 | 直接 / $skill-creator |
-| CI/CD 流水线搭建 | Claude Code | Sonnet 4.6 | 直接 |
-| 发布前合规检查 | Claude Code | Opus 4.8 | 直接 |
+| CI/CD 流水线搭建 | Claude Code | Sonnet 5 | 直接 |
+| 发布前合规检查 | Claude Code | Opus 5 | 直接 |
 | 安全交叉审核 | Claude Code + 委派 | 多模型 | 交叉 |
 
 ### 14.2 决策原则
@@ -2577,7 +2581,7 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 
 **触发规则**：变更涉及上述黑名单中的文件 → CI 自动添加 `requires-double-review` 标签 → 必须满足：
 1. **Human Review**：CODEOWNERS 中指定的安全 / 资深工程师 approve
-2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 4.8 ↔ gpt-5.6 Sol）独立审一遍
+2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 5 ↔ gpt-5.6 Sol）独立审一遍
 
 ### 32.3 CODEOWNERS 配置示例
 
@@ -2701,11 +2705,11 @@ CI 中扫描 commit 消息和 author 元数据，触发条件：
 ### 34.2 Anthropic 三 Agent Harness 模式
 
 ```
-Planner Agent（Opus 4.8 / Plan mode）
+Planner Agent（Opus 5 / Plan mode）
     ↓ 输出计划
-Generator Agent（Sonnet 4.6 / 多个并行）
+Generator Agent（Sonnet 5 / 多个并行）
     ↓ 输出代码
-Evaluator Agent（Opus 4.8 / Reflexion mode）
+Evaluator Agent（Opus 5 / Reflexion mode）
     ↓ eval gate
 Validator（CI / 测试 / Lint）
 ```
@@ -2961,7 +2965,7 @@ jobs:
 
 | 模式 | 起源 | 适用场景 | 核心循环 | 在 CTO playbook 中的位置 |
 |---|---|---|---|---|
-| **ReAct** | 2022 经典 | 简单查询、单步任务、低预算探索 | Thought → Action → Observation → 重复 | 默认单步执行（Sonnet 4.6 直接 Bash/Read） |
+| **ReAct** | 2022 经典 | 简单查询、单步任务、低预算探索 | Thought → Action → Observation → 重复 | 默认单步执行（Sonnet 5 直接 Bash/Read） |
 | **Plan-and-Execute** | 2023 LangChain | 多步、依赖明确、可预审 | Plan all → Execute steps → Evaluate | Claude Code Plan mode + `/cto-spec` |
 | **ReWOO**（Reasoning WithOut Observation）| 2023 | 工具可并行、计划稳定 | Plan + 占位变量 → 全部并行 → Solve | 委派 Codex 隔离并行 Worktree |
 | **Reflexion** | 2023 | 多约束、需自批评、迭代提升 | Act → Self-evaluate → Refine → 重做 | `/cto-review` + 八维审核 |
@@ -2994,14 +2998,14 @@ jobs:
 **典型 CTO 任务："给项目加一个新功能"**：
 
 ```
-1. Plan-and-Execute（Opus 4.8 in Plan mode）
+1. Plan-and-Execute（Opus 5 in Plan mode）
    → 输出 PLAN.md 和分支策略
 
 2. Recursive Decomposition（主 Claude Code）
    → 拆为 N 个 sub-agent 任务（前端 / 后端 / 测试 / 文档）
    → 并行执行（部分用 Codex 隔离 Worktree）
 
-3. Reflexion（Opus 4.8 / cto-review）
+3. Reflexion（Opus 5 / cto-review）
    → 八维审核每个 sub-agent 的输出
    → 发现问题 → 反馈给对应 sub-agent 修正
 
