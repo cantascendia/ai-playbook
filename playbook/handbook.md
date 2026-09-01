@@ -579,13 +579,13 @@ npx add-skill google-labs-code/stitch-skills --skill <skill-name> --global
 
 **委派场景**：隔离并行 Worktree、定时 Automation、跨会话长任务、最强外部推理
 
-**可选模型（截至 2026-07，WebSearch 验证 2026-07-22）：**
+**可选模型（截至 2026-09，WebSearch 验证 2026-09-01）：**
 
 | 模型 | 特点 | 备注 |
 |---|---|---|
-| **gpt-5.6 Sol** | **当前旗舰，推荐默认**（最强智能档；Codex 客户端搭载 Sol Ultra） | 2026-07-09 发布；API $5/$30 每 M token |
-| gpt-5.6 Terra | 中间档（智能/速度/成本平衡） | $2.50/$15 |
-| gpt-5.6 Luna | 快速/省配额档 | $1/$6 |
+| **gpt-5.6 Sol** | **当前旗舰，推荐默认**（最强智能档；Codex 客户端搭载 Sol Ultra） | 2026-07-09 发布；API $5/$30 每 M token（07-30 调价未涉及） |
+| gpt-5.6 Terra | 中间档（智能/速度/成本平衡） | **2026-07-30 降价 $2/$12**（原 $2.50/$15）；API ID 推定 `gpt-5.6-terra`（未实测） |
+| gpt-5.6 Luna | 快速/低成本档（≈上代 nano 位；批量抽取/分类/轻 agentic，**不当深度推理主力**） | **2026-07-30 降价 80%：$0.20/$1.20**（原 $1/$6），cached input $0.02；API ID **`gpt-5.6-luna`**（✅ 官方 API 模型页核实 2026-09-01）；1M 上下文 / 128K 输出 / structured outputs / 多模态输入 text+image |
 | gpt-5.5 | 上代旗舰 | 仍可用 |
 | gpt-5.3-codex | 编码专精（旧代底座） | |
 | **gpt-image-2** | **图像生成 + 4K + 文字渲染 + reasoning** | 2026-04-21 新增 |
@@ -1118,7 +1118,8 @@ Codex App 侧（如需委派）：
 | 独立隔离并行 | 委派 Codex | gpt-5.6 Sol | Worktree ×N |
 | 定时自动化 | 委派 Codex | — | Automation |
 | 最强外部推理 | 委派 Codex | gpt-5.6 Sol xhigh | Worktree |
-| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 | 直接 / $skill-creator |
+| 海量批量抽取/分类/结构化转换（数据管线） | OpenAI API 直调或委派 Codex | gpt-5.6 Luna | structured outputs；降价后 $0.20/$1.20 每 M（§5.2） |
+| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 Sol | 直接 / $skill-creator（裸 `gpt-5.6` 无效，见 §5.2 config 实测） |
 | CI/CD 流水线搭建 | Claude Code | Sonnet 4.6 | 直接 |
 | 发布前合规检查 | Claude Code | Opus 4.8 | 直接 |
 | 安全交叉审核 | Claude Code + 委派 | 多模型 | 交叉 |
