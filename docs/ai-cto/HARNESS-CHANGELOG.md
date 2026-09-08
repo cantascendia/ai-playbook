@@ -53,6 +53,21 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
   被视为「子项目」而放行、无 audit。同一 hook input 换 cwd=ai-playbook 则 exit 2 正确拦截。即**从仓库外目录开会话
   可绕过红线 1**（红线 2 CONSTITUTION 因子项目模式也守 basename 而未受影响）。修法：按**目标文件所属仓库根**
   判定而非会话 cwd（learned rule 2026-07-10 的对偶）。hook 由他人所有，已上报待独立处置 + golden trajectory 覆盖。
+- 🩹 本轮**补丁半**（独立评审 P1，已落地）：`engine/lib.mjs` `isAiPlaybookSelf()` 在**会话 cwd 本身不可解析**时
+  （win32 上无盘符的 POSIX 路径如 `/tmp/x` → `fsPath()` 原样透传 → `statSync` 全 false）原先**静默** fail-open
+  为 subproject —— 红线 1 / handbook §32 被跳过且不留任何痕迹。现补 stderr 一行告警
+  「⚠️ immutable-guard: cwd 无法解析（…）— self/subproject 判定退化为 subproject」（显式 `CTO_IS_SUBPROJECT` /
+  `CTO_IS_AI_PLAYBOOK_SELF` 覆盖时不告警，因那不是「退化」；cwd 不存在 ⇒ audit 目录也不存在 ⇒ `auditLog` 必然
+  no-op，故只走 stderr）。**这只是让失效可见，不是根治**：**根因修复（红线按目标文件所属仓库根判定，而非会话 cwd）
+  仍是 follow-up**，需连同 golden trajectory 覆盖一起做。legacy bash `immutable-guard.sh`（v3.15 冻结路径）未同步
+  此告警 —— 告警不改语义，两路径判定结果仍一致。
+- 🩹 本轮**补丁半**（独立评审 P1/P2，已落地）：destructive-action-guard `CLOUD_PATTERNS` 补 `glab api --method/-X DELETE`
+  （REST 删项目绕开子命令名）/ `glab repo|project archive` / `glab variable delete` / `glab release delete`，以及同源
+  twin gap `gh api --method/-X DELETE`（engine + `.claude` legacy + `.codex` 三份同步）；trajectory 脱敏补 `glft-`
+  前缀与 `gitlab-ci-token:<job token>@`；§32.2 / forbidden-policy skill / `.claude/rules/forbidden-paths.md`
+  双签文案改写为与实际 CI 实现一一对应（`double-sign-gate`（每个 MR 必跑）读 `$CI_MERGE_REQUEST_LABELS` 强制标签、`llm-judge` 用 curl
+  自动补标签且无 token 时优雅跳过、CODEOWNERS approval rules 需 Premium 故人工半 = MR 模板勾选框 + Maintainers merge）。
+  guard 单测 46 → **50**。
 
 ---
 

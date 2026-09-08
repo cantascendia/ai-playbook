@@ -332,16 +332,28 @@ ${DIFF_CONTENT}"
         # 推 branch（首次或更新）
         git push -u origin "$BRANCH" 2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
+        # 默认分支：不再硬编码 main（fork / 老仓库可能是 master 或别的）。
+        # origin/HEAD 是本地 remote 的默认分支指针（`git remote set-head origin -a` 建立）；
+        # 取不到就回退 main。
+        DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+        [ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=main
+
         # 自动生成 title（从最近 commit message）+ description（从最近 commits）
+        # ⚠️ 不能写成 `git log A..B | head -10 || git log C..D`：`||` 绑定的是 **head** 的退出码，
+        # 而 head 读到空输入照样 rc=0 → 回退分支永不触发（v4.7 独立评审 P2）。
+        # 改成先算进变量、判空再回退，回退才真的生效。
         AUTO_TITLE=$(git log -1 --format=%s)
+        RECENT_COMMITS=$(git log --format='- %h %s' "${DEFAULT_BRANCH}..HEAD" 2>/dev/null | head -10)
+        [ -z "$RECENT_COMMITS" ] && RECENT_COMMITS=$(git log --format='- %h %s' HEAD~5..HEAD 2>/dev/null | head -10)
+        [ -z "$RECENT_COMMITS" ] && RECENT_COMMITS=$(git log --format='- %h %s' -10 2>/dev/null)
         AUTO_BODY=$(printf "## Summary\n\n%s\n\n## Recent commits\n\n%s\n\n---\n\n_由 codex-bridge autopilot 自动开启。codex review 见下方 note。_" \
           "$(git log -1 --format=%b | head -20)" \
-          "$(git log --format='- %h %s' main..HEAD 2>/dev/null | head -10 || git log --format='- %h %s' HEAD~5..HEAD)")
+          "$RECENT_COMMITS")
 
         # --yes 跳过交互确认（后台 disown 环境无 TTY，缺它会挂起）；--source/--target-branch 显式指定
         # 避免依赖 upstream 推断；--remove-source-branch 合并后清理分支。
         glab mr create --title "$AUTO_TITLE" --description "$AUTO_BODY" \
-          --source-branch "$BRANCH" --target-branch main --remove-source-branch --yes \
+          --source-branch "$BRANCH" --target-branch "$DEFAULT_BRANCH" --remove-source-branch --yes \
           2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
         MR_IID=$(glab mr view -F json --jq .iid 2>/dev/null)
         case "$MR_IID" in ''|*[!0-9]*) MR_IID="" ;; esac
@@ -368,8 +380,11 @@ ${DIFF_CONTENT}"
           >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
         if [ "$EXISTING" = "0" ]; then
-          # 写到临时文件再 post（避免 stdin pipe 在 disown 后台环境下失效）
-          COMMENT_FILE="/tmp/codex-comment-${SHORT_SHA}.md"
+          # 写到临时文件再 post（避免 stdin pipe 在 disown 后台环境下失效）。
+          # 用 mktemp 而非固定 /tmp/codex-comment-<sha>.md：固定名在共享 /tmp 上可被他人预建/符号链接
+          # 抢占（写到别处），并发跑同 sha 时也会互相覆写。mktemp 失败再回退固定名（保功能不保并发）。
+          COMMENT_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-comment-${SHORT_SHA}-XXXXXX.md" 2>/dev/null) \
+            || COMMENT_FILE="${TMPDIR:-/tmp}/codex-comment-${SHORT_SHA}.md"
           {
             echo "$MARKER"
             echo "## 🤖 Codex Cross-Model Review (\`$SHORT_SHA\`)"

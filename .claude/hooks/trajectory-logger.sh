@@ -33,11 +33,14 @@ LOG_FILE="${LOG_DIR}/${DAY}.jsonl"
 # SPEC-002（2026-09-08 迁 GitLab）：补 GitLab 令牌族 → [REDACTED_GL]。用**显式前缀白名单**
 # （glpat/glptt/gloas/glrt/... 官方 routable prefix）而非 gl[a-z]{3,4}- 通配 —— 后者会把
 # `global-configuration-xxx` 之类普通串误脱敏，污染 trajectory 日志可读性。
+# v4.7（独立评审）：补 `glft`（feed token）；`gitlab-ci-token:<job token>@host` 是 CI 里 git remote
+# URL 的标准形态，令牌本身不带 gl* 前缀 → 前缀白名单吃不到，需独立一条规则。
 _redact() {
   echo "$1" | sed -E \
     -e 's/sk-[A-Za-z0-9_-]{16,}/[REDACTED_SK]/g' \
     -e 's/(ghp|gho|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/[REDACTED_GH]/g' \
-    -e 's/gl(pat|ptt|oas|rt|cbt|soat|imt|ffct|dt|agent|ua)-[A-Za-z0-9_-]{20,}/[REDACTED_GL]/g' \
+    -e 's/gl(pat|ptt|oas|rt|cbt|soat|imt|ffct|dt|agent|ua|ft)-[A-Za-z0-9_-]{20,}/[REDACTED_GL]/g' \
+    -e 's/gitlab-ci-token:[^@[:space:]]+@/gitlab-ci-token:[REDACTED_GL]@/g' \
     -e 's/AKIA[A-Z0-9]{16}/[REDACTED_AWS]/g' \
     -e 's/xox[baprs]-[A-Za-z0-9-]{10,}/[REDACTED_SLACK]/g' \
     -e 's/[Bb]earer[[:space:]]+[A-Za-z0-9._+\/=-]{20,}/Bearer [REDACTED]/g' \

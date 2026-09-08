@@ -38,11 +38,15 @@ verification_command: |
   echo "$BLK" | grep -q 'CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH' \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval-gate 无 push-to-default-branch 触发"; }
   # 3. rules 覆盖关键 config 表面（含 GitLab CI 定义文件自身）
+  #    2026-09-08 review fixes：&config_surface 锚点已上提到 workflow: 之上的顶层
+  #    hidden job `.config_surface`（anchor 必须先定义后引用），故路径清单在该块里查，
+  #    eval-gate 侧只查是否引用了同一锚点（下面第 4 项）。
+  CS=$(awk '/^\.config_surface:/{p=1;next} p&&/^[^[:space:]#-]/{exit} p{print}' "$Y")
   MISS=0
   for pat in '.claude/commands/' '.claude/hooks/' 'CLAUDE.md' 'playbook/handbook.md' 'evals/' 'docs/ai-cto/COUNTS.md' '.gitlab-ci.yml'; do
-    echo "$BLK" | grep -qF "$pat" || { MISS=$((MISS+1)); echo "  eval-gate 漏 path: $pat"; }
+    echo "$CS" | grep -qF "$pat" || { MISS=$((MISS+1)); echo "  config_surface 漏 path: $pat"; }
   done
-  [ "$MISS" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval-gate changes 漏 $MISS 处 config 路径"; }
+  [ "$MISS" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: config_surface 漏 $MISS 处 config 路径"; }
   # 4. 两条 rule 共享同一 changes 集合（YAML anchor 或字面重复，禁漂移）
   echo "$BLK" | grep -qE 'changes:\s*(\*config_surface|&config_surface)' \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 两条 rule 未共享同一 changes 集合（易漂移）"; }

@@ -1,10 +1,10 @@
 ---
 name: forbidden-policy
 description: >
-  §32.1 Forbidden 路径强制规则。当 Claude 编辑 auth/payment/billing/secrets/keys/migration/
+  §32.1 Forbidden 路径强制规则。当 Codex 编辑 auth/payment/billing/secrets/keys/migration/
   crypto/infra/terraform/ansible/.github/workflows/.gitlab-ci.yml/.gitlab 路径下文件时自动加载。
   要求 spec-driven、双签、MR 标签 requires-double-review（GitLab）。配套
-  .claude/hooks/forbidden-guard.sh 硬阻止 (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
+  .Codex/hooks/forbidden-guard.sh 硬阻止 (exit 2)；本 skill 提供 Codex 应如何响应被阻止时的处理流程。
 user-invocable: false
 paths:
   - "**/auth/**"
@@ -42,7 +42,7 @@ paths:
 
 ### 2. 第二模型独立 review
 
-- 改完后运行 `/cto-review` 让 codex (gpt-5.6 Sol) 或 claude headless 独立审一遍
+- 改完后运行 `/cto-review` 让 codex (gpt-5.5) 或 Codex headless 独立审一遍
 - 重点维度：架构 / 安全 / 边界条件 / 数据完整性
 - review 结果写入 `docs/ai-cto/REVIEW-QUEUE.md`
 
@@ -117,6 +117,6 @@ export CTO_DOUBLE_SIGNED=1   # 单次会话有效，audit log 永久记录
 ## 引用
 
 - handbook §32.1 / §32.5 反模式 / §19 跨模型 review
-- CLAUDE.md 铁律 #13
-- `.claude/hooks/forbidden-guard.sh`（硬阻止层）
+- AGENTS.md 铁律 #13
+- `.Codex/hooks/forbidden-guard.sh`（硬阻止层）
 - `scripts/forbidden-paths.txt`（路径 SSOT）

@@ -443,3 +443,77 @@ test('trajectory(SPEC-002): GitLab 令牌脱敏 → [REDACTED_GL]；global- 类�
   // 显式前缀白名单（非 gl[a-z]{3,4}- 通配）→ global-xxx 这类普通串不该被吃掉
   assert.match(log, /global-configuration-defaults-file/);
 });
+
+// ═══ v4.7 独立评审修复（P1 destructive glab 覆盖 / P1 cwd fail-open / P2 脱敏前缀）═══
+
+test('destructive(v4.7): glab/gh api DELETE + archive/variable/release delete → deny；GET/POST 仍放行', () => {
+  const denied = (cmd) => run('destructive-action-guard', { tool_name: 'Bash', tool_input: { command: cmd }, cwd: '.' }).stdout.includes(DENY_MARK);
+  // 评审实证「今天是放行的」5 条 glab 灭绝面 + 同源 gh twin gap
+  for (const cmd of [
+    'glab api projects/12345 --method DELETE',        // REST 删项目（绕开 repo/project delete 子命令名）
+    'glab api --method=DELETE projects/12345',        // --method=DELETE 等号形式
+    'glab api -X DELETE projects/:id',                // -X 短形式
+    'glab repo archive o/r',                          // 归档对协作者不可逆
+    'glab project archive o/r',                       // repo 的别名
+    'glab variable delete MY_SECRET',                 // 删 CI 变量 = 流水线密钥
+    'glab release delete v1 --yes',                   // 删发布
+    'gh api repos/o/r --method DELETE',               // 预存 twin gap（红线只加不删）
+    'gh api -X DELETE repos/o/r',
+  ]) {
+    assert.ok(denied(cmd), `未拦 destructive 命令: ${cmd}`);
+  }
+  // 只读 / 非删除的 glab api 必须仍然放行（fail-safe 不等于无差别拦 glab api）
+  for (const cmd of [
+    'glab api projects/:id/merge_requests/1/notes',
+    'glab api -X POST projects/:id/issues --field title=x',
+    'glab api projects/:id/merge_requests/1/notes --method POST --field body=hello',
+    'glab release list',
+    'glab variable list',
+  ]) {
+    assert.equal(denied(cmd), false, `误拦非破坏性命令: ${cmd}`);
+  }
+  // 既有红线只加不删
+  assert.ok(denied('glab repo delete o/r'));
+  assert.ok(denied('gh repo delete o/r'));
+});
+
+test('destructive(v4.7): legacy bash 路径（CTO_GUARD_ENGINE=legacy）同样拦 glab api DELETE / 放行只读', () => {
+  const SH = path.join(__dirname, '..', 'destructive-action-guard.sh');
+  const legacy = (cmd) => spawnSync('bash', [SH], {
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: '.' }),
+    encoding: 'utf8',
+    env: { ...process.env, CTO_GUARD_ENGINE: 'legacy', CTO_DESTRUCTIVE_CONFIRMED: '' },
+  });
+  const blocked = legacy('glab api projects/12345 --method DELETE');
+  assert.equal(blocked.status, 0);            // deny 走 JSON + exit 0（对冲 GitHub #23284）
+  assert.ok((blocked.stdout || '').includes(DENY_MARK), 'legacy 未拦 glab api --method DELETE');
+  const allowed = legacy('glab api projects/:id/merge_requests/1/notes');
+  assert.equal(allowed.status, 0);
+  assert.equal((allowed.stdout || '').includes(DENY_MARK), false, 'legacy 误拦只读 glab api');
+});
+
+test('immutable(v4.7): cwd 不可解析 → stderr 告警（不再静默 fail-open）；真实 cwd → 无告警', () => {
+  const WARN = /cwd 无法解析/;
+  // POSIX 风格且不存在的 cwd（win32 上 fsPath 无盘符可映射 → statSync 全 false → self=0）
+  const bad = run('immutable-guard', { tool_name: 'Edit', tool_input: { file_path: '/tmp/nonexistent-zzz/CLAUDE.md', old_string: '## 铁律', new_string: '' }, cwd: '/tmp/nonexistent-zzz-9999' });
+  assert.match(bad.stderr, WARN, 'cwd 不可解析时必须告警');
+  // 真实存在的 cwd（本仓库根）→ 判定正常，不得有告警噪音
+  const REPO = path.resolve(__dirname, '..', '..', '..').replaceAll('\\', '/');
+  const good = run('immutable-guard', { tool_name: 'Edit', tool_input: { file_path: `${REPO}/docs/ai-cto/STATUS.md`, old_string: 'a', new_string: 'b' }, cwd: REPO });
+  assert.equal(WARN.test(good.stderr), false, `真实 cwd 不该告警: ${good.stderr}`);
+  // 告警只加不改语义：不可解析 cwd 仍按 subproject 放行（红线 1 不生效）
+  assert.equal(bad.status, 0);
+});
+
+test('trajectory(v4.7): glft- 令牌 + gitlab-ci-token:<job token>@ 均脱敏；普通串不误伤', () => {
+  const dir = tmpProject(true);
+  const cmd = 'git remote set-url origin https://gitlab-ci-token:64_AbCdEf-jobtok123@gitlab.com/o/r.git && glab config set --token glft-ABCDEFGHIJ1234567890xyz && echo gitlab-ci-tokenless';
+  run('trajectory-logger', { tool_name: 'Bash', tool_input: { command: cmd }, cwd: dir, hook_event_name: 'PostToolUse', session_id: 's' });
+  const files = fs.readdirSync(path.join(dir, '.claude', 'agent-logs'));
+  const log = fs.readFileSync(path.join(dir, '.claude', 'agent-logs', files[0]), 'utf8');
+  assert.ok(!log.includes('glft-ABCDEFGHIJ'), 'glft feed token 泄漏');
+  assert.ok(!log.includes('64_AbCdEf-jobtok123'), 'gitlab-ci-token job token 泄漏');
+  assert.match(log, /gitlab-ci-token:\[REDACTED_GL\]@gitlab\.com/);
+  // 无 `:token@` 结构的普通串不该被吃掉
+  assert.match(log, /gitlab-ci-tokenless/);
+});

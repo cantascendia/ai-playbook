@@ -84,6 +84,12 @@ export function normalizePaths(ctx, mode = 'basename') {
 export function isAiPlaybookSelf(cwd, env = process.env) {
   let self = false;
   const c = fsPath((cwd || '.').replaceAll('\\', '/'));
+  // v4.7 P1（独立评审）：cwd 本身不可解析时（win32 上无盘符的 POSIX 路径 `/tmp/x` → fsPath 原样透传 →
+  // 后续 statSync 全 false）自动检测**静默 fail-open** 为 subproject → CLAUDE.md 铁律 / handbook §32
+  // 红线被跳过且不留任何痕迹。此处只加告警、不改判定语义（根因修法 = 按目标文件所属仓库根判定而非
+  // 会话 cwd，见 HARNESS-CHANGELOG v4.7 follow-up；learned rule 2026-07-10 的对偶）。
+  // 注：cwd 不存在 ⇒ `${cwd}/.claude/agent-logs` 也不存在 ⇒ auditLog 必然静默 no-op，故只走 stderr。
+  const cwdResolvable = fs.existsSync(c);
   try {
     if (fs.statSync(`${c}/playbook/handbook.md`).isFile() && fs.statSync(`${c}/playbook`).isDirectory()) {
       const hb = fs.readFileSync(`${c}/playbook/handbook.md`, 'utf8');
@@ -91,8 +97,13 @@ export function isAiPlaybookSelf(cwd, env = process.env) {
     }
   } catch { /* 不存在 → 非 self */ }
   // env 覆盖在自动检测之后；SUBPROJECT 先、SELF 后（同时设 1 时 SELF 胜 — 与 bash 顺序一致）
+  const overridden = env.CTO_IS_SUBPROJECT === '1' || env.CTO_IS_AI_PLAYBOOK_SELF === '1';
   if (env.CTO_IS_SUBPROJECT === '1') self = false;
   if (env.CTO_IS_AI_PLAYBOOK_SELF === '1') self = true;
+  // 显式 env 覆盖时判定不是「退化」而是人为指定 → 不告警（否则文案与实际结果矛盾）
+  if (!cwdResolvable && !overridden) {
+    process.stderr.write(`⚠️ immutable-guard: cwd 无法解析（${cwd}）— self/subproject 判定退化为 subproject\n`);
+  }
   return self;
 }
 
@@ -208,7 +219,10 @@ export function redact(s) {
     .replace(/sk-[A-Za-z0-9_-]{16,}/g, '[REDACTED_SK]')
     .replace(/(ghp|gho|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/g, '[REDACTED_GH]')
     // SPEC-002：GitLab 令牌族（显式官方前缀白名单，不用 gl[a-z]{3,4}- 通配 — 那会误吃 global-xxx）
-    .replace(/gl(pat|ptt|oas|rt|cbt|soat|imt|ffct|dt|agent|ua)-[A-Za-z0-9_-]{20,}/g, '[REDACTED_GL]')
+    // v4.7（独立评审）：补 `glft`（feed token）；`gitlab-ci-token:<job token>@host` 是 CI 里
+    // git remote URL 的标准形态，令牌不带 gl* 前缀 → 前缀白名单吃不到，需独立一条。
+    .replace(/gl(pat|ptt|oas|rt|cbt|soat|imt|ffct|dt|agent|ua|ft)-[A-Za-z0-9_-]{20,}/g, '[REDACTED_GL]')
+    .replace(/gitlab-ci-token:[^@\s]+@/g, 'gitlab-ci-token:[REDACTED_GL]@')
     .replace(/AKIA[A-Z0-9]{16}/g, '[REDACTED_AWS]')
     .replace(/xox[baprs]-[A-Za-z0-9-]{10,}/g, '[REDACTED_SLACK]')
     .replace(/[Bb]earer[ \t]+[A-Za-z0-9._+/=-]{20,}/g, 'Bearer [REDACTED]')

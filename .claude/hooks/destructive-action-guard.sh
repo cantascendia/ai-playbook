@@ -51,7 +51,11 @@ DB_PATTERNS="$(destructive_sql_core)|psql.*-c.*DROP|mongo.*dropDatabase|redis-cl
 # C. 云服务 destructive（v3.11: 关键资源前加 ["']? 容忍引号）
 # SPEC-002（2026-09-08）：迁 GitLab 后补 glab repo/project delete（`glab project` 是 `glab repo` 的别名，
 # 两条都拦）。gh 系模式保留 —— 红线只加不删。
-CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|glab\s+repo\s+delete|glab\s+project\s+delete|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
+# v4.7 P1（独立评审）：补 `glab api --method DELETE` / `-X DELETE`（REST 删项目绕开子命令名）、
+# `glab repo|project archive`、`glab variable delete`（CI 变量）、`glab release delete`；
+# `gh api --method|-X DELETE` 是同源 twin gap 一并补。`[^|;&]*` 只圈同一条命令内的 flag，
+# 不跨管道/分号误吃后续命令；GET/POST 的 glab api 不含 DELETE → 仍放行（fail-safe，无 carve-out）。
+CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|gh\s+api\s+[^|;&]*(--method[= ]DELETE|-X\s*DELETE)|glab\s+repo\s+delete|glab\s+project\s+delete|glab\s+api\s+[^|;&]*(--method[= ]DELETE|-X\s*DELETE)|glab\s+repo\s+archive|glab\s+project\s+archive|glab\s+variable\s+delete|glab\s+release\s+delete|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
 
 # 复合 destructive（不可逆 + 大规模）
 COMBINED_DESTRUCTIVE="${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}"

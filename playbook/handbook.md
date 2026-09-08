@@ -2586,11 +2586,22 @@ perf-budget:
 
 ### 32.2 强制双签机制
 
-**触发规则**：变更涉及上述黑名单中的文件 → GitLab CI 自动给 MR 打 `requires-double-review` **MR 标签**
-（`glab api --method PUT projects/:id/merge_requests/$CI_MERGE_REQUEST_IID --field "add_labels=requires-double-review"`，
-需 `GITLAB_TOKEN` project access token —— `CI_JOB_TOKEN` 无 MR 写权限，见 §51）→ 必须满足：
-1. **Human Review**：CODEOWNERS（`.gitlab/CODEOWNERS`）中指定的安全 / 资深工程师 approve
-2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Fable 5.1 / Opus 5 ↔ gpt-5.6 Sol）独立审一遍
+**触发规则**：MR 的改动文件命中上述黑名单（SSOT `scripts/forbidden-paths.txt`）→ 必须满足：
+
+1. **机器强制半（已实现）**：`.gitlab-ci.yml` 的 `double-sign-gate` job 在 MR pipeline 里比对改动文件与
+   forbidden SSOT；命中且 MR **未带** `requires-double-review` 标签 → job **失败**（main 开了
+   「Pipelines must succeed」→ 合不进去）。标签从 `$CI_MERGE_REQUEST_LABELS` 预定义变量读，
+   **不需要任何 token**（`CI_JOB_TOKEN` 无 MR 读写权限，见 §51）。
+   标签的**自动补打**在 `llm-judge` job 里，走 `curl --request PUT $CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID`
+   + `PRIVATE-TOKEN: $GITLAB_TOKEN`（CI 内不装 `glab`，见 §51）；未配 `GITLAB_TOKEN` 则**优雅跳过**
+   （打印到 job log，不假绿也不硬失败）→ 此时需人手动打标签，`double-sign-gate` 才会放行。
+2. **人工半（流程约束，非平台强制）**：
+   - `.gitlab/merge_request_templates/Default.md` 的 forbidden 勾选框（列出触及路径 + 确认已打标签）；
+   - main 为 protected branch（**No one push / Maintainers merge**）→ 合并动作本身只有 Maintainer 能做。
+   - ⚠️ `.gitlab/CODEOWNERS` **不构成审批强制**：GitLab 的 CODEOWNERS approval rules 需 **Premium 及以上**；
+     Free 层它只作 reviewer 提示（见 §32.3）。别把它当成"已强制 approve"。
+3. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Fable 5.1 / Opus 5 ↔ gpt-5.6 Sol）独立审一遍。
+   本地由 `codex-bridge` / `/cto-review` 产出，结论进 MR note；这一条**由人核对**，CI 不判定。
 
 ### 32.3 CODEOWNERS 配置示例
 

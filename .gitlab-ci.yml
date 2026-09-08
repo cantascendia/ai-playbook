@@ -24,6 +24,17 @@
 #     CI_JOB_TOKEN 在 gitlab.com 上**无** notes / issues 写权限，刻意不用。
 #   - 未配置 GITLAB_TOKEN 一律**优雅跳过**（把内容打印到 job log），既不假绿也不硬失败。
 #   - CI 从不 commit 回仓库；产物一律走 artifacts。
+#
+# 变更日志：
+#   2026-09-08 review fixes —— 独立评审 7 项修复：
+#     P1 `&config_surface` 扩面（forbidden/business 路径 SSOT、CONSTITUTION、settings.json、
+#        .claude/rules/、pre-commit 安装器、skills manifest、templates/、.gitlab/）；
+#     P1 §32.2 双签标签**真强制**（eval-gate 阻断 + llm-judge 命中时自动打标）；
+#     P2 纯文档 push 到 main 不再产生 0-job 的红 pipeline（workflow 默认分支规则挂 changes）；
+#     P2 GITLAB_TOKEN 不再出现在 curl argv（改 `-H @headerfile`，用后即删）；
+#     P2 self-audit rolling issue 查询失败时不再误关全部 self-audit issue；
+#     P2 `grep -c ... || echo 0` 的 "0 换行 0" 计数污染；
+#     P2 pipeline 去重措辞如实化（canary 分支 + 开着的 MR 仍会双跑）。
 # =============================================================================
 
 default:
@@ -36,14 +47,51 @@ stages:
   - audit
   - canary
 
-# 只在这几类流水线上建 pipeline：MR / 默认分支 push / 定时 / 手动(web) / canary 分支。
-# 其余分支 push 不建 pipeline（避免 MR + branch 双流水线重复跑）。
+# -----------------------------------------------------------------------------
+# config surface SSOT（2026-09-08 review fixes P1/P2）
+#
+# 「改到这些路径 = 改到 agent 行为面」的单一定义，被 workflow.rules 与 eval-gate.rules
+# 共用。YAML anchor 必须**先定义后引用**，故本块必须放在 `workflow:` 之上。
+# 顶层 `.` 开头的 key 在 GitLab CI 里是 hidden job，不会被当作真实 job 执行。
+# -----------------------------------------------------------------------------
+.config_surface: &config_surface
+  - '.claude/commands/**/*'
+  - '.claude/agents/**/*'
+  - '.claude/skills/**/*'
+  - '.claude/hooks/**/*'
+  - '.claude/rules/**/*'
+  - '.claude/settings.json'
+  - '.agents/skills/**/*'
+  - '.agents/skills-manifest.json'
+  - 'CLAUDE.md'
+  - 'playbook/handbook.md'
+  - 'docs/ai-cto/CONSTITUTION.md'
+  - 'docs/ai-cto/COUNTS.md'
+  - 'evals/**/*'
+  - 'scripts/run-evals.sh'
+  - 'scripts/check-counts.sh'
+  - 'scripts/check-forbidden-consistency.sh'
+  - 'scripts/install-pre-commit.sh'
+  - 'scripts/forbidden-paths.txt'
+  - 'scripts/business-paths.txt'
+  - 'templates/**/*'
+  - '.gitlab-ci.yml'
+  - '.gitlab/**/*'
+
+# 建 pipeline 的场景：MR / 默认分支 push（仅配置面改动）/ 定时 / 手动(web) / canary 分支。
+# 普通 feature 分支 push 不建 pipeline，少一份重复；但这**不等于**全局零重复：
+# `claude/canary-*` 分支若同时开着 MR，MR pipeline 与分支 pipeline 会并存。
+# 给 canary 规则加 `$CI_OPEN_MERGE_REQUESTS == null` 能去掉这份重复，但 canary job 只认
+# 分支变量（MR pipeline 里 $CI_COMMIT_BRANCH 为空），那样一开 MR 就再也不跑 canary ——
+# 权衡后**刻意保留**这一处重复，此处如实记录而非声称"无重复流水线"。
+# 默认分支 push 挂 changes：纯文档 push 到 main 不再产生「No stages / jobs」的红 pipeline。
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *config_surface
     - if: '$CI_COMMIT_BRANCH =~ /^claude\/canary-/'
 
 # -----------------------------------------------------------------------------
@@ -55,23 +103,70 @@ workflow:
 # （main: No one push / Maintainers merge）+ 「Pipelines must succeed」——
 # 属仓库治理开关（改变人的 direct-push 权限），见 SPEC-002 人工步。
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# double-sign-gate — §32.2 双签 gate（2026-09-08 review fixes P1，独立 job）
+# 铁律 #13 的**可执行**部分。以前"forbidden 路径要打 requires-double-review 标签"只写在文档里，
+# CI 从不校验；现在 MR 触及 forbidden 路径而未打标 → exit 1，配合 protected branch 的
+# 「Pipelines must succeed」真阻断 merge。
+# 为什么独立成 job 而不放 eval-gate：eval-gate 只在 config_surface 变动时才建 job，
+# 一个只碰 src/auth/** 的 MR 不会跑 eval-gate → 标签检查永远不触发（二审残余缺口）。
+# 本 job 对**每个 MR** 都跑、无 changes 过滤、无 token 依赖（$CI_MERGE_REQUEST_LABELS 预定义）。
+# 注：llm-judge（stage judge，在本 job 之后）会在命中时自动补打该标签，但打标不会重跑当前
+# pipeline —— 补标后的下一次 push / 手动重跑才会通过，这是刻意的人审停顿点。
+# -----------------------------------------------------------------------------
+double-sign-gate:
+  stage: gate
+  variables:
+    GIT_DEPTH: '0'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - |
+      set -u
+      BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
+      if [ -z "$BASE_SHA" ]; then
+        echo "CI_MERGE_REQUEST_DIFF_BASE_SHA 为空 — 无法计算 diff，跳过双签标签检查。"
+        exit 0
+      fi
+      git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null \
+        || git fetch --no-tags --depth=200 origin "$BASE_SHA"
+      changed_files="$(git diff --name-only "$BASE_SHA" "$CI_COMMIT_SHA")"
+
+      # forbidden 正则单源读 SSOT（同 llm-judge / forbidden-guard.sh）。
+      # CRLF 兜底：\r 混进正则会导致永远测不出 forbidden 路径（静默失效，最危险）。
+      if [ -f scripts/forbidden-paths.txt ]; then
+        forbidden_regex="$(
+          tr -d '\r' < scripts/forbidden-paths.txt |
+            sed -E 's/[[:space:]]*#.*$//' |
+            sed -E '/^[[:space:]]*$/d' |
+            paste -sd'|' -
+        )"
+      else
+        forbidden_regex='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
+      fi
+
+      touched="$(printf '%s\n' "$changed_files" | grep -E "$forbidden_regex" || true)"
+      if [ -z "$touched" ]; then
+        echo "本 MR 未触及 §32.1 forbidden 路径 — 双签标签非必需。"
+        exit 0
+      fi
+      echo "本 MR 触及 §32.1 forbidden 路径："
+      printf '%s\n' "$touched" | sed 's/^/  /'
+      case ",${CI_MERGE_REQUEST_LABELS:-}," in
+        *,requires-double-review,*)
+          echo "已打 requires-double-review 标签 — 双签流程已启动，继续。"
+          ;;
+        *)
+          echo "forbidden 路径改动需先打 requires-double-review 标签（§32.2 双签）"
+          exit 1
+          ;;
+      esac
+
 eval-gate:
   stage: gate
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &config_surface
-        - '.claude/commands/**/*'
-        - '.claude/agents/**/*'
-        - '.claude/skills/**/*'
-        - '.agents/skills/**/*'
-        - 'CLAUDE.md'
-        - 'playbook/handbook.md'
-        - 'evals/**/*'
-        - 'scripts/run-evals.sh'
-        - 'scripts/check-counts.sh'
-        - 'docs/ai-cto/COUNTS.md'
-        - '.claude/hooks/**/*'
-        - '.gitlab-ci.yml'
+      changes: *config_surface
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *config_surface
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -88,6 +183,58 @@ eval-gate:
       python3 --version
       node --version
   script:
+    # §32.2 双签 gate（2026-09-08 review fixes P1）—— 铁律 #13 的**可执行**部分。
+    # 以前"forbidden 路径要打 requires-double-review 标签"只写在文档里，CI 从不校验；
+    # 现在 MR 触及 forbidden 路径而未打标 → exit 1，配合 protected branch 的
+    # 「Pipelines must succeed」真阻断 merge。
+    # $CI_MERGE_REQUEST_LABELS 是 GitLab 预定义变量（逗号分隔），**不需要任何 token**。
+    # 注：llm-judge（stage judge，在本 job 之后）会在命中时自动补打该标签，但打标不会
+    # 重跑当前 pipeline —— 补标后的下一次 push / 手动重跑才会通过，这是刻意的人审停顿点。
+    - |
+      set -u
+      if [ "${CI_PIPELINE_SOURCE:-}" != "merge_request_event" ]; then
+        echo "非 MR pipeline — 跳过 §32.2 双签标签检查。"
+      else
+        BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
+        if [ -z "$BASE_SHA" ]; then
+          echo "CI_MERGE_REQUEST_DIFF_BASE_SHA 为空 — 无法计算 diff，跳过双签标签检查。"
+        else
+          git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null \
+            || git fetch --no-tags --depth=200 origin "$BASE_SHA"
+          changed_files="$(git diff --name-only "$BASE_SHA" "$CI_COMMIT_SHA")"
+
+          # forbidden 正则单源读 SSOT（同 llm-judge / forbidden-guard.sh）。
+          # CRLF 兜底：\r 混进正则会导致永远测不出 forbidden 路径（静默失效，最危险）。
+          if [ -f scripts/forbidden-paths.txt ]; then
+            forbidden_regex="$(
+              tr -d '\r' < scripts/forbidden-paths.txt |
+                sed -E 's/[[:space:]]*#.*$//' |
+                sed -E '/^[[:space:]]*$/d' |
+                paste -sd'|' -
+            )"
+          else
+            forbidden_regex='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
+          fi
+
+          touched="$(printf '%s\n' "$changed_files" | grep -E "$forbidden_regex" || true)"
+          if [ -z "$touched" ]; then
+            echo "本 MR 未触及 §32.1 forbidden 路径 — 双签标签非必需。"
+          else
+            echo "本 MR 触及 §32.1 forbidden 路径："
+            printf '%s\n' "$touched" | sed 's/^/  /'
+            case ",${CI_MERGE_REQUEST_LABELS:-}," in
+              *,requires-double-review,*)
+                echo "已打 requires-double-review 标签 — 双签流程已启动，继续。"
+                ;;
+              *)
+                echo "forbidden 路径改动需先打 requires-double-review 标签（§32.2 双签）"
+                exit 1
+                ;;
+            esac
+          fi
+        fi
+      fi
+
     - |
       N=$(ls evals/golden-trajectories/*.yaml 2>/dev/null | wc -l)
       echo "Found $N golden trajectories"
@@ -245,20 +392,41 @@ llm-judge:
       cat "$note_file"
 
       if [ -z "${GITLAB_TOKEN:-}" ]; then
-        echo "GITLAB_TOKEN not set — skipping MR note（advisory 内容已打印在上方 job log）"
+        echo "GITLAB_TOKEN not set — skipping MR note / 自动打标（advisory 内容已打印在上方 job log）"
         exit 0
       fi
 
+      # token 不进 curl argv（2026-09-08 review fixes P2）：同机 runner 上 `ps` / /proc
+      # 能看到别的 job 的命令行，argv 里的 PRIVATE-TOKEN 等于把 masked 变量泄给旁路进程。
+      # 写成 0600 临时头文件，用 `-H @file` 让 curl 自己读，用后即删（trap 兜底）。
+      umask 077
+      hdr="$(mktemp)"
+      trap 'rm -f "$hdr" "$note_file"' EXIT
+      printf '%s\n' "PRIVATE-TOKEN: ${GITLAB_TOKEN}" > "$hdr"
+
       curl --silent --show-error --fail \
         --request POST \
-        --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        --header @"$hdr" \
         --data-urlencode "body@${note_file}" \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes" \
         > /dev/null && echo "MR note posted." || echo "MR note POST 失败（advisory，不阻断）"
 
+      # 命中 forbidden 路径 → 自动补打 requires-double-review 标签（§32.2）。
+      # 打标本身不阻断（本 job allow_failure: true）；真正的阻断在 stage gate 的
+      # eval-gate 双签检查里。CI 内不用 glab，直接 curl $CI_API_V4_URL。
       if [ "$forbidden_count" -gt 0 ]; then
         echo "Forbidden paths detected; advisory only, not blocking."
+        curl --silent --show-error --fail \
+          --request PUT \
+          --header @"$hdr" \
+          --data-urlencode "add_labels=requires-double-review" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}" \
+          > /dev/null \
+          && echo "已自动补打 requires-double-review 标签（§32.2 双签）" \
+          || echo "打标失败（advisory，不阻断）—— 请人工在 MR 上加 requires-double-review"
       fi
+
+      rm -f "$hdr"
 
 # -----------------------------------------------------------------------------
 # codex-review（原 .github/workflows/codex-review.yml）—— §48 兜底
@@ -346,7 +514,10 @@ self-audit-weekly:
         TRAJ_COUNT=$(find .claude/agent-logs -name '*.jsonl' -mtime -30 -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}')
       fi
       if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ]; then
-        REVIEW_COUNT=$(grep -c "mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null || echo 0)
+        # `grep -c` 无匹配时**已经**打印 "0" 且 exit 1 —— 再 `|| echo 0` 会得到
+        # "0\n0"，指标行渲染成两行垃圾（2026-09-08 review fixes P2）。用 `|| true`，
+        # 空值交给下面的 ${VAR:-0} 兜底。
+        REVIEW_COUNT=$(grep -c "mode=success" docs/ai-cto/CODEX-REVIEW-LOG.md 2>/dev/null || true)
       fi
       if [ -d .claude/agent-logs ]; then
         BLOCK_COUNT=$(grep -h "immutable-blocked\|forbidden-blocked\|bypass-blocked" .claude/agent-logs/*.jsonl 2>/dev/null | wc -l)
@@ -430,45 +601,58 @@ self-audit-weekly:
       fi
 
       API="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/issues"
-      AUTH="PRIVATE-TOKEN: ${GITLAB_TOKEN}"
+
+      # token 不进 curl argv（2026-09-08 review fixes P2）：0600 头文件 + `-H @file`，
+      # 用后即删（trap 兜底，覆盖 set -e / exit 0 各条退出路径）。
+      umask 077
+      HDR="$(mktemp)"
+      trap 'rm -f "$HDR" "$BODY_FILE"' EXIT
+      printf '%s\n' "PRIVATE-TOKEN: ${GITLAB_TOKEN}" > "$HDR"
 
       # (1) 查已有的 open rolling issue（label self-audit-rolling）
-      rollingIid="$(curl --silent --fail --header "$AUTH" \
+      rollingIid="$(curl --silent --fail --header @"$HDR" \
         "${API}?state=opened&labels=self-audit-rolling&per_page=1" | jq -r '.[0].iid // empty')"
 
       if [ -n "$rollingIid" ]; then
         # (2) 已存在 → 原地更新标题（含最新日期）+ description（最新报告）+ 刷新评论
-        curl --silent --fail --request PUT --header "$AUTH" \
+        curl --silent --fail --request PUT --header @"$HDR" \
           --data-urlencode "title=${TITLE}" \
           --data-urlencode "description@${BODY_FILE}" \
           "${API}/${rollingIid}" > /dev/null
-        curl --silent --fail --request POST --header "$AUTH" \
+        curl --silent --fail --request POST --header @"$HDR" \
           --data-urlencode "body=audit refreshed ${DATE}" \
           "${API}/${rollingIid}/notes" > /dev/null
-        echo "rolling issue !${rollingIid} updated"
+        echo "rolling issue #${rollingIid} updated"
       else
         # (3) 不存在 → 新建滚动 issue（打 self-audit-rolling 标签供下轮复用）
-        rollingIid="$(curl --silent --fail --request POST --header "$AUTH" \
+        rollingIid="$(curl --silent --fail --request POST --header @"$HDR" \
           --data-urlencode "title=${TITLE}" \
           --data-urlencode "description@${BODY_FILE}" \
           --data-urlencode "labels=self-audit,self-audit-rolling,v3.9-flywheel" \
           "${API}" | jq -r '.iid')"
-        echo "rolling issue !${rollingIid} created"
+        echo "rolling issue #${rollingIid} created"
       fi
 
+      # (3.5) 熔断（2026-09-08 review fixes P2）：上面任一 curl / jq 失败都会让
+      # rollingIid 为空 —— 此时 (4) 的 `[ "$iid" != "" ]` 对每个 issue 都成立，
+      # 会把**全部** open 的 self-audit issue 一次性关光。宁可不清理，也不误关。
+      [ -n "$rollingIid" ] || { echo "rolling issue 未确定 — 跳过清理"; exit 0; }
+
       # (4) 关闭其余仍 open 的 self-audit issue（被滚动 issue 取代，去噪）
-      for iid in $(curl --silent --fail --header "$AUTH" \
+      for iid in $(curl --silent --fail --header @"$HDR" \
           "${API}?state=opened&labels=self-audit&per_page=100" | jq -r '.[].iid'); do
         if [ "$iid" != "$rollingIid" ]; then
-          curl --silent --fail --request POST --header "$AUTH" \
+          curl --silent --fail --request POST --header @"$HDR" \
             --data-urlencode "body=superseded by rolling issue #${rollingIid}" \
             "${API}/${iid}/notes" > /dev/null
-          curl --silent --fail --request PUT --header "$AUTH" \
+          curl --silent --fail --request PUT --header @"$HDR" \
             --data-urlencode "state_event=close" \
             "${API}/${iid}" > /dev/null
-          echo "closed stale self-audit issue !${iid}"
+          echo "closed stale self-audit issue #${iid}"
         fi
       done
+
+      rm -f "$HDR"
 
     # 4. Cost cap 检查（输出警告但不阻断）
     - |
