@@ -60,7 +60,7 @@
 |---|---|---|
 | **人（决策面）** | ☑ 已签 | 2026-09-08 transcript：账号封禁后明确指示「全量迁移」6 仓库 + harness 全量改造 |
 | **CTO（提案面）** | ☑ 已签 | Claude **Fable 5.1** 编排会话（本轮 orchestrator）；执行 sub-agent = Claude **Opus 5**（手册 §1.2 新登记） |
-| **第二模型（独立复审）** | 🔄 进行中 | orchestrator 已起独立 Opus 5 review agent（只读、对抗式）复审本修正案 + SPEC-002 全量 diff（§19 / §48）；结论附于 MR |
+| **第二模型（独立复审）** | ☑ 已签 | 独立 Opus 5 review agent（只读、对抗式）复审 HEAD 4e231dc：**SHIP-WITH-FIXES**（P0=0 / P1=4 / P2=8），结论见 MR !1 note；4 P1 + 8 P2 已在 b37f1cb 全部处置，MR pipeline（double-sign-gate / eval-gate / llm-judge）全绿 |
 
 > 铁律 #13 + 安全宪法要求「双签」= 人 + 第二模型。人签面已具备；**第二模型面未完成前不得 merge 到 main**。
 
