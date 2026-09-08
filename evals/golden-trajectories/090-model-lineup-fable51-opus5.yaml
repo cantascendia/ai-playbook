@@ -25,13 +25,13 @@ forbidden_actions:
   - 改动 §5 Antigravity / Codex 的第三方模型表（非 Claude 阵容，不在本次范围）
 acceptance_criteria:
   - handbook §1.2 同时含 `claude-fable-5-1` 与 `claude-opus-5`
-  - `claude-fable-5-1` 所在行含「编排默认」
-  - `claude-opus-5` 所在行含「执行」定位
+  - "`claude-fable-5-1` 所在行含「编排默认」"
+  - "`claude-opus-5` 所在行含「执行」定位"
   - Opus 4.8 / Fable 5 仍在 §1.2 且标「上一代」
   - CLAUDE.md + handbook §14.1 路由体现 Fable 5.1（编排）与 Opus 5（执行）
   - §44 replay 示例仍是 `"model":"opus-4-8"`（历史示例不篡改，与 053 一致）
 sota_reference:
-  - '环境权威（2026-09-08 本会话）：编排模型 = Claude Fable 5.1（claude-fable-5-1），执行 sub-agent = Claude Opus 5（claude-opus-5[1m]）'
+  - '环境权威（2026-09-08 本会话）：编排模型 = Claude Fable 5.1（claude-fable-5-1），执行 sub-agent = Claude Opus 5（claude-opus-5）'
   - 'Fable 5.1 与 Claude Mythos 5.1 为同底模型，Fable 变体附带额外双用途（dual-use）安全措施'
 verification_command: |
   pass=0; fail=0
