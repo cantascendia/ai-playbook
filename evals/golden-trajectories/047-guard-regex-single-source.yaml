@@ -51,21 +51,26 @@ verification_command: |
   #   common.sh（SSOT 函数）/ engine/lib.mjs 常量 / codex-bridge run.sh 内联 /
   #   install-pre-commit.sh 内联 / .codex/hooks/lib/common.sh 镜像
   CANON='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
-  p4=0
+  p4=0; want=4
   # common.sh 函数实际输出（source 后调用，等于运行时真值）
   [ "$(bash -c 'source .claude/hooks/lib/common.sh; forbidden_fallback_pattern')" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .claude/hooks/lib/common.sh"
-  [ "$(bash -c 'source .codex/hooks/lib/common.sh; forbidden_fallback_pattern' 2>/dev/null)" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .codex/hooks/lib/common.sh"
+  # .codex 镜像是本机 opt-in 产物（未入库，fresh clone 无此目录）：存在才比对，不存在不计入
+  if [ -f .codex/hooks/lib/common.sh ]; then want=5
+    [ "$(bash -c 'source .codex/hooks/lib/common.sh; forbidden_fallback_pattern' 2>/dev/null)" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .codex/hooks/lib/common.sh"
+  fi
   # engine/lib.mjs 常量（JS 字符串转义还原后比对）
   [ "$(node -e 'import("./.claude/hooks/engine/lib.mjs").then(m=>process.stdout.write(m.FORBIDDEN_FALLBACK_PATTERN))' 2>/dev/null)" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .claude/hooks/engine/lib.mjs"
   # 两处内联 fallback（grep -F 字面量，避免正则自匹配）
   grep -qF "$CANON" "$RUN" && p4=$((p4+1)) || echo "  drift: $RUN"
   grep -qF "$CANON" scripts/install-pre-commit.sh && p4=$((p4+1)) || echo "  drift: scripts/install-pre-commit.sh"
-  [ "$p4" = "5" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden fallback 副本漂移 ($p4/5 一致)"; }
+  [ "$p4" = "$want" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden fallback 副本漂移 ($p4/$want 一致)"; }
 
   # 4c. SSOT（scripts/forbidden-paths.txt）含 GitLab CI 条目，且 .github/workflows/ 未被删（红线只加不删）
-  { grep -qxF '.gitlab-ci.yml' scripts/forbidden-paths.txt \
-    && grep -qxF '.gitlab/' scripts/forbidden-paths.txt \
-    && grep -qxF '.github/workflows/' scripts/forbidden-paths.txt; } \
+  # tr -d '\r'：Windows autocrlf 检出为 CRLF，-x 整行匹配须先剥 CR（learned rule 2026-05-12 / eval 081）
+  SSOT_LF=$(tr -d '\r' < scripts/forbidden-paths.txt)
+  { echo "$SSOT_LF" | grep -qxF '.gitlab-ci.yml' \
+    && echo "$SSOT_LF" | grep -qxF '.gitlab/' \
+    && echo "$SSOT_LF" | grep -qxF '.github/workflows/'; } \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden SSOT 缺 .gitlab-ci.yml/.gitlab/ 或误删 .github/workflows/"; }
 
   # 5. 单源后行为不变：destructive 仍拦 DROP/TRUNCATE，mcp SELECT 放行
