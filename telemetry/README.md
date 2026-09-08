@@ -65,11 +65,11 @@ Claude Code **没有内置的 repo / cwd 属性**。要区分不同仓库或不�
 export OTEL_RESOURCE_ATTRIBUTES="repo=ai-playbook"
 ```
 
-GitHub Actions 里（顺带带上 workflow run id）：
+GitLab CI 里（顺带带上 pipeline id）：
 
 ```yaml
-env:
-  OTEL_RESOURCE_ATTRIBUTES: "repo=${GITHUB_REPOSITORY},workflow_run_id=${GITHUB_RUN_ID}"
+variables:
+  OTEL_RESOURCE_ATTRIBUTES: "repo=${CI_PROJECT_PATH},pipeline_id=${CI_PIPELINE_ID}"
 ```
 
 report 的维度解析优先读 `resource`，其次 datapoint 属性；**取不到就显示 `(unset)`，绝不编造**。

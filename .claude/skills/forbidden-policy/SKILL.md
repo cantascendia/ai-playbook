@@ -2,9 +2,9 @@
 name: forbidden-policy
 description: >
   §32.1 Forbidden 路径强制规则。当 Claude 编辑 auth/payment/billing/secrets/keys/migration/
-  crypto/infra/terraform/ansible/.github/workflows 路径下文件时自动加载。要求 spec-driven、
-  双签、PR 标签 requires-double-review。配套 .claude/hooks/forbidden-guard.sh 硬阻止
-  (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
+  crypto/infra/terraform/ansible/.github/workflows/.gitlab-ci.yml/.gitlab 路径下文件时自动加载。
+  要求 spec-driven、双签、MR 标签 requires-double-review（GitLab）。配套
+  .claude/hooks/forbidden-guard.sh 硬阻止 (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
 user-invocable: false
 paths:
   - "**/auth/**"
@@ -19,6 +19,8 @@ paths:
   - "**/terraform/**"
   - "**/ansible/**"
   - ".github/workflows/**"
+  - ".gitlab-ci.yml"
+  - ".gitlab/**"
 ---
 
 # Forbidden 路径策略 (§32.1 / 铁律 #13)
@@ -64,9 +66,10 @@ Per SPEC.md §3.2: TOTP 验证窗口 ±30s，5 次失败锁定 15 min
 Reviewed by: codex-gpt5.5 (sha=abc1234)
 ```
 
-### 4. PR 标签 requires-double-review
+### 4. MR 标签 requires-double-review（GitLab）
 
-PR 必须打 `requires-double-review` 标签。CI 会校验此标签存在才能合并到 main。
+MR 必须打 `requires-double-review` 标签。GitLab CI（`.gitlab-ci.yml` 的 eval-gate job）
+会校验此标签存在才能合并到 main。
 
 ## 紧急例外（禁止滥用）
 

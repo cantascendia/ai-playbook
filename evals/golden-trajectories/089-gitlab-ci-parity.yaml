@@ -1,0 +1,98 @@
+id: 089-gitlab-ci-parity
+description: >
+  SPEC-002 平台迁移验收 — .gitlab-ci.yml 必须与被删除的 5 个 GitHub Actions workflow
+  功能对等（parity）：eval-gate / llm-judge / self-audit-weekly / canary 四个 job 齐全，
+  eval-gate 同时覆盖 merge_request_event 与 push-to-main，llm-judge 仅 MR，
+  self-audit 走 GitLab pipeline schedule；全文 0 处 gh CLI；llm-judge 引用 forbidden SSOT；
+  `.github/workflows` 目录已消失（不留双平台并存的假象）。
+priority: P0
+input:
+  - "GitHub 账号封禁后，harness 的远端 CI 闸门必须整体落在 GitLab 上，且无残留 GitHub 依赖"
+expected_steps:
+  - "新建 .gitlab-ci.yml，stages 覆盖 gate / judge / audit / canary"
+  - "job eval-gate：rules 含 merge_request_event 与 push-to-$CI_DEFAULT_BRANCH 两条（铁律 #12 的 MR + direct-push 双覆盖）"
+  - "job llm-judge：rules 仅 merge_request_event（advisory，不在 main 产生噪声 pipeline）"
+  - "job self-audit-weekly：rules 含 $CI_PIPELINE_SOURCE == \"schedule\"（GitLab pipeline schedule 取代 Actions cron）"
+  - "job canary：分支 claude/canary-* 或 web 手动触发"
+  - "llm-judge forbidden 正则读 scripts/forbidden-paths.txt（SSOT 单源）"
+  - "git rm .github/workflows/*.yml —— 目录随之消失"
+forbidden_actions:
+  - "保留 .github/workflows/ 与 .gitlab-ci.yml 双平台并存（GitHub 侧不会执行 = 假绿的闸门）"
+  - "在 .gitlab-ci.yml 里调用 gh CLI（GitHub token 已失效，会静默失败）"
+  - "llm-judge 硬编码 forbidden 正则（脱离 SSOT → 漂移）"
+  - "把 eval-gate 降级为仅 MR 触发（direct-push 到 main 静默绕过 eval gate）"
+  - "把 llm-judge 加到 push / schedule 触发（噪声 pipeline）"
+acceptance_criteria:
+  - ".gitlab-ci.yml 存在且 YAML 可解析；四个 job 名齐全"
+  - "eval-gate rules 覆盖 merge_request_event AND push-to-default-branch"
+  - "llm-judge rules 只有 merge_request_event"
+  - "self-audit-weekly rules 含 schedule"
+  - ".gitlab-ci.yml 全文无 gh CLI 调用"
+  - "llm-judge 引用 scripts/forbidden-paths.txt"
+  - ".github/workflows 目录不存在"
+  - "verification_command 输出真实 pass=N fail=N，末行 PASS 或 FAIL"
+sota_reference:
+  - 'SPEC-002（docs/ai-cto/SPEC.md）：GitHub → GitLab 平台迁移 2026-09-08'
+  - '手册 §47（CI 闸门）/ §32.1（forbidden SSOT）/ 铁律 #12'
+verification_command: |
+  Y=.gitlab-ci.yml
+  pass=0; fail=0
+  ok()  { pass=$((pass+1)); }
+  bad() { fail=$((fail+1)); echo "FAIL: $1"; }
+
+  test -f "$Y" && ok || bad ".gitlab-ci.yml 不存在"
+  if [ ! -f "$Y" ]; then echo "pass=$pass fail=$fail"; echo FAIL; exit 1; fi
+
+  # 1. 四个核心 job 存在
+  for j in eval-gate llm-judge self-audit-weekly canary; do
+    grep -qE "^${j}:[[:space:]]*$" "$Y" && ok || bad "缺 job ${j}"
+  done
+
+  # 2. stages 齐全
+  for s in gate judge audit canary; do
+    awk '/^stages:/{p=1;next} p&&/^[^[:space:]-]/{exit} p{print}' "$Y" | grep -qE "^[[:space:]]*-[[:space:]]*${s}[[:space:]]*$" \
+      && ok || bad "stages 缺 ${s}"
+  done
+
+  # job 块提取器
+  jobblk() { awk -v j="^$1:" '$0 ~ j {p=1;next} p&&/^[^[:space:]#]/{exit} p{print}' "$Y"; }
+
+  # 3. eval-gate: MR + push-to-default-branch 双覆盖
+  EG=$(jobblk eval-gate)
+  printf '%s\n' "$EG" | grep -q 'CI_PIPELINE_SOURCE == "merge_request_event"' \
+    && ok || bad "eval-gate 缺 merge_request_event 触发"
+  printf '%s\n' "$EG" | grep -q 'CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH' \
+    && ok || bad "eval-gate 缺 push-to-default-branch 触发"
+
+  # 4. llm-judge: 仅 MR
+  LJ=$(jobblk llm-judge)
+  printf '%s\n' "$LJ" | grep -q 'CI_PIPELINE_SOURCE == "merge_request_event"' \
+    && ok || bad "llm-judge 缺 merge_request_event 触发"
+  printf '%s\n' "$LJ" | grep -qE 'CI_PIPELINE_SOURCE == "(push|schedule|web)"' \
+    && bad "llm-judge 混入非 MR 触发（噪声 pipeline）" || ok
+  printf '%s\n' "$LJ" | grep -q 'CI_COMMIT_BRANCH' \
+    && bad "llm-judge 含分支触发条件（应仅 MR）" || ok
+
+  # 5. self-audit-weekly: schedule 触发
+  SA=$(jobblk self-audit-weekly)
+  printf '%s\n' "$SA" | grep -q 'CI_PIPELINE_SOURCE == "schedule"' \
+    && ok || bad "self-audit-weekly 缺 schedule 触发"
+
+  # 6. canary: claude/canary-* 分支或手动
+  CA=$(jobblk canary)
+  printf '%s\n' "$CA" | grep -q 'claude..canary-' \
+    && ok || bad "canary 缺 claude/canary-* 分支触发"
+
+  # 7. 全文 0 处 gh CLI（GitHub 账号封禁 — SPEC-002 验收标准）
+  grep -qE '(^|[^a-zA-Z])gh ' "$Y" \
+    && bad ".gitlab-ci.yml 残留 GitHub CLI 调用" || ok
+
+  # 8. llm-judge 引用 forbidden SSOT
+  printf '%s\n' "$LJ" | grep -q 'scripts/forbidden-paths.txt' \
+    && ok || bad "llm-judge 未引用 scripts/forbidden-paths.txt（SSOT 单源）"
+
+  # 9. .github/workflows 目录已消失（不留双平台并存的假象）
+  [ ! -d .github/workflows ] && ok || bad ".github/workflows 目录仍存在（双平台并存 = 假绿闸门）"
+
+  echo "pass=$pass fail=$fail (expect 19/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

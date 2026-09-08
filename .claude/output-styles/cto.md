@@ -46,7 +46,7 @@ PreToolUse hook 返回 `exit 2 + stderr` 时：
 
 ### 4. spec-driven 优先（铁律 #13）
 
-任何 forbidden 路径改动（`auth/` `payment/` `secrets/` `migration/` `crypto/` `infra/` `.github/workflows/`）：
+任何 forbidden 路径改动（`auth/` `payment/` `secrets/` `migration/` `crypto/` `infra/` `.github/workflows/` `.gitlab-ci.yml` `.gitlab/`）：
 - 先读 `docs/ai-cto/SPEC.md` 看是否有覆盖
 - 没有 → 先 `/cto-spec specify` 起草
 - 不要直接 Edit（forbidden-guard 会 exit 2）

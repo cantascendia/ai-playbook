@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 
 // ─── 单源正则（与 lib/common.sh 字符串逐字相等 — eval 047 扩展断言锁定）───
 export const FORBIDDEN_FALLBACK_PATTERN =
-  'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\\.github/workflows/';
+  'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\\.github/workflows/|\\.gitlab-ci\\.yml|\\.gitlab/';
 export const DESTRUCTIVE_SQL_CORE =
   '\\bDROP\\s+(TABLE|DATABASE|SCHEMA|INDEX)\\b|\\bTRUNCATE\\b|DELETE\\s+FROM\\s+[a-z_]+\\s*(;|$)';
 // hook 绕过模式：必须与 common.sh bypass_patterns() 输出逐字节相等（eval 073 锁定）。
@@ -202,11 +202,13 @@ export function headBytes(s, n) {
   return Buffer.from(String(s), 'utf8').subarray(0, n).toString('utf8').replace(/�+$/, '');
 }
 
-// ─── trajectory 脱敏（trajectory-logger.sh _redact 等价：6 条规则按序）───
+// ─── trajectory 脱敏（trajectory-logger.sh _redact 等价：7 条规则按序）───
 export function redact(s) {
   return String(s)
     .replace(/sk-[A-Za-z0-9_-]{16,}/g, '[REDACTED_SK]')
     .replace(/(ghp|gho|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/g, '[REDACTED_GH]')
+    // SPEC-002：GitLab 令牌族（显式官方前缀白名单，不用 gl[a-z]{3,4}- 通配 — 那会误吃 global-xxx）
+    .replace(/gl(pat|ptt|oas|rt|cbt|soat|imt|ffct|dt|agent|ua)-[A-Za-z0-9_-]{20,}/g, '[REDACTED_GL]')
     .replace(/AKIA[A-Z0-9]{16}/g, '[REDACTED_AWS]')
     .replace(/xox[baprs]-[A-Za-z0-9-]{10,}/g, '[REDACTED_SLACK]')
     .replace(/[Bb]earer[ \t]+[A-Za-z0-9._+/=-]{20,}/g, 'Bearer [REDACTED]')

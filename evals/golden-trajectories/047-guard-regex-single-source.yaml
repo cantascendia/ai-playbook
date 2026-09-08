@@ -18,6 +18,8 @@ acceptance_criteria:
   - common.sh 含 forbidden_fallback_pattern + destructive_sql_core
   - destructive-action-guard / mcp-guard 用 destructive_sql_core（不再内联 DROP 正则）
   - forbidden-guard / mcp-guard 用 forbidden_fallback_pattern
+  - SPEC-002：canonical fallback 串在 5 处副本（common.sh / .codex 镜像 / engine lib.mjs / codex-bridge / install-pre-commit）逐字节相等
+  - SPEC-002：SSOT 含 .gitlab-ci.yml + .gitlab/，且 .github/workflows/ 未被删（只加不删）
   - codex-bridge fallback 含完整 forbidden 路径（billing/keys/terraform/.github）
 sota_reference:
   - 'SOTA team v2 审计 O7 + learned rule 2026-05-12：共同模式发现一处必须全 sweep'
@@ -44,6 +46,28 @@ verification_command: |
   grep -qE 'forbidden_fallback_pattern' "$RUN" && grep -qE 'billing.*keys.*terraform|\.github/workflows' "$RUN" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: codex-bridge fallback 仍不完整/未单源"; }
 
+  # 4b. SPEC-002：canonical fallback 字符串在**全部派生副本**里逐字节相等。
+  # 副本清单（learned rule 2026-05-12：一处改必须全 sweep）：
+  #   common.sh（SSOT 函数）/ engine/lib.mjs 常量 / codex-bridge run.sh 内联 /
+  #   install-pre-commit.sh 内联 / .codex/hooks/lib/common.sh 镜像
+  CANON='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
+  p4=0
+  # common.sh 函数实际输出（source 后调用，等于运行时真值）
+  [ "$(bash -c 'source .claude/hooks/lib/common.sh; forbidden_fallback_pattern')" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .claude/hooks/lib/common.sh"
+  [ "$(bash -c 'source .codex/hooks/lib/common.sh; forbidden_fallback_pattern' 2>/dev/null)" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .codex/hooks/lib/common.sh"
+  # engine/lib.mjs 常量（JS 字符串转义还原后比对）
+  [ "$(node -e 'import("./.claude/hooks/engine/lib.mjs").then(m=>process.stdout.write(m.FORBIDDEN_FALLBACK_PATTERN))' 2>/dev/null)" = "$CANON" ] && p4=$((p4+1)) || echo "  drift: .claude/hooks/engine/lib.mjs"
+  # 两处内联 fallback（grep -F 字面量，避免正则自匹配）
+  grep -qF "$CANON" "$RUN" && p4=$((p4+1)) || echo "  drift: $RUN"
+  grep -qF "$CANON" scripts/install-pre-commit.sh && p4=$((p4+1)) || echo "  drift: scripts/install-pre-commit.sh"
+  [ "$p4" = "5" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden fallback 副本漂移 ($p4/5 一致)"; }
+
+  # 4c. SSOT（scripts/forbidden-paths.txt）含 GitLab CI 条目，且 .github/workflows/ 未被删（红线只加不删）
+  { grep -qxF '.gitlab-ci.yml' scripts/forbidden-paths.txt \
+    && grep -qxF '.gitlab/' scripts/forbidden-paths.txt \
+    && grep -qxF '.github/workflows/' scripts/forbidden-paths.txt; } \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: forbidden SSOT 缺 .gitlab-ci.yml/.gitlab/ 或误删 .github/workflows/"; }
+
   # 5. 单源后行为不变：destructive 仍拦 DROP/TRUNCATE，mcp SELECT 放行
   # v3.14 A：mcp-guard 改 deny JSON，用机制无关检测（exit 2 或 deny JSON）
   blocked(){ out=$(printf '%s' "$1" | bash .claude/hooks/mcp-guard.sh 2>&1); rc=$?; [ "$rc" = 2 ] || echo "$out" | grep -q 'permissionDecision":"deny"'; }
@@ -52,5 +76,5 @@ verification_command: |
   blocked '{"tool_name":"mcp__x__execute_sql","tool_input":{"query":"SELECT 1"},"cwd":"."}' || p2=$((p2+1))
   [ "$p2" = "2" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 单源后 SQL 行为变化 (p2=$p2)"; }
 
-  echo "pass=$pass fail=$fail (expect 5/0)"
+  echo "pass=$pass fail=$fail (expect 7/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

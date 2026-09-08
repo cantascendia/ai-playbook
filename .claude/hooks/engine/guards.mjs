@@ -214,7 +214,7 @@ export function forbiddenGuard(ctx) {
 此路径禁止 vibe coding（铁律 #13），必须走 Spec-Driven：
   1. /cto-spec specify — 先写 SPEC 并经人审
   2. 双签：CTO + 第二模型独立审（/cto-review --cross）
-  3. PR 打 requires-double-review 标签
+  3. MR (GitLab) 打 requires-double-review 标签
 
 参考：handbook §32.1 / §19 / 铁律 #13
 紧急 opt-out（已获双签后）：export CTO_DOUBLE_SIGNED=1（audit 永久记录）`);
@@ -454,7 +454,7 @@ hook 失败 → 修根因，不是跳过检查。
 // SCAN_CMD：仅剥离 heredoc 起始标记至行尾（v3.11 定案：引号内容保留 — psql -c "DROP..." 必须命中）
 const FS_PATTERNS = `rm\\s+-rf\\s+["']?/($|\\s|["'])|rm\\s+-rf\\s+["']?~($|\\s|["'])|rm\\s+-rf\\s+["']?\\$HOME|rm\\s+-rf\\s+["']?\\.\\s|rm\\s+-rf\\s+["']?\\*($|\\s)|find\\s+/?\\s.*-delete|>\\s*/dev/sda|mkfs|dd\\s+if=.*of=/dev/`;
 const DB_PATTERNS = `${DESTRUCTIVE_SQL_CORE}|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL`;
-const CLOUD_PATTERNS = `terraform\\s+destroy|vercel\\s+rm\\s.*--yes|railway\\s+(down|destroy)|supabase\\s+project\\s+delete|aws\\s+s3\\s+rb\\s+["']?s3://.*--force|aws\\s+rds\\s+delete-db-instance|aws\\s+ec2\\s+terminate-instances.*--force|gh\\s+repo\\s+delete|gh\\s+secret\\s+remove|firebase\\s+(use\\s+.*&&.*deploy|projects:delete)|heroku\\s+apps:destroy|fly\\s+apps\\s+destroy|kubectl\\s+delete\\s+(ns|namespace|cluster|all)|docker\\s+system\\s+prune\\s+--all\\s+--volumes`;
+const CLOUD_PATTERNS = `terraform\\s+destroy|vercel\\s+rm\\s.*--yes|railway\\s+(down|destroy)|supabase\\s+project\\s+delete|aws\\s+s3\\s+rb\\s+["']?s3://.*--force|aws\\s+rds\\s+delete-db-instance|aws\\s+ec2\\s+terminate-instances.*--force|gh\\s+repo\\s+delete|gh\\s+secret\\s+remove|glab\\s+repo\\s+delete|glab\\s+project\\s+delete|firebase\\s+(use\\s+.*&&.*deploy|projects:delete)|heroku\\s+apps:destroy|fly\\s+apps\\s+destroy|kubectl\\s+delete\\s+(ns|namespace|cluster|all)|docker\\s+system\\s+prune\\s+--all\\s+--volumes`;
 const COMBINED_DESTRUCTIVE = new RegExp(`${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}`, 'im');
 
 export function destructiveActionGuard(ctx) {

@@ -40,7 +40,7 @@ fi
 # 分 3 类：
 #   A. 文件系统级灾难：rm -rf / / rm -rf ~ / find -delete
 #   B. 数据库级灾难：DROP TABLE / DROP DATABASE / TRUNCATE / DELETE FROM (无 WHERE)
-#   C. 云服务/平台级：terraform destroy / vercel rm / railway destroy / supabase project delete / aws s3 rb / gh repo delete
+#   C. 云服务/平台级：terraform destroy / vercel rm / railway destroy / supabase project delete / aws s3 rb / gh repo delete / glab repo|project delete
 
 # A. 文件系统（v3.11: 路径前加 ["']? 容忍引号包裹，因 v3.11 不再剥引号）
 FS_PATTERNS='rm\s+-rf\s+["'"'"']?/($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?~($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?[$]HOME|rm\s+-rf\s+["'"'"']?\.\s|rm\s+-rf\s+["'"'"']?\*($|\s)|find\s+/?\s.*-delete|>\s*/dev/sda|mkfs|dd\s+if=.*of=/dev/'
@@ -49,7 +49,9 @@ FS_PATTERNS='rm\s+-rf\s+["'"'"']?/($|\s|["'"'"'])|rm\s+-rf\s+["'"'"']?~($|\s|["'
 DB_PATTERNS="$(destructive_sql_core)|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL"
 
 # C. 云服务 destructive（v3.11: 关键资源前加 ["']? 容忍引号）
-CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
+# SPEC-002（2026-09-08）：迁 GitLab 后补 glab repo/project delete（`glab project` 是 `glab repo` 的别名，
+# 两条都拦）。gh 系模式保留 —— 红线只加不删。
+CLOUD_PATTERNS='terraform\s+destroy|vercel\s+rm\s.*--yes|railway\s+(down|destroy)|supabase\s+project\s+delete|aws\s+s3\s+rb\s+["'"'"']?s3://.*--force|aws\s+rds\s+delete-db-instance|aws\s+ec2\s+terminate-instances.*--force|gh\s+repo\s+delete|gh\s+secret\s+remove|glab\s+repo\s+delete|glab\s+project\s+delete|firebase\s+(use\s+.*&&.*deploy|projects:delete)|heroku\s+apps:destroy|fly\s+apps\s+destroy|kubectl\s+delete\s+(ns|namespace|cluster|all)|docker\s+system\s+prune\s+--all\s+--volumes'
 
 # 复合 destructive（不可逆 + 大规模）
 COMBINED_DESTRUCTIVE="${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}"

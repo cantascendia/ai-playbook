@@ -67,7 +67,7 @@ const SUBSYSTEMS = [
   { key: 'handbook', prompt: `${COMMON} Subsystem: playbook/handbook.md + INDEX.md. Map sections (grep -n '^## '), flag heaviest, stale claims, zero-inbound-reference sections (cross-grep §NN over .claude/** CLAUDE.md README.md).` },
   { key: 'enforcement', prompt: `${COMMON} Subsystem: .claude/settings.json + .claude/hooks/** + .claude/rules/**. Per hook: trigger/enforcement/LOC. Find: claimed-but-unenforced red lines, duplication, bypass holes, Windows fragility.` },
   { key: 'surface', prompt: `${COMMON} Subsystem: .claude/commands/*.md + .claude/skills/** + .agents/skills/** + .claude/agents/*.md + output-styles. Per item: purpose/LOC/overlap/staleness/eval-coverage.` },
-  { key: 'quality', prompt: `${COMMON} Subsystem: evals/** + scripts/** + ledger/** + .github/**. Classify EXECUTABLE vs ASPIRATIONAL. Eval coverage gaps vs commands/hooks. CI story.` },
+  { key: 'quality', prompt: `${COMMON} Subsystem: evals/** + scripts/** + ledger/** + .gitlab-ci.yml + .gitlab/** + .github/** (SPEC-002: GitHub Actions removed — flag any residue). Classify EXECUTABLE vs ASPIRATIONAL. Eval coverage gaps vs commands/hooks. CI story.` },
   { key: 'memory', prompt: `${COMMON} Subsystem: docs/ai-cto/** + docs/test-plans/**. Per file: load-bearing (runtime-read by .claude/**) vs archive; staleness; append-forever growth; contradictions vs COUNTS.md.` },
   { key: 'distribution', prompt: `${COMMON} Subsystem: cto-init/cto-link/templates/README. Full deployment story per profile; copy-drift; what target projects are promised vs actually installed.` },
 ]

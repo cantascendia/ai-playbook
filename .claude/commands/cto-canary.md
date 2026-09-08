@@ -1,6 +1,6 @@
 ---
 name: cto-canary
-description: Canary 部署生成器（手册 §45）— 输入 percent / success_metric / rollback_condition，输出可执行的 GitHub Actions workflow + feature flag 配置
+description: Canary 部署生成器（手册 §45）— 输入 percent / success_metric / rollback_condition，输出可执行的 GitLab CI child pipeline + feature flag 配置
 argument-hint: "[--percent N] [--metric <expr>] [--duration <h>]"
 allowed-tools: ["Read", "Write", "Edit", "Bash"]
 model: opus
@@ -38,33 +38,40 @@ git diff --name-only HEAD~1 HEAD | grep -E '(CLAUDE\.md|\.claude/commands|\.clau
 - rollback：默认 "eval_pass_rate < 90% in 3 windows"
 - duration：24h / 7d
 
-### 3. 生成 GitHub Actions workflow
+### 3. 生成 GitLab CI child pipeline
 
-写入 `.github/workflows/canary-<feature>.yml`：
+写入 `.gitlab/ci/canary-<feature>.yml`，并在根 `.gitlab-ci.yml` 用 `include: local` 引入：
 
 ```yaml
-name: Canary - <feature>
-on:
-  push:
-    branches: [claude/canary-<feature>]
-jobs:
-  canary-eval:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run evals
-        run: ./scripts/run-evals.sh
-      - name: Check metric
-        run: ./scripts/check-canary-metric.sh "<metric expr>"
-      - name: Decide
-        run: |
-          if [ "$pass" = "true" ]; then
-            gh pr merge --merge
-          else
-            gh pr close && git revert
-            echo "Rollback triggered" >> docs/ai-cto/INCIDENTS.md
-          fi
+# .gitlab-ci.yml（根）追加：
+include:
+  - local: '.gitlab/ci/canary-<feature>.yml'
 ```
+
+```yaml
+# .gitlab/ci/canary-<feature>.yml
+canary-<feature>:
+  stage: test
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "claude/canary-<feature>"'
+  script:
+    - ./scripts/run-evals.sh
+    - ./scripts/check-canary-metric.sh "<metric expr>"
+    - |
+      if [ "$pass" = "true" ]; then
+        glab mr merge --yes
+      else
+        glab mr close --yes && git revert --no-edit HEAD
+        echo "Rollback triggered" >> docs/ai-cto/INCIDENTS.md
+      fi
+```
+
+> ⚠️ `.gitlab-ci.yml` 与 `.gitlab/**` 自 SPEC-002 起是 **forbidden 路径**（铁律 #13）。
+> 生成这两个文件必须走 spec-driven + 双签；forbidden-guard 会 exit 2，
+> 真双签后用 `export CTO_DOUBLE_SIGNED=1` 单次放行，并给 MR 打 `requires-double-review` 标签。
+>
+> `glab mr merge` / `glab mr close` 需 job 里有可用的 `GITLAB_TOKEN`（Settings → CI/CD →
+> Variables，masked + protected）。无 token 时该步应优雅跳过而非让 pipeline 假绿。
 
 ### 4. 生成 feature flag 配置
 
@@ -102,7 +109,7 @@ git checkout -b claude/canary-<feature>
 ```markdown
 ## Canary 部署计划：<feature>
 
-✅ 已生成 .github/workflows/canary-<feature>.yml
+✅ 已生成 .gitlab/ci/canary-<feature>.yml（并在 .gitlab-ci.yml 加 include: local）
 ✅ 已生成 feature flag 配置（或 git branch 方案）
 ✅ 已在 INCIDENTS.md 预占 section
 

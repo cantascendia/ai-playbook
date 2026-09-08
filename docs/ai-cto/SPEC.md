@@ -8,6 +8,11 @@
 
 ## SPEC-001: CI eval gate 加固（.github/workflows — ☑ 已应用 2026-07-08）
 
+> 📌 **2026-09-08 注**：本 spec 的 **GitHub branch-protection 人工步（item 3 末尾的 `gh api ... /branches/main/protection`）
+> 已被 SPEC-002 取代** —— GitHub 账号封禁，该 API 不可达。现行阻断配置见 SPEC-002 / handbook §47.4
+> （GitLab protected branch：`allowed_to_push = No one` / `allowed_to_merge = Maintainers` / `allow_force_push = false`
+> + 项目设置「Pipelines must succeed」）。本 spec 的其余 item（1/2/4/5）作为**历史记录保留原文不改**（铁律 #2）。
+
 - **状态**: ☑ **已实现**（v4.0e-apply：人三次显式授权 + `CTO_DOUBLE_SIGNED` opt-out 经
   settings.local.json 激活，forbidden-guard 放行 + audit `forbidden-allowed double_signed=true`；
   eval 063 编码验收标准守护回归）
@@ -71,3 +76,43 @@
   其余 112 行（cron/健康指标/报告）逐字节不动。经 CTO_DOUBLE_SIGNED opt-out 应用（ADR-007 通道），
   eval 079 守护（12 断言 + staged/live 双态验证设计：staged 删除后自动落 live）。
   协作：Opus W2 编码（staged），Fable 5 验收+应用。
+
+---
+
+## SPEC-002: GitHub → GitLab 平台迁移（.gitlab-ci.yml / .gitlab/ — 🔄 实施中 2026-09-08）
+
+- **状态**: 🔄 **实施中**（branch `feat/gitlab-migration`；opt-out 经 ADR-007 通道 settings.local.json env
+  `CTO_CONSTITUTION_AMEND=1` + `CTO_DOUBLE_SIGNED=1`，用完即删）
+- **提案日**: 2026-09-08
+- **触发**: GitHub 账号 cantascendia 被封禁（2026-09），gh CLI token 失效、GitHub Actions / branch protection /
+  PR 通道全部不可用。人决策（transcript 2026-09-08）：6 仓库全迁 gitlab.com/cantascendia，harness 全量改造，
+  模型表一并更新（Fable 5.1 指挥 / Opus 5 执行）。
+- **触碰路径**: `.github/workflows/*`（删除）、`.gitlab-ci.yml`（新建，forbidden 新条目）、`.gitlab/`（新建）、
+  `scripts/forbidden-paths.txt`（仅追加）、`docs/ai-cto/CONSTITUTION.md`（amendment）、`CLAUDE.md` 铁律 #13 文案、
+  `playbook/handbook.md` §32（immutable，amendment）
+
+### 问题（均有实证）
+
+1. 5 个 GitHub Actions workflow（canary / codex-review / eval / llm-judge / self-audit-weekly）在 GitLab 上不会执行 → 铁律 #12 eval gate 在远端为零。
+2. codex-bridge `run.sh` PR autopilot 依赖 `gh pr create/comment/api`，gh auth 已失效 → §48 跨模型审 PR 评论通道断。
+3. forbidden SSOT + 5 处派生正则只认 `.github/workflows/`，GitLab CI 定义文件 `.gitlab-ci.yml` 不在红线内 → 铁律 #13 在新平台失守。
+4. Constitution 合规宪法 #4「GitHub Branch Protection」、§47.4、SPEC-001 的 `gh api ... protection` 均指向不存在的平台。
+5. 手册 §1.2 模型表无 Fable 5.1 / Opus 5（铁律 #3 SSOT），本轮编排模型不在表内。
+
+### 验收标准（可量化）
+
+- `.gitlab-ci.yml` 存在，含 job：`eval-gate`（MR + main push 触发；check-counts + guard 单测 + run-evals + yaml/skill/frontmatter 校验）、
+  `llm-judge`（仅 MR，advisory，forbidden 正则读 `scripts/forbidden-paths.txt`，MR note 无 token 时优雅跳过）、
+  `self-audit-weekly`（`CI_PIPELINE_SOURCE == schedule`，rolling issue 经 GitLab Issues API）、`canary`（手动/分支触发）。
+- `.gitlab-ci.yml` 与全部 harness 文件中 **0 处** `gh ` CLI 调用（注释/历史记录文件除外：docs/ai-cto/reviews、REVIEW-QUEUE、archive、agent-logs）。
+- `scripts/forbidden-paths.txt` 追加 `.gitlab-ci.yml` 与 `.gitlab/`，`.github/workflows/` 保留（红线只加不删）；5 处派生正则与 SSOT 一致（eval 047 + 新 eval）。
+- codex-bridge run.sh 用 glab（`glab mr create` / `glab mr note` / `glab api`）；无 glab 或未登录时 HAS_GLAB=0 优雅跳过。
+- Constitution 合规宪法 #4 改为「GitLab Protected Branch」（main：No one push / Maintainers merge，已于 2026-09-08 经 API 设置）；amendment 记录文件存在。
+- 手册 §1.2 含 `claude-fable-5-1`（CTO 编排默认）与 `claude-opus-5`（执行 sub-agent 默认），eval 守护。
+- `bash scripts/run-evals.sh` 全 PASS（0 FAIL）；`node --test .claude/hooks/engine/guard.test.mjs` 全绿；`bash scripts/check-counts.sh` 通过。
+- fresh clone from gitlab.com 后同样通过（learned rule 2026-09-02）。
+
+### 非目标
+
+- 不恢复 GitHub；`github` remote 保留为只读历史指针（fetch 会失败）。
+- 不迁移 GitHub Issues / PR 讨论（无 API 访问）。
