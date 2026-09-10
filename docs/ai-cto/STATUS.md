@@ -3,7 +3,17 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-16 — **v4.4**：Antigravity CLI（agy）接入 — headless 委派（agy-delegate.sh，实测 7s 往返无沙箱税）+ codex-bridge fallback 链 codex→**agy(Gemini 跨模型价值保留)**→claude + cost cap 仅 codex 入账（eval 085）
+最后更新：2026-09-08 — **v4.7 GitHub→GitLab 平台迁移**（SPEC-002）。GitHub 账号 `cantascendia` 2026-09 被封禁 → 6 仓库全迁 `gitlab.com/cantascendia`（private）。
+**已迁**：CI 定义 `.github/workflows/*`（5 workflow）→ `.gitlab-ci.yml`（eval-gate / llm-judge / codex-review / self-audit-weekly / canary）· `gh` CLI → `glab`（codex-bridge run.sh）·
+forbidden SSOT 追加 `.gitlab-ci.yml` + `.gitlab/`（**只加不删**，`.github/workflows/` 保留）· main 保护改 GitLab protected branch（`allowed_to_push=No one` / `allowed_to_merge=Maintainers` / `allow_force_push=false`，2026-09-08 经 API 设置）·
+手册新增 **§51 平台动词映射层** + §23/§29/§31.4/§32/§33/§36/§45/§47.4/§48/§50 全 sweep · 模型表 §1.2 登记 **Fable 5.1（编排默认）/ Opus 5（执行默认）** · 认证改 SSH key + `glab` OAuth device flow（无明文 PAT 落盘）。
+**待人处理（agent 不经手密钥/平台开关）**：① GitLab 项目 CI/CD 变量 `OPENAI_API_KEY`（codex-review）与 `GITLAB_TOKEN`（project access token，发 MR note / 打 MR 标签 —— `CI_JOB_TOKEN` 无此权限）尚未录入 → 这两个 job 目前会优雅跳过；
+② hananote 发布用的 8 个 CI 变量（4 keystore + 4 R2，名称同旧 GitHub secrets）待录入 + Protected tags `v*`。
+**已由 orchestrator 完成**：「Pipelines must succeed」已开启（`only_allow_merge_if_pipeline_succeeds=true`）；main 保护；周一 09:00 UTC self-audit schedule；5 个标签（requires-double-review 等）；
+**CONSTITUTION.md 两处修正已落盘**（opt-out env 经会话项目 settings.local.json 注入，audit `constitution-amend-allowed` ×2，用完即删）；修正案第二模型独立复审由 Opus 5 只读 agent 执行，结论附于迁移 MR。
+**已实测复现的 P1 缺口（待独立处置）**：immutable-guard 红线 1 按会话 cwd 判定 self/subproject → 从仓库外目录开会话可绕过铁律段保护（详见 AMENDMENT-PROPOSAL / HARNESS-CHANGELOG v4.7）。
+**未迁（无 API 访问，诚实记录）**：GitHub Issues / PR 讨论 / Actions run 历史全部丢失；`github` remote 保留为**死指针**（fetch 会失败，属预期，勿"修复"）。
+上一版：2026-07-16 — **v4.4**：Antigravity CLI（agy）接入 — headless 委派（agy-delegate.sh，实测 7s 往返无沙箱税）+ codex-bridge fallback 链 codex→**agy(Gemini 跨模型价值保留)**→claude + cost cap 仅 codex 入账（eval 085）
 上一版：2026-07-10 — v4.2：PR#11 重放（debounce+双hook拆分）· Self-Audit rolling issue · ADR-009 三层定位（规则/审计/回放）· telemetry/ OTel 用量面板（audit 层新成员）
 
 ---
@@ -43,7 +53,7 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 + check-counts SSOT enforcer 落地。
 
 组件计数以 `docs/ai-cto/COUNTS.md` 为唯一 SSOT（**不在本文件硬写数字** —— 见 COUNTS.md 表）；
-`scripts/check-counts.sh` 已接入 `.github/workflows/eval.yml` CI 自动兜底计数漂移。
+`scripts/check-counts.sh` 已接入 `.gitlab-ci.yml` 的 `eval-gate` job，CI 自动兜底计数漂移（v4.7 起；此前是 `.github/workflows/eval.yml`）。
 
 > ⚠️ 本文件下半部 v3.6→v3.14 曾长期冻结（pre-existing 债），v3.15/v4.0 两轮已滚动刷新；
 > 逐版细节见 `EVOLUTION-LOG.md`（append-only 权威记录）+ ADR 见 `DECISIONS.md`。
@@ -169,7 +179,7 @@ JSON、跨项目事故 **ledger** 闭环、命令 23→18 合并）；**v3.13** 
 - ✅ .claude/output-styles/cto.md + .claude/statusline.sh
 - ✅ .mcp.json（lazy 配置）+ templates/{CLAUDE,AGENTS,GEMINI}.md + templates/settings.json
 - ✅ evals/golden-trajectories/ + docs/test-plans/（计数见 COUNTS.md，全含 verification_command）
-- ✅ .github/workflows/（eval / canary / codex-review / llm-judge / self-audit-weekly）
+- ✅ `.gitlab-ci.yml` + `.gitlab/`（eval-gate / canary / codex-review / llm-judge / self-audit-weekly —— v4.7 起；此前是 `.github/workflows/` 的 5 个 workflow，随 GitHub 账号封禁删除，见 §51 / ADR-011）
 - ✅ ledger/（跨项目事故账本闭环 —— 计数见 COUNTS.md）
 
 ---

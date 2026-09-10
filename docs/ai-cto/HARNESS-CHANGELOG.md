@@ -13,6 +13,64 @@ ai-playbook 自身仓库的 harness 演进档案。每次修改 CLAUDE.md / sett
 
 ---
 
+## [2026-09-08] v4.7 — GitHub 封禁 → GitLab 平台全量迁移 + 模型阵容 Fable 5.1 / Opus 5
+
+- 改了什么：
+  ① **手册新增 §51「平台迁移：GitHub → GitLab」** —— 平台动词映射层（`gh`→`glab`、PR→MR、
+     Actions workflow→`.gitlab-ci.yml` job、secrets→CI/CD variables、branch protection→protected branches、
+     `on: pull_request`→`$CI_PIPELINE_SOURCE == "merge_request_event"`、`on: schedule`→pipeline schedule、
+     `GITHUB_TOKEN`→`GITLAB_TOKEN`）+ 认证模型（SSH + OAuth device flow，无明文 PAT）+ 未迁清单 + 死指针 remote。
+  ② **手册全 sweep**：§23.2 CI 示例改 `.gitlab-ci.yml`（`rules:` + merge_request_event）· §23.3 D「GitHub Actions
+     工程化」→「GitLab CI 工程化」（`include:`/`extends:`/child pipeline/`parallel: matrix`/`interruptible`）·
+     §29 clone URL → `gitlab.com/cantascendia/ai-playbook` · §29.7 团队协作 auth 说明 · §31.4 perf 门禁改 GitLab job ·
+     **§32.1 新增「CI/CD 定义」行**（同时让 `check-forbidden-consistency.sh` 能同义词命中 `.gitlab-ci.yml` / `.gitlab`）·
+     §32.2 MR 标签 + `CI_JOB_TOKEN` 权限警告 · §32.3 → `.gitlab/CODEOWNERS`（Section 语法 + Premium 限制注）·
+     §32.4 → `.gitlab/merge_request_templates/Default.md` · §33.2 · §36.2/§36.4 autofix job · §45.2/45.3/45.6 canary
+     child pipeline `.gitlab/ci/canary-<feature>.yml` · §47.1/47.3 · **§47.4 GitHub Branch Protection →
+     GitLab Protected Branch + MR（含 main 实配表 + glab 命令）** · §48.2/48.3 codex-review job · §50.4/50.6/50.7/50.10。
+  ③ **模型表 §1.2**（铁律 #3 SSOT）新增 `claude-fable-5-1`（**编排默认**，Mythos-class，与 Claude Mythos 5.1
+     同底模型 + 额外双用途安全措施）与 `claude-opus-5`（**执行 sub-agent 默认**）；Opus 4.8 / Fable 5 降为上一代；
+     adaptive-thinking 注记补 5.1/Opus 5；§14.1 路由表三行 Opus 4.8 → Fable 5.1 + 新增 Opus 5 执行行；
+     CLAUDE.md / templates/CLAUDE.md 路由同步。
+  ④ **治理文档**：ADR-011 · SPEC-001 加「branch-protection 步骤被 SPEC-002 取代」注 · STATUS 顶条 v4.7 ·
+     EVOLUTION-LOG 条目 · SLO GH Actions → GitLab pipelines · COUNTS（evals/§1-§51/CI wiring/learned-rules）·
+     宪法修正案 `AMENDMENT-PROPOSAL-2026-09-08-gitlab-platform.md` · learned rule
+     `2026-09-08-platform-account-ban-single-point-of-failure` · README / plugin.json URL。
+  ⑤ **CLAUDE.md 铁律微修**（人 2026-09-08 授权）：#3 模型表指针 `§5` → `§1.2`（Claude 模型 SSOT 实际位置）；
+     #13 forbidden 清单补 CI 定义。`AGENTS.md`/`GEMINI.md` 经 `node scripts/sync-agents-md.mjs` 重新生成。
+- 为什么：GitHub 账号 `cantascendia` 2026-09 被封禁 → `gh` token 失效、5 个 Actions workflow 停摆
+  （**铁律 #12 远端 eval gate 归零**）、branch protection 消失、forbidden SSOT 不认 `.gitlab-ci.yml`
+  （**铁律 #13 在新平台失守**）。人决策全量迁移。同时把本轮编排/执行模型登记进 SSOT（铁律 #3）。
+- Eval 跑分前/后：65 → **67**（+089 GitLab CI 迁移守护[他人所有] / +090 模型阵容 Fable 5.1 + Opus 5）；
+  053 / 082 / 087 / 088 回归全绿（053 的 `Claude Opus 4.8` / `claude-fable-5` 断言由保留的上一代行满足）。
+- 影响范围：所有涉及 CI / PR / 分支保护 / 平台 CLI 的工作流；模型选型路由；下游项目 `/cto-init` 分发的
+  forbidden 提示文案。**待人处理**：`OPENAI_API_KEY` + `GITLAB_TOKEN` CI/CD 变量录入。
+  已由 orchestrator 完成：「Pipelines must succeed」开启、main 保护（No one push / Maintainers merge）、
+  周一 self-audit pipeline schedule、5 个标签、CONSTITUTION.md 两处修正落盘（audit `constitution-amend-allowed` ×2，
+  opt-out env 经会话所在项目 `C:/projects/GitLab/.claude/settings.local.json` 注入，用完即删）。
+- ⚠️ 本轮发现（P1，未在本轮修，已实测复现）：immutable-guard **红线 1（CLAUDE.md 铁律段）按会话 cwd 判定
+  `IS_AI_PLAYBOOK_SELF`**，本轮会话 cwd 为 `C:/projects/GitLab` → 对 `C:/projects/ai-playbook/CLAUDE.md` 的 Edit
+  被视为「子项目」而放行、无 audit。同一 hook input 换 cwd=ai-playbook 则 exit 2 正确拦截。即**从仓库外目录开会话
+  可绕过红线 1**（红线 2 CONSTITUTION 因子项目模式也守 basename 而未受影响）。修法：按**目标文件所属仓库根**
+  判定而非会话 cwd（learned rule 2026-07-10 的对偶）。hook 由他人所有，已上报待独立处置 + golden trajectory 覆盖。
+- 🩹 本轮**补丁半**（独立评审 P1，已落地）：`engine/lib.mjs` `isAiPlaybookSelf()` 在**会话 cwd 本身不可解析**时
+  （win32 上无盘符的 POSIX 路径如 `/tmp/x` → `fsPath()` 原样透传 → `statSync` 全 false）原先**静默** fail-open
+  为 subproject —— 红线 1 / handbook §32 被跳过且不留任何痕迹。现补 stderr 一行告警
+  「⚠️ immutable-guard: cwd 无法解析（…）— self/subproject 判定退化为 subproject」（显式 `CTO_IS_SUBPROJECT` /
+  `CTO_IS_AI_PLAYBOOK_SELF` 覆盖时不告警，因那不是「退化」；cwd 不存在 ⇒ audit 目录也不存在 ⇒ `auditLog` 必然
+  no-op，故只走 stderr）。**这只是让失效可见，不是根治**：**根因修复（红线按目标文件所属仓库根判定，而非会话 cwd）
+  仍是 follow-up**，需连同 golden trajectory 覆盖一起做。legacy bash `immutable-guard.sh`（v3.15 冻结路径）未同步
+  此告警 —— 告警不改语义，两路径判定结果仍一致。
+- 🩹 本轮**补丁半**（独立评审 P1/P2，已落地）：destructive-action-guard `CLOUD_PATTERNS` 补 `glab api --method/-X DELETE`
+  （REST 删项目绕开子命令名）/ `glab repo|project archive` / `glab variable delete` / `glab release delete`，以及同源
+  twin gap `gh api --method/-X DELETE`（engine + `.claude` legacy + `.codex` 三份同步）；trajectory 脱敏补 `glft-`
+  前缀与 `gitlab-ci-token:<job token>@`；§32.2 / forbidden-policy skill / `.claude/rules/forbidden-paths.md`
+  双签文案改写为与实际 CI 实现一一对应（`double-sign-gate`（每个 MR 必跑）读 `$CI_MERGE_REQUEST_LABELS` 强制标签、`llm-judge` 用 curl
+  自动补标签且无 token 时优雅跳过、CODEOWNERS approval rules 需 Premium 故人工半 = MR 模板勾选框 + Maintainers merge）。
+  guard 单测 46 → **50**。
+
+---
+
 ## [2026-07-22] v4.5 — 非 Claude 模型阵容对齐 2026-07（GPT-5.6 Sol/Terra/Luna + Gemini 3.6 Flash）
 
 - 改了什么：① handbook §5 Codex 模型表改版：**gpt-5.6 Sol/Terra/Luna**（2026-07-09 发布，

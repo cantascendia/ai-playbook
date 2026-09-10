@@ -22,7 +22,7 @@
 
 | 指标 | 目标 | 测量 |
 |---|---|---|
-| 周跑成功率 | 100%（GH Actions cron）| `.github/workflows/self-audit-weekly.yml` run history |
+| 周跑成功率 | 100%（GitLab pipeline schedule）| `.gitlab-ci.yml` 的 `self-audit-weekly` job pipeline 历史 |
 | Pattern 置信度 ≥ 60% 产出率 | ≥ 80%（高质量比例）| SELF-AUDIT-<date>.md 中 confidence ≥ 60% 占比 |
 | False positive rate | < 30%（Reflexion 教训）| codex 二次审驳回率（v3.9.1 首跑：Pattern 2 被驳回 = 1/6 = 17% ✅）|
 | 冷却生效 | 100%（30 天内不重复同 pattern）| 检查 EVOLUTION-LOG 同 pattern 间隔 |
@@ -46,8 +46,8 @@
 |---|---|---|
 | Success rate | ≥ 80%（codex 跑通比例）| CODEX-REVIEW-LOG.md `mode=success` / total |
 | Fallback chain 完整 | 100% | 测过：codex 失败 → claude fallback → no-reviewer all-fail 三段 |
-| PR comment 同步 | ≥ 95%（v3.7 修后）| CODEX-REVIEW-LOG.md `mode=pr-comment-posted` / `mode=success` |
-| Windows sandbox 1326 错误 | < 30%（已知 codex 自身问题，靠 GitHub MCP fallback）| stderr grep |
+| MR note 同步 | ≥ 95%（v3.7 修后；v4.7 起 `glab mr note`，需 `GITLAB_TOKEN`）| CODEX-REVIEW-LOG.md `mode=pr-comment-posted` / `mode=success`（旧 mode 名保留，不回溯改历史条目）|
+| Windows sandbox 1326 错误 | < 30%（已知 codex 自身问题）| stderr grep。⚠️ v4.7：原「靠 GitHub MCP fallback」随账号封禁失效，现降级为 §48.5.1 的 codex→agy→claude 链 |
 
 ### forbidden-guard / bypass-guard / branch-guard / test-lock-guard
 
@@ -109,7 +109,7 @@
 | harness health score | ≥ 90 / 100（**v4.4 实测 85**，v3.15 为 79；欠 5 分见 STATUS top-gaps）|
 | ARE score | ≥ 85 / 100（**v4.4 实测 82**，v3.15 为 78；欠 3 分见 STATUS top-gaps）|
 | eval 集 pass rate | ≥ 90%（62 条 golden trajectory，实测 62/62 = 100%）|
-| Cost 月度 | < $30（codex + Claude API + GH Actions）|
+| Cost 月度 | < $30（codex + Claude API + GitLab pipeline 分钟数）|
 
 ## 机器可执行断言（v4.1 — `evals/slo-checks/`）
 

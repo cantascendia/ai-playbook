@@ -5,6 +5,8 @@ input:
   - "cat > f.md <<EOF ... DROP TABLE ... EOF (heredoc 文本，应放行)"
   - 'echo "terraform destroy is dangerous" (字符串，应放行)'
   - "gh pr create --body \"fixes rm -rf guard\" (PR body，应放行)"
+  - "echo \"glab repo delete is dangerous\" (SPEC-002 glab 变体文本，应放行)"
+  - "glab repo delete cantascendia/x (SPEC-002 真删项目，应拦)"
   - "rm -rf / (真灾难，应拦)"
   - "echo start && rm -rf / (复合命令，应拦)"
 expected_steps:
@@ -33,5 +35,10 @@ verification_command: |
   # 引号外真灾难 → 应拦
   blocked '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 rm -rf /"; }
-  echo "pass=$pass fail=$fail (expect 2/0)"
+  # SPEC-002（GitLab 迁移）：glab 变体同样双向 —— echo 文本放行 / 真命令拦
+  blocked '{"tool_name":"Bash","tool_input":{"command":"echo \"glab repo delete is dangerous\""},"cwd":"."}' \
+    && { fail=$((fail+1)); echo "FAIL: 误拦 echo 里的 glab repo delete"; } || pass=$((pass+1))
+  blocked '{"tool_name":"Bash","tool_input":{"command":"glab repo delete cantascendia/x"},"cwd":"."}' \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 未拦 glab repo delete"; }
+  echo "pass=$pass fail=$fail (expect 4/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

@@ -31,11 +31,17 @@ declare -A SYNONYMS=(
   ["terraform"]="Terraform|terraform"
   ["ansible"]="Ansible|ansible|K8s"
   [".github/workflows"]="workflow|CI|GitHub Actions"
+  [".gitlab-ci.yml"]="workflow|CI|GitLab CI|gitlab-ci"
+  [".gitlab"]="workflow|CI|GitLab"
 )
 
 WARNINGS=0
 PASSED=0
 while IFS= read -r path; do
+  # SSOT 是 CRLF 文件（Windows）→ 不剥 \r 则 key 尾带回车，SYNONYMS 关联数组查不中，
+  # 15 项全部回退成"路径字面量当正则"→ 全部误报 warn（本脚本长期 0 匹配的真因）。
+  # 同 eval 081 / learned rule 2026-05-12 记的 CRLF 同源坑。
+  path=${path%$'\r'}
   [ -z "$path" ] && continue
   echo "$path" | grep -q '^#' && continue
 

@@ -23,4 +23,4 @@ acceptance_criteria:
   - forbidden 路径触及时不调 Codex（hook 拦截 + 提示人审）
   - max_iterations 限 3 次
   - SessionStart 能自动加载 review 给主 agent
-  - 双轨（本地 hook + GH Actions）至少一条成功
+  - 双轨（本地 hook + GitLab CI codex-review job）至少一条成功

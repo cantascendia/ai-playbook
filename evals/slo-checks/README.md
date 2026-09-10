@@ -26,7 +26,7 @@ SLO_VERBOSE=1 bash evals/slo-checks/run.sh   # 展开每个 check 完整输出
 |---|---|---|---|
 | `01-security-guards-eval-coverage.sh` | 静态 | Block accuracy 100%（5 红线 guard）| 每个安全 guard（immutable/forbidden/branch/destructive-action/mcp）文件存在 **且** ≥1 覆盖 eval |
 | `02-cost-cap-config.sh` | 静态 | 月度 codex token < $20 (cap) | cto-evolve.md 声明 `cap_cents` **且** ≤2000 **且** codex-bridge 写回计量 **且** 超 cap 退化模式 |
-| `03-ci-gates-wired.sh` | 静态 | 计数一致性 / Eval pass rate 真执行 | `.github/workflows/eval.yml` 真接线 check-counts + run-evals + engine 单测 + hooks 触发路径；脚本本体存在 |
+| `03-ci-gates-wired.sh` | 静态 | 计数一致性 / Eval pass rate 真执行 | `.gitlab-ci.yml` 的 `eval-gate` job 真接线 check-counts + run-evals + engine 单测 + hooks 触发路径；脚本本体存在 |
 | `04-guard-engine-legacy-parity.sh` | 静态 | guard engine↔legacy 平价（bypass/destructive/mcp 全切换）| 每个 `.claude/hooks/*.sh` 含 engine 路径 + 保留 legacy + node 探测三合一 |
 | `05-mcp-guard-coverage.sh` | 静态 | mcp-guard 覆盖面 `mcp__.*` 全 MCP server | mcp-guard.sh 存在 + settings.json 有 `mcp__.*` matcher 且路由到 mcp-guard |
 | `06-fallback-chain.sh` | 静态 | Fallback 完整（jq 降级 / codex→claude→no-reviewer）| guard node 缺失回退 + common.sh jq/sed 降级 + codex-bridge 三段 fallback |

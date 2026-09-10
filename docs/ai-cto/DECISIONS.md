@@ -200,3 +200,56 @@ eval 024 锁 29 断言（3 轮逃逸族 BLOCK + 只读 fail-safe BLOCK + 普通�
 ③ learned rule 存档（2026-07-15-static-regex-cannot-separate-hookspath-rw）。
 
 来源：v4.4b 3 轮对抗验证 workflow（wf_625a44f7 / wf_e5da5df4 / wf_7f9dc01f）+ 轮4 确认（wf_9230005b）
+
+---
+
+## ADR-011: GitHub 封禁 → GitLab 平台迁移（2026-09-08）
+
+- **Status**: accepted（人 2026-09-08 决策「全量迁移」；第二模型独立复审 pending）
+- **关联**: SPEC-002 · handbook §51 / §47.4 · `AMENDMENT-PROPOSAL-2026-09-08-gitlab-platform.md` ·
+  learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`
+
+**Context**
+
+2026-09，GitHub 账号 `cantascendia` 被封禁。这不是平台选型而是不可抗力，且**故障半径远超"换个 remote"**：
+
+1. 6 个仓库远端（含 ai-playbook 自身）不可达。
+2. `gh` CLI token 失效 → §48 跨模型 review 的 PR 评论通道断，codex-bridge autopilot 失效。
+3. 5 个 GitHub Actions workflow 不再执行 → **铁律 #12 的 eval gate 在远端归零**，只剩未必安装的本地 pre-commit。
+4. Branch protection 消失 → 合规宪法 #4 指向不存在的平台（治理文档说谎 = 铁律 #2 反模式）。
+5. forbidden SSOT 只认 `.github/workflows/` → GitLab 的 `.gitlab-ci.yml` 不在红线内，**铁律 #13 在新平台失守**。
+
+根因不是 GitHub，而是**架构**：单一托管账号是单点故障，且平台动词（`gh` / PR / Actions / branch protection）
+**散落在 harness 各处**，没有集中的映射层 —— 所以一次封禁需要全仓 sweep 而不是改一个常量。
+
+**Decision**
+
+1. **全量迁移**到 `gitlab.com/cantascendia`（6 仓库，private）。不恢复 GitHub。
+2. **建立平台动词映射层 = handbook §51**：`gh`→`glab`、PR→MR、Actions workflow→`.gitlab-ci.yml` job、
+   secrets→CI/CD variables、branch protection→protected branches、`on: pull_request`→
+   `$CI_PIPELINE_SOURCE == "merge_request_event"`、`on: schedule`→pipeline schedule、
+   `GITHUB_TOKEN`→`GITLAB_TOKEN`（project access token）。**今后新写 harness 组件不得绕过本层硬编码平台假设。**
+3. **认证模型：SSH key + `glab auth login` OAuth device flow**。git 传输走 SSH（`git@gitlab.com:...`），
+   glab token 存 OS 凭据存储。**任何明文 PAT 不得进入仓库、`.git/config`、`.env` 或文档**（安全宪法 #2 + §30）。
+   CI 侧 `OPENAI_API_KEY` / `GITLAB_TOKEN` 是 GitLab CI/CD variables（masked + protected），**由人录入，agent 不经手**。
+4. **forbidden 红线 append-only**：SSOT 追加 `.gitlab-ci.yml` + `.gitlab/`，**`.github/workflows/` 保留不删**
+   （下游仍有 GitHub 项目；Constitution 不可妥协清单「🟠 仅可加，不可删」）。净效果红线变严。
+5. **main 阻断改为 GitLab protected branch**：`allowed_to_push = No one`、`allowed_to_merge = Maintainers`、
+   `allow_force_push = false`（2026-09-08 经 API 设置）+ 项目设置「Pipelines must succeed」（待人开启）。
+6. **`github` remote 保留为死指针**：不删除（保留 provenance）；`git fetch github` 失败是**预期行为**，不要"修复"。
+
+**Consequences**
+
+- ✅ 铁律 #12 / #13 在新平台重新有效；红线覆盖面比迁移前更大（多了 CI 定义两条）。
+- ✅ 平台耦合从"散落全仓"收敛到"§51 + 少数入口（`.gitlab-ci.yml` / codex-bridge `run.sh`）"，
+  下次换平台的成本从"全仓 sweep"降到"改一章 + 几个入口"。
+- ❌ **不可逆损失**：GitHub Issues / PR 讨论 / Actions run 历史全部丢失（无 API 访问，无法导出）。
+  历史文档里的 PR 编号（#38/#39/#40/#43…）与 "GitHub Actions" 字样**保留原文不篡改**（铁律 #2），
+  它们是史实而非现行配置。
+- ⚠️ **迁移期缺口（诚实记录）**：`OPENAI_API_KEY` / `GITLAB_TOKEN` 未录入前，`codex-review` 与
+  `llm-judge` 的 MR note 会优雅跳过 → §48 跨模型审在远端**暂时降级为建议不留痕**；
+  「Pipelines must succeed」未开启前，eval-gate 红也能 merge（真阻断暂时只靠 Maintainer 人闸）。
+- ⚠️ **CI_JOB_TOKEN 陷阱**：GitLab 自动注入的 `CI_JOB_TOKEN` **不能**发 MR note / 打标签 / 开 issue
+  （与 GitHub 的 `GITHUB_TOKEN` 语义不同）。任何依赖"CI 自动回帖"的设计必须显式配 project access token。
+- 📌 **架构准则沉淀**：托管平台是**依赖**，不是环境常量。依赖需要（a）抽象层、（b）第二来源。
+  见 learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`。

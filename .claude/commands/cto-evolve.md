@@ -55,7 +55,7 @@ learned-rule 草稿反向传播给全舰队 = 共享免疫系统（一项目踩�
 4. **reliability-auditor**（可选）
    - 输出：SLO / cost cap / fallback 检查
 5. **codex 跨模型审最近 7 天 commits**（默认开）
-   - 调 `bash .agents/skills/codex-bridge/run.sh HEAD`（已有 PR autopilot）
+   - 调 `bash .agents/skills/codex-bridge/run.sh HEAD`（已有 MR autopilot）
    - 用 ChatGPT 订阅 auth，不烧 API token
 
 **Cost cap 检查**：
@@ -82,7 +82,7 @@ learned-rule 草稿反向传播给全舰队 = 共享免疫系统（一项目踩�
 - 提议删 forbidden-paths.txt 条目 → 拒
 - 提议改 CONSTITUTION → 拒，引导走 /cto-constitution review
 
-### `apply <pattern-id>` — 实际开 PR
+### `apply <pattern-id>` — 实际开 MR
 
 ```
 1. 读 EVOLUTION-PROPOSAL-<id>.md
@@ -90,11 +90,11 @@ learned-rule 草稿反向传播给全舰队 = 共享免疫系统（一项目踩�
 3. 写改动（仅软配置层 — immutable-guard 会兜底拦）
 4. 跑 evals 验证（先跑相关 eval；若新加 eval 则跑全集）
 5. 调 codex-bridge run.sh 跨模型审
-6. autopilot 自动开 PR（v3.7 已实现）
+6. autopilot 自动开 MR（v3.7 已实现；SPEC-002 起走 glab）
 7. 写 docs/ai-cto/EVOLUTION-LOG.md：
-   - <date> <pattern-id> applied → PR #N
+   - <date> <pattern-id> applied → MR !N
    - 等待用户 merge
-8. 报告："PR #N 已开 — codex review 在后台跑，结果见 PR comment"
+8. 报告："MR !N 已开 — codex review 在后台跑，结果见 MR note"
 ```
 
 ### `status` — 飞轮健康仪表盘
@@ -107,7 +107,7 @@ v3.9 Evolution Flywheel Status
 自动 propose 激活: ❌ 未达阈值（需 trajectory ≥ 200 + /cto-evolve enable；当前 <N>/200）
 最近自审: <YYYY-MM-DD>
 最近 EVOLUTION-PROPOSAL: <YYYY-MM-DD>-<slug>
-最近 apply 的 PR: #N (<date>, status: open/merged/closed)
+最近 apply 的 MR: !N (<date>, status: open/merged/closed)
 
 历史进化（30 天）:
   ✅ N 个 pattern 被采纳
@@ -124,7 +124,7 @@ Constitution 完整性:
   - <date> 试删 forbidden-paths.txt 条目
   ✅ 红线全部守住
 
-下次自审: <YYYY-MM-DD>（GH Actions 周一 cron）
+下次自审: <YYYY-MM-DD>（GitLab pipeline schedule 周一）
 ```
 
 ## 失败 Budget
@@ -133,7 +133,7 @@ Constitution 完整性:
 |---|---|
 | 1 周未采纳 | 维持原优先级 |
 | 2 周未采纳 | 提升到 P1 + 在 SELF-AUDIT 加红色标记 |
-| 3 周未采纳 | 自动升级 P0 + 写 GitHub Issue + 邮件通知 |
+| 3 周未采纳 | 自动升级 P0 + 写 GitLab Issue + 邮件通知 |
 | 4 周未采纳 | 标记 superseded（标志该 pattern 不重要 / 用户已默认拒绝） |
 
 ## Cost Cap 实施
@@ -184,8 +184,8 @@ $ /cto-evolve propose
   红线检查：✅ 加（不删）→ immutable-guard 不拦
 
 $ /cto-evolve apply 1
-→ feat branch + 改 forbidden-paths.txt + push + PR + codex 二审
-→ PR #N 已开
+→ feat branch + 改 forbidden-paths.txt + push + MR + codex 二审
+→ MR !N 已开
 
 → 用户 merge
 → EVOLUTION-LOG 记录

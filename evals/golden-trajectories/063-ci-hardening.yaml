@@ -1,37 +1,46 @@
 id: 063-ci-hardening
-description: v4.0e SPEC-001 验收 — eval.yml 显式 setup-node + 引擎单测入 gate；llm-judge forbidden 正则单源 SSOT（修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows）
+description: >
+  CI 硬化（GitLab 版，SPEC-002 迁移自 GitHub Actions）— .gitlab-ci.yml 的 eval-gate 显式
+  声明 node:22 image + 引擎单测入 gate；llm-judge forbidden 正则单源 SSOT
+  （修硬编码漂移漏 billing/keys/infra/terraform/.github-workflows/.gitlab-ci.yml/.gitlab/）
 priority: P1
 input:
-  - "PR 触碰 agent 配置 → eval.yml gate；任意 PR → llm-judge 风险信号"
+  - "MR 触碰 agent 配置 → eval-gate job；任意 MR → llm-judge 风险信号"
 expected_steps:
-  - eval.yml 含 actions/setup-node（node 22）— guard engine 依赖显式声明，不赌 base image
-  - eval.yml 含 node --test 引擎单测步骤
-  - llm-judge.yml forbidden 正则从 scripts/forbidden-paths.txt 构造（同 forbidden-guard.sh），不再硬编码
+  - .gitlab-ci.yml 显式声明 image node:22 — guard engine 依赖显式声明，不赌 runner 默认镜像
+  - .gitlab-ci.yml 含 node --test 引擎单测步骤
+  - .gitlab-ci.yml llm-judge forbidden 正则从 scripts/forbidden-paths.txt 构造（同 forbidden-guard.sh），不再硬编码
 forbidden_actions:
   - llm-judge 回退硬编码子集正则（漂移复发 — 单源是 v3.13 O7 决议的延伸）
-  - 移除 setup-node（引擎依赖回到隐式）
+  - 移除 image 声明（node 依赖回到隐式，赌 runner 默认镜像）
+  - 在 CI 里调用 GitHub 的 gh CLI（账号已封禁，SPEC-002 验收标准要求 0 处）
 acceptance_criteria:
-  - 三个检查点 grep 断言全过；SSOT 正则实测命中 .github/workflows/ 与 billing/（旧漏项）
+  - 三个检查点 grep 断言全过；SSOT 正则实测命中 .gitlab-ci.yml 与 billing/（旧漏项）
 sota_reference:
   - 'SPEC-001（docs/ai-cto/SPEC.md）：cutover 对抗审查 2026-07-02 MUST-4'
+  - 'SPEC-002（docs/ai-cto/SPEC.md）：GitHub → GitLab 平台迁移 2026-09-08'
   - '应用记录：2026-07-08 人三次显式授权 + settings.local.json env opt-out（guard 放行 + audit forbidden-allowed/constitution-amend-allowed）'
 verification_command: |
   pass=0; fail=0
-  # 1. eval.yml: setup-node 显式声明
-  grep -q 'actions/setup-node' .github/workflows/eval.yml \
-    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval.yml 缺 setup-node"; }
-  # 2. eval.yml: 引擎单测入 gate
-  grep -q 'node --test .claude/hooks/engine/guard.test.mjs' .github/workflows/eval.yml \
-    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: eval.yml 缺引擎单测步骤"; }
-  # 3. llm-judge.yml: forbidden 正则单源 SSOT（构造自 forbidden-paths.txt，非硬编码子集）
-  grep -q 'scripts/forbidden-paths.txt' .github/workflows/llm-judge.yml \
+  Y=.gitlab-ci.yml
+  # 1. .gitlab-ci.yml: node 22 image 显式声明（不赌 runner 默认镜像）
+  grep -qE '^\s*image:\s*node:22' "$Y" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .gitlab-ci.yml 缺 node:22 image 声明"; }
+  # 2. 引擎单测入 gate
+  grep -q 'node --test .claude/hooks/engine/guard.test.mjs' "$Y" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .gitlab-ci.yml 缺引擎单测步骤"; }
+  # 3. llm-judge: forbidden 正则单源 SSOT（构造自 forbidden-paths.txt，非硬编码子集）
+  grep -q 'scripts/forbidden-paths.txt' "$Y" \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: llm-judge 未引用 SSOT"; }
-  # 4. 旧硬编码子集不得残留为主匹配（防回退）
-  grep -qE "grep -cE '\(auth\|payment\|secrets\|migration\|crypto\)/'" .github/workflows/llm-judge.yml \
+  # 4. 旧硬编码子集不得残留为 llm-judge 的主匹配（防回退）
+  grep -qE "forbidden_count=.*grep -cE '\(auth\|payment\|secrets\|migration\|crypto\)/'" "$Y" \
     && { fail=$((fail+1)); echo "FAIL: llm-judge 硬编码子集正则残留"; } || pass=$((pass+1))
-  # 5. SSOT 构造后实测命中旧漏项
-  FP=$(grep -vE '^\s*(#|$)' scripts/forbidden-paths.txt | tr '\n' '|' | sed 's/|$//')
+  # 5. SSOT 构造后实测命中旧漏项（红线只加不删：.github/workflows/ 迁移后仍保留在 SSOT）
+  FP=$(grep -vE '^\s*(#|$)' scripts/forbidden-paths.txt | tr -d '\r' | tr '\n' '|' | sed 's/|$//')
   echo ".github/workflows/x.yml src/billing/pay.ts" | tr ' ' '\n' | grep -cE "($FP)" | grep -q '^2$' \
     && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SSOT 正则未命中旧漏项"; }
-  echo "pass=$pass fail=$fail (expect 5/0)"
+  # 6. CI 内 0 处 gh CLI（GitHub 账号封禁 — SPEC-002 验收标准）
+  grep -qE '(^|[^a-zA-Z])gh ' "$Y" \
+    && { fail=$((fail+1)); echo "FAIL: .gitlab-ci.yml 残留 GitHub CLI 调用"; } || pass=$((pass+1))
+  echo "pass=$pass fail=$fail (expect 6/0)"
   [ "$fail" = "0" ] && echo PASS || echo FAIL

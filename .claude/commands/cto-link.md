@@ -150,7 +150,7 @@ done
 **B. 还没安装**（首次在本机使用）
    推荐安装到 `~/.claude/playbook`：
    ```bash
-   git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
+   git clone https://gitlab.com/cantascendia/ai-playbook ~/.claude/playbook
    /cto-link
    ```
 
