@@ -178,3 +178,7 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-25T18:58:44+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed
 2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=review-triggered | reason=security_relevant_change
 2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed
+2026-07-25T20:11:32+09:00 | sha=93af51c | mode=review-triggered | reason=security_relevant_change
+2026-07-25T20:11:32+09:00 | sha=93af51c | mode=success | reviewer=codex-gpt-5.6-sol | bytes=116700
+2026-07-25T21:34:49+09:00 | sha=93af51c | mode=review-triggered | reason=security_relevant_change
+2026-07-25T21:34:49+09:00 | sha=93af51c | mode=skipped-debounce | reason=already_reviewed
