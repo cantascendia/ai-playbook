@@ -128,9 +128,24 @@ scan_stale ".claude/commands/cto-eval.md" '总计：12 条' "eval 报告模板�
 RQ="docs/ai-cto/REVIEW-QUEUE.md"
 if [ -f "$RQ" ]; then
   RQ_BYTES=$(wc -c < "$RQ" | tr -d ' ')
-  if [ "$RQ_BYTES" -gt 204800 ]; then
+  # v5.0 WS8：200KB 软警告被无视了整整一个季度（实测涨到 1564KB 才被本轮重构发现），
+  # 说明纯提示不足以形成约束 → 512KB 升级为 TIER1 硬 gate，200KB 保留为提前量软警告。
+  if [ "$RQ_BYTES" -gt 524288 ]; then
+    echo "🛑 $RQ 已达 $((RQ_BYTES/1024))KB（>512KB 硬上限）—— 必须按季度轮转到 docs/ai-cto/archive/（只轮转不删除）"
+    FAIL=$((FAIL+1))
+  elif [ "$RQ_BYTES" -gt 204800 ]; then
     echo "⚠️  $RQ 已达 $((RQ_BYTES/1024))KB（>200KB）→ 建议按季度轮转历史到 docs/ai-cto/archive/（手册记忆系统约定）"
     WARN=$((WARN+1))
+  fi
+fi
+
+# v5.0 WS8：§48 review 全文必须保持本地-only（ADR-011）。
+# 若 reviews/*.md 又被跟踪，说明 codex-bridge 的 git add 被复活或 .gitignore 被改 → 目录会再次膨胀到 MB 级。
+if [ -d docs/ai-cto/reviews ] && command -v git >/dev/null 2>&1; then
+  TRACKED_REVIEWS=$(git ls-files 'docs/ai-cto/reviews/*.md' 2>/dev/null | grep -vc 'README.md' || true)
+  if [ "${TRACKED_REVIEWS:-0}" -gt 0 ]; then
+    echo "🛑 docs/ai-cto/reviews/ 有 $TRACKED_REVIEWS 份 review 全文被 git 跟踪 —— 应为本地-only（ADR-011）"
+    FAIL=$((FAIL+1))
   fi
 fi
 

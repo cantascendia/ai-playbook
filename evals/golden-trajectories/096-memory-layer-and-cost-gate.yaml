@@ -1,0 +1,103 @@
+id: 096-memory-layer-and-cost-gate
+kind: behavior
+description: >-
+  v5.0 WS8 审计/记忆层治理（ADR-011）。锁定四件事：
+  (A) §48 review 全文本地-only —— Stop hook 每次会话产一份、单文件可达 600KB，目录已膨胀到 12MB；
+      改为 .gitignore + 取消跟踪，lineage 由 REVIEW-QUEUE 摘要 + 严重度计数 + 指针保全。
+  (B) REVIEW-QUEUE 体积从「200KB 软警告」升为 512KB TIER1 硬 gate —— 软警告被无视了整整一个季度，
+      实测涨到 1564KB 才被发现，说明纯提示不构成约束。
+  (C) **cost cap 从只写变真闸**：.evolve-cost-month.json 此前只被写入、从不被读取，2026-09 已记
+      28419 分（≈$284）对上限 2000 分且 exceeded=true，而跨模型审照跑不误 —— 安全宪法 #5 自建立起
+      从未被执行过。现在触发前读它，超限复用既有 SKIP_CODEX 通道降级为 agy/claude 补位。
+  (D) 新增 immutable 红线 6（ASI06 记忆投毒）：learned rules 整文件覆写拦截，Edit 与新建放行。
+  另含 SessionStart 指针化（不再在 trust 前注入项目文件正文）与 PostCompact 注入。
+priority: P0
+input:
+  - "reviews/*.md 是否被 git 跟踪；codex-bridge 是否仍 git add 全文"
+  - "REVIEW-QUEUE 体积与归档是否存在、归档是否保全了被轮转的条目"
+  - "cost 超限时 codex-bridge 是否降级；跨月是否自动失效"
+  - "Write 覆写既有 learned rule / Edit 精修 / Write 新建 三种情形"
+expected_steps:
+  - .gitignore 覆盖 docs/ai-cto/reviews/*.md 且豁免 README；已提交的全文 git rm --cached
+  - check-counts 增加「reviews 被跟踪即 TIER1 fail」与「REVIEW-QUEUE >512KB 即 TIER1 fail」
+  - run.sh 在 SKIP_CODEX 判定处读 cost 文件，仅当记录月份 == 当前月份且超限时降级
+  - guards.mjs 红线 6 镜像红线 5 的 Edit-vs-Write 分级
+  - settings.json / templates/settings.json 的 SessionStart 只打印指针；新增 PostCompact
+forbidden_actions:
+  - 删除 reviews 全文（lineage 必须保全，只是不入 git）
+  - 把 learned rules 做成 append-only（ADR supersede 与纠错都需要删行，评委团已否决）
+  - 加 ConfigChange / PermissionDenied / PostToolUseFailure 到 settings（本机 2.1.178 白名单不含，加了会被忽略 = 假安全）
+  - cost 超限时整体停审（宪法要求的是「不 codex」而非「不审」，须保留 agy/claude 补位）
+  - 跨月仍沿用上月计数（等价于永久停用 codex）
+acceptance_criteria:
+  - reviews 全文不被跟踪但本地保留；README 仍被跟踪
+  - REVIEW-QUEUE < 512KB；archive 存在且体积远大于主文件（证明只轮转未删除）
+  - cost 超限 → run.sh 走降级分支；红线 6 三种情形裁决正确
+  - check-counts TIER1 仍全绿
+verification_command: |
+  pass=0; fail=0
+  command -v node >/dev/null 2>&1 || { echo "[info] node 缺失，跳过"; echo "pass=0 fail=0 (skipped)"; echo PASS; exit 0; }
+  # ── (A) reviews 本地-only ──
+  grep -q 'docs/ai-cto/reviews/\*\.md' .gitignore && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .gitignore 未覆盖 reviews 全文"; }
+  grep -q '!docs/ai-cto/reviews/README\.md' .gitignore && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: .gitignore 未豁免 reviews/README.md"; }
+  if command -v git >/dev/null 2>&1; then
+    T=$(git ls-files 'docs/ai-cto/reviews/*.md' 2>/dev/null | grep -vc 'README.md' || true)
+    [ "${T:-0}" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 仍有 $T 份 review 全文被跟踪"; }
+    git ls-files 'docs/ai-cto/reviews/README.md' | grep -q README && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: reviews/README.md 应保持跟踪"; }
+  else
+    pass=$((pass+2)); echo "[info] git 缺失，跳过跟踪状态断言"
+  fi
+  grep -q 'git add "\$REVIEW_FILE"' .agents/skills/codex-bridge/run.sh && { fail=$((fail+1)); echo "FAIL: run.sh 仍 git add review 全文"; } || pass=$((pass+1))
+  # ── (B) REVIEW-QUEUE 体积与归档 ──
+  RQ_B=$(wc -c < docs/ai-cto/REVIEW-QUEUE.md | tr -d ' ')
+  [ "$RQ_B" -lt 524288 ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: REVIEW-QUEUE $((RQ_B/1024))KB 超 512KB 硬上限"; }
+  [ -f docs/ai-cto/archive/REVIEW-QUEUE-2026-Q3.md ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 缺 Q3 归档"; }
+  AR_B=$(wc -c < docs/ai-cto/archive/REVIEW-QUEUE-2026-Q3.md 2>/dev/null || echo 0)
+  [ "$AR_B" -gt "$RQ_B" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 归档($AR_B) 不大于主文件($RQ_B) —— 轮转可能删了内容"; }
+  grep -q '只轮转不删除' docs/ai-cto/archive/REVIEW-QUEUE-2026-Q3.md && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 归档未声明 lineage 保全"; }
+  grep -q '512KB' scripts/check-counts.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts 未加 512KB 硬 gate"; }
+  grep -q "ls-files 'docs/ai-cto/reviews" scripts/check-counts.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: check-counts 未守 reviews 跟踪状态"; }
+  # ── (C) cost cap 真闸 ──
+  grep -q 'COST_GATE_FILE' .agents/skills/codex-bridge/run.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: run.sh 无 cost gate"; }
+  grep -q 'cost-cap-degraded' .agents/skills/codex-bridge/run.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未写 audit 行"; }
+  # 跨月自动失效：必须比对 month 字段而非只看 exceeded
+  grep -q 'CG_MONTH" = "$CG_NOW_MONTH' .agents/skills/codex-bridge/run.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未做跨月失效判定"; }
+  # 降级走 SKIP_CODEX（保留 agy/claude 补位）而非整体退出
+  awk '/COST_GATE_FILE/,/^fi$/' .agents/skills/codex-bridge/run.sh | grep -q 'SKIP_CODEX=1' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: cost gate 未复用 SKIP_CODEX 降级通道"; }
+  awk '/COST_GATE_FILE/,/^fi$/' .agents/skills/codex-bridge/run.sh | grep -qE '^\s*exit 0' && { fail=$((fail+1)); echo "FAIL: cost gate 整体停审（应只停 codex）"; } || pass=$((pass+1))
+  # ── (D) 红线 6：memory poisoning ──
+  LR=$(ls .claude/rules/learned/*.md 2>/dev/null | grep -v README | head -1)
+  if [ -n "$LR" ]; then
+    mkw() { node -e 'process.stdout.write(JSON.stringify({tool_name:process.argv[1],tool_input:{file_path:process.argv[2],content:"x",old_string:"a",new_string:"b"},cwd:process.argv[3],hook_event_name:"PreToolUse"}))' "$1" "$2" "$PWD"; }
+    pr() { printf '%s' "$1" | env -u CTO_GUARD_AMEND node .claude/hooks/engine/guard.mjs immutable-guard >/tmp/e096o 2>/dev/null; [ "$?" = "2" ] && echo BLOCK || echo ALLOW; }
+    [ "$(pr "$(mkw Write "$PWD/$LR")")" = "BLOCK" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 覆写既有 learned rule 未被拦"; }
+    [ "$(pr "$(mkw Edit "$PWD/$LR")")" = "ALLOW" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: Edit 精修 learned rule 被误拦"; }
+    [ "$(pr "$(mkw Write "$PWD/.claude/rules/learned/9999-brand-new.md")")" = "ALLOW" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 新建 learned rule 被误拦"; }
+    printf '%s' "$(mkw Write "$PWD/$LR")" | CTO_GUARD_AMEND=1 node .claude/hooks/engine/guard.mjs immutable-guard >/dev/null 2>&1
+    [ "$?" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: CTO_GUARD_AMEND 未能解锁 learned rule 覆写"; }
+  else
+    echo "[info] 无 learned rule 样本，跳过红线 6 行为断言"
+  fi
+  grep -q 'ASI06' .claude/hooks/engine/guards.mjs && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 红线 6 未标注 ASI06"; }
+  grep -q 'OWASP ASI04' .claude/hooks/engine/guards.mjs && { fail=$((fail+1)); echo "FAIL: mcp-guard 仍误标 ASI04"; } || pass=$((pass+1))
+  # ── (E) SessionStart 指针化 + PostCompact ──
+  for f in .claude/settings.json templates/settings.json; do
+    node -e "
+      const j=JSON.parse(require('fs').readFileSync('$f','utf8'));
+      const ss=j.hooks.SessionStart[0].hooks[0].command;
+      let bad=0;
+      if(/head -150/.test(ss)){console.log('FAIL: $f SessionStart 仍注入正文');bad=1;}
+      if(!/指针模式/.test(ss)){console.log('FAIL: $f SessionStart 非指针模式');bad=1;}
+      if(!j.hooks.PostCompact){console.log('FAIL: $f 缺 PostCompact');bad=1;}
+      for(const e of ['ConfigChange','PermissionDenied','PostToolUseFailure'])
+        if(j.hooks[e]){console.log('FAIL: $f 含本机不支持的事件 '+e);bad=1;}
+      process.exit(bad);" && pass=$((pass+1)) || fail=$((fail+1))
+  done
+  rm -f /tmp/e096o 2>/dev/null || true
+  echo "pass=$pass fail=$fail (期望 24/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - 'ADR-011：审计层成员调整；telemetry / ledger 的正式下线推迟到 WS9（半删会留断引用，比不删更糟）'
+  - '安全宪法 #5 实测失效证据：.evolve-cost-month.json 2026-09 记 28419 分 / cap 2000 分 / exceeded=true，而跨模型审照跑'
+  - 'OWASP Top 10 for Agentic Applications 2026 · ASI06 Memory & Context Poisoning'
+  - '本机 2.1.178 settings hooks 白名单实抓：不含 ConfigChange / PermissionDenied / PostToolUseFailure'

@@ -199,6 +199,37 @@ CONSTITUTION 安全宪法：hooks 的 block/deny 逻辑不可由 AI 单方面移
     }
   }
 
+  // 红线 6（v5.0 WS8）：learned rules 防投毒 — OWASP Agentic Top 10 2026 的 ASI06（Memory &
+  // Context Poisoning）。.claude/rules/learned/*.md 由 learned-rules-loader skill 自动注入上下文，
+  // 一旦被整文件覆写，等于把「历次事故换来的教训」替换成攻击者/走偏 agent 想让后续会话相信的内容，
+  // 且不触发任何既有红线。与红线 5 同构：只拦**覆写既有文件**，Edit 精修与新建放行
+  // （纠错 learned rule、90 天零命中归档都需要正常改动 —— 评委团明确否决过 append-only 方案）。
+  if (/\.claude\/rules\/learned\/.+\.md$/.test(normFile) && (ctx.toolName === 'Write' || ctx.toolName === 'MultiEdit')) {
+    const absL = /^\/|^[A-Za-z]:\//.test(normFile) ? normFile : `${normCwd}/${normFile}`;
+    let existsL = false;
+    try { existsL = fs.statSync(fsPath(absL)).isFile(); } catch { /* 新建 learned rule → 放行 */ }
+    if (existsL) {
+      if (env().CTO_GUARD_AMEND === '1') {
+        auditLog(ctx, 'immutable-guard', 'learned-rule-amend-allowed', `file=${rel} tool=${ctx.toolName} env=1`);
+        process.exit(0);
+      }
+      auditLog(ctx, 'immutable-guard', 'learned-rule-overwrite-blocked', `file=${rel} tool=${ctx.toolName}`);
+      block(`🛑 v5.0 MEMORY POISONING GUARD: 不允许用 ${ctx.toolName} 整文件覆写 learned rule
+
+文件: ${rel}
+
+learned rules 会被 learned-rules-loader skill 自动注入后续会话的上下文。
+整文件覆写 = 把历次事故换来的教训替换成任意内容（OWASP Agentic Top 10 2026 · ASI06 记忆投毒）。
+
+允许的操作：
+  - 单 Edit（含具体 old/new_string）→ 纠错、补充、标注 superseded 都不受阻
+  - 新建 learned rule（Write 到不存在的路径）
+  - 归档退役规则（移动文件，不是覆写内容）
+
+维护性覆写（人已确认）：export CTO_GUARD_AMEND=1（audit 永久记录）`);
+    }
+  }
+
   process.exit(0);
 }
 
@@ -665,7 +696,8 @@ export function mcpGuard(ctx) {
 
 ${reason}
 
-MCP 工具权限往往比 Bash 更大（直连生产 DB / 云资源），enforcement 必须覆盖（OWASP ASI04）。
+MCP 工具权限往往比 Bash 更大（直连生产 DB / 云资源），enforcement 必须覆盖
+（OWASP Agentic Top 10 2026 · ASI02 Tool Misuse & Exploitation —— 此前误标为 ASI04 供应链，v5.0 修正）。
 只读操作（list_/get_/search_/SELECT）不受影响。
 
 确认是有意为之：export CTO_MCP_DESTRUCTIVE_CONFIRMED=1（单次，audit 永久记录）`);

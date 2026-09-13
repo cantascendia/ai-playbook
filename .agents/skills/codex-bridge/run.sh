@@ -138,6 +138,26 @@ if [ -f "$COOLDOWN_FILE" ]; then
   fi
 fi
 
+# 4a-2. 月度 cost cap 闸（v5.0 WS8）—— 落实 CONSTITUTION 安全宪法 #5
+# 此前 .evolve-cost-month.json 是**只写不读**的：第 277 行起会把 token 记进去、算出 exceeded=true，
+# 但触发前从来没有人读它。实测 2026-09 月度已记 28419 分（≈$284）对 cap 2000 分（$20），
+# exceeded 早已为 true，而跨模型审照跑不误 —— 即这条宪法自建立起从未被执行过。
+# 处置与宪法文字一致：「超 cap 退化为只 detect 不 codex」→ 复用既有 SKIP_CODEX 通道，
+# 自动走 agy / claude 补位（跨模型价值保留），而不是整体停审。
+COST_GATE_FILE="docs/ai-cto/.evolve-cost-month.json"
+if [ "$SKIP_CODEX" = "0" ] && [ -f "$COST_GATE_FILE" ]; then
+  CG_MONTH=$(sed -nE 's/.*"month"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' "$COST_GATE_FILE" | head -1)
+  CG_CENTS=$(sed -nE 's/.*"codex_token_cents"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$COST_GATE_FILE" | head -1)
+  CG_CAP=$(sed -nE 's/.*"cap_cents"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$COST_GATE_FILE" | head -1)
+  CG_NOW_MONTH=$(date +%Y-%m 2>/dev/null || echo unknown)
+  # 只在「记录月份 == 当前月份」时生效：跨月自动失效，等价于月度 reset，无需人工清零
+  if [ "$CG_MONTH" = "$CG_NOW_MONTH" ] && [ -n "$CG_CENTS" ] && [ "${CG_CENTS:-0}" -gt "${CG_CAP:-2000}" ]; then
+    SKIP_CODEX=1
+    echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=cost-cap-degraded | reason=month_${CG_MONTH}_cents_${CG_CENTS}_over_cap_${CG_CAP}" \
+      >> docs/ai-cto/CODEX-REVIEW-LOG.md
+  fi
+fi
+
 if [ "$HAS_CODEX" = "0" ] && [ "$HAS_AGY" = "0" ] && [ "$HAS_CLAUDE" = "0" ]; then
   echo "$(date -Iseconds 2>/dev/null || date) | sha=${SHORT_SHA} | mode=ci_pending | reason=no_local_reviewer" \
     >> docs/ai-cto/CODEX-REVIEW-LOG.md
@@ -238,7 +258,11 @@ ${DIFF_CONTENT}"
       echo ""
       echo "$OUTPUT"
     } > "$REVIEW_FILE"
-    git add "$REVIEW_FILE" 2>/dev/null || true   # v4.4d FIX2: 入 git，否则 reviews/<sha>.md 永远 untracked → Sakana lineage 断链（软失败，非 git 仓/无权限不阻断）
+    # v5.0 WS8（ADR-011）：**不再 git add**。全文改为本地-only（.gitignore 覆盖 reviews/*.md）。
+    # 理由：v4.4d 让全文入 git 是为了保 Sakana lineage，但 Stop hook 每次会话结束都产一份、
+    # 单文件可达 600KB，半年就把 reviews/ 堆到 12MB，且这些内容主要是 reviewer 的 exec transcript。
+    # lineage 由 REVIEW-QUEUE.md 的摘要 + 严重度计数 + 文件指针保全（可追溯到哪个 sha 被审过、结论如何），
+    # 全文留在本机供 pattern-detector / cto-evolve 扫描。
     # 严重度计数（v4.4d FIX1 反污染）：从 reviewer 输出的机器可解析 SEVERITY_SUMMARY 行解析，
     # **不再扫全文 emoji** —— 旧 bug：codex transcript 把 SKILL.md/handbook 里的 ✅⚠️🔴 格式范例原样回显，
     # 全文 grep 计出 🔴51 等虚高危（29b4932 实证：写 🔴51/🟠43/🟡42，codex 真结论仅 4×P1+12×P2 零 Critical）。

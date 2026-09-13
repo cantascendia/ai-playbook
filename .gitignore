@@ -44,3 +44,11 @@ docs/ai-cto/.codex-quota-cooldown
 # v3.14 ledger 运行时产物（collect/distill 生成，非源码）
 ledger/incidents.jsonl
 ledger/drafts/
+
+# v5.0 WS8：§48 跨模型 review 全文 = 本地-only（ADR-011）
+# 背景：Stop hook 每次会话结束都产一份，单文件可达 600KB，reviews/ 已膨胀到 12MB
+# （v4.4c 的「摘要化」只治了 REVIEW-QUEUE 主文件，没治全文目录）。
+# Sakana DGM lineage 不受影响：REVIEW-QUEUE.md 保留摘要 + 严重度计数 + 指针，
+# 全文留在本机供 pattern-detector / cto-evolve 扫描，只是不再进版本库。
+docs/ai-cto/reviews/*.md
+!docs/ai-cto/reviews/README.md

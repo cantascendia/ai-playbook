@@ -200,3 +200,56 @@ eval 024 锁 29 断言（3 轮逃逸族 BLOCK + 只读 fail-safe BLOCK + 普通�
 ③ learned rule 存档（2026-07-15-static-regex-cannot-separate-hookspath-rw）。
 
 来源：v4.4b 3 轮对抗验证 workflow（wf_625a44f7 / wf_e5da5df4 / wf_7f9dc01f）+ 轮4 确认（wf_9230005b）
+
+---
+
+## ADR-011: v5.0 平台原生收敛 —— 三层定位不变，实现层三平台化；审计层成员调整（2026-09-13）
+
+**Status**: Accepted（v5.0 WS0-WS3 + WS8 主体已落地）
+
+**Context**: 2026-09 的三平台侦察（72 代理，平台事实全部一手实抓）发现三件事：
+(a) ADR-009 的「规则 / 审计 / 回放」三层定位依然成立，且被 Anthropic 官方 harness 参考实现同构印证；
+(b) 但**规则层只在 Claude 的 Bash/Edit 上真生效** —— PowerShell 工具（Windows 默认开启、自 2026-07-02
+已实际使用）、NotebookEdit、Codex（`apply_patch` 把路径藏在 patch 文本里）、agy 全部零覆盖；
+(c) 审计层的两个成员从未产出数据：`telemetry/data` 为空、`ledger/incidents.jsonl` 停在 2026-07-14，
+而唯一真在产数据的是 `.claude/agent-logs/*.jsonl`。
+
+**Decision**:
+
+1. **三层定位不变**，ADR-009 继续有效；新增一句：三层**适用于三平台**（原文只写「跨 Claude/Codex」）。
+2. **实现层三平台化**：一套 guard 判定 + 三个 I/O adapter（claude / codex / agy）。
+   刻意**不做** guard 纯函数化 —— 其唯一刚需是单进程 dispatch 不丢 audit，而 dispatch 独立成 v5.1 且带 env 杠杆。
+3. **审计层成员调整**：
+   - `docs/ai-cto/reviews/*.md`（§48 全文）改为**本地-only**（`.gitignore`），lineage 由 REVIEW-QUEUE
+     的摘要 + 严重度计数 + 指针保全。理由：Stop hook 每次会话产一份、单文件可达 600KB，目录已达 12MB，
+     内容主体是 reviewer 的 exec transcript。
+   - `REVIEW-QUEUE.md` 体积从「200KB 软警告」升为 **512KB TIER1 硬 gate**。
+     理由：软警告被无视了整整一个季度，实测涨到 1564KB 才被本轮重构发现 —— 纯提示不构成约束。
+   - **cost cap 从「只写」变为「真闸」**：`.evolve-cost-month.json` 此前只被写入、从不被读取，
+     2026-09 已记 28419 分（≈$284）对上限 2000 分（$20）且 `exceeded: true`，而跨模型审照跑不误 ——
+     即安全宪法 #5 自建立起从未被执行过。现在触发前读它，超限即复用既有 `SKIP_CODEX` 通道降级为
+     agy / claude 补位（与宪法「超 cap 退化为只 detect 不 codex」一致），跨月自动失效等价于月度 reset。
+   - **`telemetry/` 与 `ledger/` 的下线推迟到 WS9**（不在本 ADR 执行）。
+     已确认两者零产出，但删除会牵动 4 条 eval（080/084/085/088）与两个 delegate 脚本的写入路径；
+     半删会留下断引用，比不删更糟。此处只做**决定与记录**，执行与 eval 重写同批。
+4. **新增红线 6（memory poisoning，ASI06）**：`.claude/rules/learned/*.md` 的整文件覆写拦截。
+   learned rules 会被自动注入后续会话上下文，覆写等于替换「历次事故换来的教训」。
+   与红线 5 同构：只拦覆写既有文件，Edit 精修与新建放行（评委团已明确否决 append-only 方案 ——
+   ADR supersede 与纠错 learned rule 都需要正常删行）。
+5. **OWASP 标签修正**：mcp-guard 的 deny 文案 ASI04（供应链）→ **ASI02**（Tool Misuse），原为误标。
+
+**平台事实约束（本机 Claude Code 2.1.178，已实测）**：
+`ConfigChange` / `PermissionDenied` / `PostToolUseFailure` **不在 settings.json 的 hook 事件白名单**里，
+因此计划中的这三个审计挂点**本轮不加**（加了会被忽略 = 假安全）。只加了白名单内的 `PostCompact`，
+用于压缩后重新注入记忆指针 —— 这是记忆层此前最大的实际漏点（PreCompact 只是提醒人自己去存）。
+
+**Consequences**:
+① 红线从「Claude 单平台 + 三个盲区」变为三平台同裁决，且由 eval 095 的 31 条断言持续锁定；
+② 审计层收敛到真正在产数据的单一采集面，记忆层主文件从 1.6MB 降到 11KB；
+③ 安全宪法 #5 第一次真正可执行；
+④ 遗留：telemetry / ledger 的正式下线、`.github/workflows` 中两个僵尸 workflow 的删除
+（属 forbidden 路径，须走 SPEC + 双签）留待 WS9。
+
+来源：本轮 v5 侦察（72 代理 / 28 条主张双重对抗核实）+ `docs/ai-cto/SPIKES-2026-09.md` +
+`docs/ai-cto/archive/v5-baseline-2026-09-13.md` + 计划文件
+`~/.claude/plans/ai-paybook-chatgpt-claude-antigravity-refactored-umbrella.md`

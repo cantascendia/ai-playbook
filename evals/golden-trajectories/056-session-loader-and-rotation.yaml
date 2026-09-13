@@ -29,13 +29,19 @@ verification_command: |
   # v4.0a：验证 SessionStart 最近一条 loader + REVIEW-QUEUE 季度轮转。
   pass=0; fail=0
 
-  # 1. 新 last-entry loader：grep -n '^## 20' 定位最后一条
-  grep -qF "grep -n '^## 20'" templates/settings.json \
-    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: last-entry loader (grep -n '^## 20') 缺失"; }
+  # 1. 仍能定位最近一条 §48 review（v4.0a 的能力不得丢失）
+  grep -qE '\^## 20' templates/settings.json \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 最近一条 REVIEW 定位逻辑缺失"; }
 
-  # 2. tail -n +$LAST 提取（只喂最近一条，非盲尾巴）
-  grep -qF 'tail -n +' templates/settings.json \
-    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: tail -n + 提取逻辑缺失"; }
+  # 2. v5.0 WS8（ADR-011）：升级为**指针模式** —— 只打印文件名/时间/最近一条标题，正文一律不注入。
+  #    演进链：盲喂尾巴（v4.0a 前）→ 只喂最近一条正文（v4.0a）→ 只喂指针（v5.0）。
+  #    动机有二：① Anthropic《How we contain Claude》建议「用户接受 trust 前不要解析/执行项目本地配置」，
+  #    而 SessionStart 早于 trust 就 head 项目文件正文；② 省 context。
+  #    故此处断言**反向**：不得再出现正文提取（tail -n +N / head -150）。
+  if grep -qE 'tail -n \+|head -150' templates/settings.json; then
+    fail=$((fail+1)); echo "FAIL: SessionStart 仍在注入记忆正文（应为指针模式）"; else pass=$((pass+1)); fi
+  grep -qF '指针模式' templates/settings.json \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: SessionStart 未声明指针模式"; }
 
   # 3. 不含 settings.json.v3.7.bak
   if grep -qF 'settings.json.v3.7.bak' templates/settings.json; then

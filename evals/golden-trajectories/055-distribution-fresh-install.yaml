@@ -43,8 +43,10 @@ verification_command: |
   fi
 
   # 3. 修好的 SessionStart gate：'^## 20' 定位最近 §48 REVIEW-QUEUE 条目
-  grep -qF "'^## 20'" "$TPL" \
-    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 模板 SessionStart 缺 '^## 20' REVIEW 定位 gate"; }
+  # v5.0 WS8：SessionStart 改指针模式后引号形式变化（双引号内联），断言放宽到正则匹配定位逻辑本身，
+  # 「不注入正文」的反向断言由 eval 056 承担（两者合起来强度不降反升）。
+  grep -qE '\^## 20' "$TPL" \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 模板 SessionStart 缺最近一条 REVIEW 定位 gate"; }
 
   # 4. 模板本体不含 upgrade-only 备份名（.v3.7.bak 属 cto-init.md upgrade 路径，不该进分发模板）
   grep -qF 'settings.json.v3.7.bak' "$TPL" \
