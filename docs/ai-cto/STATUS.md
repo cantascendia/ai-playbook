@@ -3,8 +3,52 @@
 > 这是 ai-playbook 仓库**自身**的 CTO 项目记忆（dogfooding）。
 > 把 ai-playbook 当作"产品"对待 — 用自己的 playbook 管理自己。
 
-最后更新：2026-07-16 — **v4.4**：Antigravity CLI（agy）接入 — headless 委派（agy-delegate.sh，实测 7s 往返无沙箱税）+ codex-bridge fallback 链 codex→**agy(Gemini 跨模型价值保留)**→claude + cost cap 仅 codex 入账（eval 085）
-上一版：2026-07-10 — v4.2：PR#11 重放（debounce+双hook拆分）· Self-Audit rolling issue · ADR-009 三层定位（规则/审计/回放）· telemetry/ OTel 用量面板（audit 层新成员）
+最后更新：2026-09-13 — **v5.0 进行中**（分支 `feat/v5.0-native-convergence`）：平台原生收敛重构，阶段 0 与阶段 1 核心已落地。
+上一版：2026-07-16 — v4.4：Antigravity CLI（agy）接入 — headless 委派 + codex-bridge fallback 链 codex→agy→claude + cost cap 仅 codex 入账（eval 085）
+再上一版：2026-07-10 — v4.2：PR#11 重放 · Self-Audit rolling issue · ADR-009 三层定位（规则/审计/回放）· telemetry/ OTel 用量面板
+
+---
+
+## v5.0 —「平台原生收敛」（2026-09-13 起，进行中）
+
+**计划**：`~/.claude/plans/ai-paybook-chatgpt-claude-antigravity-refactored-umbrella.md`
+（依据：72 代理侦察 + 3 方案 × 3 评委 + 宪法/迁移批评；平台事实均 2026-09-12 实抓）
+
+**已拍板**：D1=AGENTS.md 作铁律 SSOT（需 amendment A1）· D2=**下游默认装三平台守护**（反转 2026-07-02 平台条款，需 amendment A5）· D3=09-10 Codex `/import` 产物归档后重生
+
+### 已完成
+
+| 提交 | 内容 |
+|---|---|
+| `29998d4`（wip 分支） | 2026-09-10 Codex `/import` 的 12 项产物归档到 `wip/codex-import-2026-09-10`，工作树移除 → check-counts TIER1 由红转绿（skills(.agents) 16→6） |
+| `b80b0ee` | **WS0**：绿色基线存档（44 单测 / 67 eval / TIER1）+ `SPIKES-2026-09.md`（8 项 spike 中 4 项已成一手事实，4 项待测但各有不退化的安全默认） |
+| `1d25744` | **WS0b**：三个红线盲区修复 —— PowerShell 工具全程零覆盖（P0）、NotebookEdit 路径恒空（P1）、mcp-guard Check3 只重跑 2/5 条 immutable 红线（P0）；另加 self 识别第二信号 |
+| `dd3b49a` | **WS1-WS3**：一套 guard core 服务三平台（Claude / Codex / agy），Codex `apply_patch` 路径解析 + `group.mjs` 串联把 Codex trust 批准次数 8→3；`.codex/` 与 `.agents/` 接线落地；`RUNBOOK-platforms.md` |
+
+**当前闸门**：44/44 单测 · **71 PASS / 0 FAIL** eval · check-counts TIER1 绿
+
+### 本轮实测出的关键事实（全部有一手证据，见 SPIKES-2026-09.md）
+
+- **PowerShell 盲区不是理论风险**：trajectory 日志显示该工具自 **2026-07-02** 起已在实际使用，而 PreToolUse 的 Bash 组 matcher 只写 `"Bash"` → bypass / destructive / branch 三个 guard 在这条活跃通道上零覆盖两个多月。
+- **Codex 侧一直是零守护**：`~/.codex/config.toml` 的 `[hooks.state]` 中本仓**一条 trust 记录都没有**，即 2026-09-10 生成的 `.codex/hooks.json` 从未运行过。且 trust 是**逐 hook 条目 + 绝对路径**登记，重新生成即全部失信 → 这是「假安全感」的头号来源，故 `.codex/hooks.json` 刻意压到 3 条。
+- **agy payload 自带 `workspacePaths[]`** → adapter 可直接拿到 repo root，消除了「agy 侧 self/SSOT 判定静默失效」的风险（此前由宪法批评家指出）。
+- **agy 的红线面远超 run_command**：122 个 step type 中 `git_commit` / `shell_exec` / `mcp_tool` / `cloud_sql_execute_sql` / `delete_directory` / `move` 各自成独立步骤。
+- **写含红线字面量的文档必须用 Write/Edit 工具**：用 Bash heredoc 会被自己的 bypass-guard 拦（ADR-010 的 fail-safe 按设计工作，非 bug）。commit body 同理走 `-F`。
+
+### 范围决策（偏离原计划，已记录理由）
+
+- **不做 guard 纯函数化**：其唯一刚需是单进程 dispatch 不丢 audit，而 dispatch 已被评委团拆为独立 PR 并推到 v5.1。改为「输入归一 + 输出变形」的 I/O 层方案，风险小一个数量级，WS2/WS3 目标不变。
+- **保留 `MultiEdit` matcher**：工具已从 `filePatternTools` 消失，但死 matcher 是零成本防御，删除只换来清爽、却有开洞风险。
+
+### 待办（按计划顺序）
+
+- **WS4 余项**：序列回放 `evals/lib/replay.mjs` + audit 行序列断言（parity 矩阵已由 eval 095 覆盖 31 条断言）
+- **WS5**：`scripts/compile-policy.mjs`（吸收 sync-agents-md.mjs）+ `policy/{models,deny,hook-matrix}.json`；AGENTS.md 铁律 SSOT（**需先签 amendment A1**）
+- **WS6**：18 commands → 13 skills；`.claude/rules` 补 `paths:`（**前置：Claude Code ≥2.1.217**，本机 2.1.178）
+- **WS7**：handbook 原地瘦身（先加 self 第二信号，已完成）+ 文档漂移修复
+- **WS8**：审计单采集面 + 记忆瘦身（含 `reviews/` 9.77MB 治理 —— v4.4e 已定方案为 gitignore 本地-only，尚未执行；本轮新产生的 `reviews/a058745.md` 616KB 已刻意不入 git）
+- **WS9/WS10**：eval 契约化（kind/bucket/binds）· fleet 升级工具与灰度
+- **治理**：omnibus amendment（A1 铁律迁移 / A2 row5 措辞 / A3 命令数 / **A5 平台条款反转** / A4 补登 07-08）待人双签
 
 ---
 
