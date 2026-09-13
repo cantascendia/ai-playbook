@@ -215,3 +215,7 @@ HTTP 403: Sorry. Your account was suspended (https://api.github.com/graphql)
 2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=review-triggered | reason=security_relevant_change
 2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=cost-cap-degraded | reason=month_2026-09_cents_28419_over_cap_2000
 2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=agy-failed+claude-failed | reviewer=none
+2026-09-13T13:05:00+09:00 | sha=ea02918 | mode=review-triggered | reason=security_relevant_change
+2026-09-13T13:05:00+09:00 | sha=ea02918 | mode=cost-cap-degraded | reason=month_2026-09_cents_28419_over_cap_2000
+2026-09-13T13:05:00+09:00 | sha=ea02918 | mode=agy-failed+claude-failed | reviewer=none
+2026-09-13T13:05:56+09:00 | sha=3214409 | mode=skipped-non-business | reason=docs_or_config_only_no_security
