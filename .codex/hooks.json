@@ -1,0 +1,40 @@
+{
+  "_comment": "v5.0 WS2 — 生成物骨架（WS5 起由 scripts/compile-policy.mjs 产出）。刻意只有 3 个 hook 条目：Codex 的 hook trust 按 <hooks.json 绝对路径>:<event>:<组下标>:<条目下标> 逐条登记 sha256，条目越多人工批准次数越多，且任何重生成都会让全部条目失信（SPIKES-2026-09 spike-5）。因此同一 matcher 组内的多个 guard 由 engine/group.mjs 串联，而不是各占一条。启用前必须在该仓库的 Codex TUI 里跑 /hooks 批准，否则这些 hook 被静默跳过 = 零守护。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/engine/group.mjs codex bypass-guard destructive-action-guard branch-guard",
+            "commandWindows": "cmd /c .codex\\hooks\\pre-shell.cmd",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/engine/group.mjs codex immutable-guard forbidden-guard branch-guard test-lock-guard",
+            "commandWindows": "cmd /c .codex\\hooks\\pre-file.cmd",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/engine/group.mjs codex mcp-guard",
+            "commandWindows": "cmd /c .codex\\hooks\\pre-mcp.cmd",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

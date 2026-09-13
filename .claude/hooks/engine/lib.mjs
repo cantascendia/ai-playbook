@@ -37,6 +37,17 @@ export function fsPath(p) {
   return s;
 }
 
+// ─── 平台（v5.0 WS1）───
+// 同一套 guard 判定要服务三个 harness，它们只在 **I/O 形状** 上不同，判定逻辑完全一致：
+//   claude : stdin {tool_name, tool_input:{command|file_path|path|notebook_path}} / 出 exit2+stderr 或 deny JSON
+//   codex  : stdin 同构，但 tool_name 只有 Bash|apply_patch|mcp__*，且 apply_patch 的路径藏在 patch 文本里
+//   agy    : stdin camelCase {toolCall:{name,args}, workspacePaths[]} / 出 stdout {"decision":"deny"}
+// 因此本层只做「输入归一 + 输出变形」，不碰任何 guard 的判定或控制流（不做纯函数化改造）——
+// 纯函数化的唯一刚需是 dispatch 单进程串跑多 guard 时不丢 audit，而 dispatch 属 v5.1（带 env 杠杆）。
+let PLATFORM = 'claude';
+export function setPlatform(p) { if (p === 'codex' || p === 'agy') PLATFORM = p; else PLATFORM = 'claude'; }
+export function platform() { return PLATFORM; }
+
 // ─── stdin 解析（common.sh read_hook_input 等价）───
 export function readInput(stdinText) {
   let raw = stdinText;
@@ -46,6 +57,8 @@ export function readInput(stdinText) {
   let j = {};
   try { j = JSON.parse(raw); } catch { j = {}; } // 解析失败 → 全空字段 → 各 guard 放行（bash 同语义）
   if (typeof j !== 'object' || j === null) j = {};
+  if (PLATFORM === 'agy') return readInputAgy(raw, j);
+  if (PLATFORM === 'codex') return readInputCodex(raw, j);
   const ti = (typeof j.tool_input === 'object' && j.tool_input !== null) ? j.tool_input : {};
   const s = (v) => (typeof v === 'string' ? v : '');
   return {
@@ -67,6 +80,78 @@ export function readInput(stdinText) {
     event: s(j.hook_event_name),
     query: s(ti.query),
     sql: s(ti.sql),
+  };
+}
+
+// ─── Codex 输入归一（v5.0 WS2）───
+// 官方 canonical tool_name 仅 Bash / apply_patch / mcp__server__tool / 本地函数工具；
+// Bash 与 apply_patch 的 tool_input 都只有 `command`（apply_patch 的路径藏在 patch 文本里，没有 file_path）。
+// → Bash 与 mcp__* 与 claude 同构，原样复用；apply_patch 的多路径拆分由 guard.mjs 负责
+//   （翻译成 N 个 claude 形状的 Write 事件递归自调，复用已验证判定路径，而不是在 guard 内改控制流）。
+function readInputCodex(raw, j) {
+  const ti = (typeof j.tool_input === 'object' && j.tool_input !== null) ? j.tool_input : {};
+  const s = (v) => (typeof v === 'string' ? v : '');
+  const toolName = s(j.tool_name);
+  return {
+    rawJson: raw,
+    toolName,
+    // matcher 层允许把 Edit/Write 当作 apply_patch 的别名，但 input 里恒为 apply_patch
+    isApplyPatch: toolName === 'apply_patch' || toolName === 'Edit' || toolName === 'Write',
+    filePath: s(ti.file_path) || s(ti.path) || s(ti.notebook_path),
+    mcpDest: s(ti.destination),
+    cmd: s(ti.command),
+    oldString: s(ti.old_string),
+    newString: s(ti.new_string),
+    content: s(ti.content),
+    prompt: s(j.prompt),
+    cwd: s(j.cwd),
+    sessionId: s(j.session_id),
+    event: s(j.hook_event_name),
+    query: s(ti.query),
+    sql: s(ti.sql),
+  };
+}
+
+// ─── Antigravity(agy) 输入归一（v5.0 WS3）───
+// 契约见 SPIKES-2026-09 spike-6（一手来源：agy 内置 skill agy-customizations/docs/hooks.md）：
+//   顶层键 camelCase（conversationId / workspacePaths / stepIdx / toolCall），
+//   但**工具参数键是 PascalCase**（args.CommandLine）。
+//   payload 自带 workspacePaths[] → 直接拿到 repo root，不必从 hooks.json 位置反推 cwd
+//   （这消除了「agy 侧 self/SSOT 判定静默失效」的风险）。
+// step type → claude 工具名的映射按**红线面**而非逐个 step 映射，未知 step 归入文件类（fail-safe）。
+const AGY_SHELL_STEPS = /^(run_command|shell_exec|send_command_input|run_extension_code|git_commit)$/;
+const AGY_MCP_STEPS = /^(mcp_tool|cloud_sql_execute_sql|cloud_sql_update_schema)$/;
+function readInputAgy(raw, j) {
+  const s = (v) => (typeof v === 'string' ? v : '');
+  const tc = (typeof j.toolCall === 'object' && j.toolCall !== null) ? j.toolCall : {};
+  const args = (typeof tc.args === 'object' && tc.args !== null) ? tc.args : {};
+  const step = s(tc.name);
+  // PascalCase 优先（官方示例 args.CommandLine），再退 camelCase / snake_case 变体
+  const pick = (...keys) => { for (const k of keys) { if (typeof args[k] === 'string' && args[k]) return args[k]; } return ''; };
+  const cmd = pick('CommandLine', 'commandLine', 'command', 'Command');
+  const filePath = pick('AbsolutePath', 'absolutePath', 'FilePath', 'filePath', 'TargetFile', 'targetFile', 'Path', 'path');
+  const ws = Array.isArray(j.workspacePaths) && typeof j.workspacePaths[0] === 'string' ? j.workspacePaths[0] : '';
+  // 映射到 claude 工具名：shell 类 → Bash（沿用全部 Bash 规则）；mcp 类 → mcp__ 前缀；其余 → Write（整写语义）
+  let toolName;
+  if (AGY_SHELL_STEPS.test(step)) toolName = 'Bash';
+  else if (AGY_MCP_STEPS.test(step)) toolName = `mcp__agy__${step}`;
+  else toolName = 'Write';
+  return {
+    rawJson: raw,
+    toolName,
+    agyStep: step,
+    filePath,
+    mcpDest: pick('Destination', 'destination'),
+    cmd,
+    oldString: '',
+    newString: pick('CodeEdit', 'codeEdit', 'NewContent', 'newContent'),
+    content: pick('Content', 'content'),
+    prompt: '',
+    cwd: ws,
+    sessionId: s(j.conversationId),
+    event: 'PreToolUse',
+    query: pick('Query', 'query', 'Sql', 'sql'),
+    sql: pick('Sql', 'sql'),
   };
 }
 
@@ -137,13 +222,19 @@ export function forbiddenPattern(normCwd) {
 
 // ─── 动作原语 ───
 // 文件类 guard：exit 2 + stderr（block_with_reason 等价）
+// 平台差异（v5.0）：claude / codex 都支持 exit 2 + stderr 硬阻断（Codex 官方 hooks 文档明载），
+// 故字节行为完全一致；agy 只认 stdout 的 decision JSON，没有 exit-code 阻断通道。
 export function block(reason) {
+  if (PLATFORM === 'agy') return agyDeny(reason);
   process.stderr.write(reason + '\n');
   process.exit(2);
 }
 
 // Bash / mcp guard：紧凑 deny JSON + exit 0（deny_with_reason 等价；对冲 GitHub #23284）
+// claude 与 codex 的 PreToolUse 拒绝 schema 同构（hookSpecificOutput.permissionDecision=deny），
+// 故此处对两者字节一致；agy 用自己的 {"decision":"deny"}。
 export function deny(reason) {
+  if (PLATFORM === 'agy') return agyDeny(reason);
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
@@ -154,8 +245,21 @@ export function deny(reason) {
   process.exit(0);
 }
 
+// agy 拒绝：stdout JSON + exit 0。只用 deny/allow 两态 —— agy 另有 ask/force_ask，
+// 但 Codex 侧不支持 ask，用了会造成三平台裁决不对称，故统一收敛为 deny。
+function agyDeny(reason) {
+  process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
+  process.exit(0);
+}
+
 // 软提醒：additionalContext JSON（bash jq -Rs 路径等价 — 引擎恒有"jq"，无 stderr 降级分支）
+// 平台差异：additionalContext 是 Claude 私有字段；Codex 是否接受未证实（SPIKES spike-5 未完成）、
+// agy 无等价物 → 两者降级为 stderr 提示 + exit 0（提示可见，但不阻断，语义与 remind 一致）。
 export function remind(text, eventName) {
+  if (PLATFORM !== 'claude') {
+    process.stderr.write(text + '\n');
+    process.exit(0);
+  }
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: eventName, additionalContext: text },
   }) + '\n');

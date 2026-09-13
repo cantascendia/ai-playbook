@@ -1,0 +1,38 @@
+{
+  "ai-playbook-guards": {
+    "enabled": true,
+    "_comment": "v5.0 WS3 — 生成物骨架（WS5 起由 scripts/compile-policy.mjs 产出）。matcher 是 agy 的 step type（= CORTEX_STEP_TYPE_* 去前缀小写，见 SPIKES-2026-09 spike-6），支持正则。分组按红线面而非逐 step。文件写一栏刻意用**候选正则一次覆盖**（propose_code / file_change / write_blob / edit_notebook / delete_directory / move）：哪个才是 agent 真正的写文件步骤尚未经真机确认，多跑几次 guard 无害、漏拦才有害；真机确认后再收窄。在确认前 cto-doctor 对 agy 文件写守护显示『候选覆盖，未经真机确认』，不得标 ✓。",
+    "PreToolUse": [
+      {
+        "matcher": "run_command|shell_exec|send_command_input|run_extension_code|git_commit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd /c .agents\\hooks\\guard.cmd bypass-guard destructive-action-guard branch-guard",
+            "timeout": 25
+          }
+        ]
+      },
+      {
+        "matcher": "propose_code|file_change|write_blob|edit_notebook|delete_directory|move",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd /c .agents\\hooks\\guard.cmd immutable-guard forbidden-guard branch-guard test-lock-guard",
+            "timeout": 25
+          }
+        ]
+      },
+      {
+        "matcher": "mcp_tool|cloud_sql_execute_sql|cloud_sql_update_schema",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd /c .agents\\hooks\\guard.cmd mcp-guard",
+            "timeout": 25
+          }
+        ]
+      }
+    ]
+  }
+}

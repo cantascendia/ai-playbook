@@ -1,0 +1,12 @@
+# Codex 项目级配置（v5.0 WS2）
+#
+# 刻意极简。2026-09-10 由 Codex `/import` 自动生成的版本被归档到分支
+# wip/codex-import-2026-09-10 而没有采纳，因为它：
+#   - 把 .claude/settings.local.json 里 gitignore 的 OTEL 环境变量固化进了仓库
+#   - 配置了 [mcp_servers.codex] → `codex mcp-server`，而该子命令已于 2026-09-05 移除
+#     （替代品 app-server 讲的是自己的 JSON-RPC 协议，官方明示不是 MCP 服务器，
+#      故本仓不再保留任何「Codex 作为 MCP server」的通道；委派统一走 `codex exec`）
+#
+# 唯一保留的设置：让 Codex 在没有 AGENTS.md 时回退读 CLAUDE.md，
+# 使三平台共享同一份项目指令（WS5 会把 AGENTS.md 提升为铁律正文单源）。
+project_doc_fallback_filenames = ["CLAUDE.md"]
