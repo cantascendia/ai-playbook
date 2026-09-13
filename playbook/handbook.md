@@ -424,8 +424,15 @@ user-invocable: true
 | Gemini 3.1 Pro (Low) | 省配额变体 | |
 | Gemini 3 Flash | 最快响应 | 2025-12 加入 |
 | Claude Sonnet 4.6 (Thinking) | 深度推理 | |
-| Claude Opus 4.8 (Thinking) | 最强推理 | v3.15 更新 4.6→4.8 |
+| Claude Opus 4.8 (Thinking) | 最强推理 | v3.15 更新 4.6→4.8；⚠️ **待重新核实**（见下方 2026-07-25 核实记录）|
 | GPT-OSS-120b | 开源通用 | |
+
+> ⚠️ **2026-07-25 核实**：`https://antigravity.google/docs/models` 官方文档页当前只列出
+> **Claude Opus 4.6 (Thinking)** + **Claude Sonnet 4.6 (Thinking)**，没有 4.8 也没有 Claude 5 家族
+> （Opus 5 / Fable 5 / Sonnet 5，2026-07-24 起已是 Claude Code 侧 SSOT，见 §1.2）。与本表现有的
+> "Opus 4.8" 及下方 CLI 小节"落后 IDE 阵容的 4.8"互相矛盾。不确定是文档滞后实际上线，还是本表此前
+> 记录有误——**在 Antigravity IDE 内实际打开模型选择器核实前，不要假定任一方向**（铁律 #2）。
+> 若实测确认 Antigravity 已上架 Claude 5 家族，同步更新本表 + CLI 小节 + §14 委派场景。
 | Gemini 2.5 Computer Use | 浏览器子代理专用 | 不可主推理用 |
 | Nano Banana Pro / Gemini 2.5 Image | 图像生成/编辑 | 不可主推理用 |
 
