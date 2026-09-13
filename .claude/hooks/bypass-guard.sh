@@ -6,6 +6,9 @@ if [ "${CTO_GUARD_ENGINE:-engine}" != "legacy" ] && command -v node >/dev/null 2
   exec node "$GUARD_DIR/engine/guard.mjs" bypass-guard
 fi
 # ══ legacy fallback（v3.15 原实现，冻结不再演进）══
+# ⚠️ v5.0 语义差（engine-only，非漏拦 bug）：PowerShell 工具覆盖（matcher Bash+PowerShell、
+#    反引号与 stop-parsing token 归一）只在 engine 实现；本冻结层仍只看 Bash。
+#    同 v4.0c Bash 拦截之例。证据：docs/ai-cto/SPIKES-2026-09.md spike-1。
 # 防 #40117 多策略绕过 — PreToolUse(Bash)
 # Anthropic 自家 issue 显示 Claude 会用 6+ 种方式绕过 pre-commit hook
 # 这个 guard 拦截所有已知 bypass 模式，exit 2 + stderr 喂回 Claude

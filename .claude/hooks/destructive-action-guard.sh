@@ -6,6 +6,9 @@ if [ "${CTO_GUARD_ENGINE:-engine}" != "legacy" ] && command -v node >/dev/null 2
   exec node "$GUARD_DIR/engine/guard.mjs" destructive-action-guard
 fi
 # ══ legacy fallback（v3.15 原实现，冻结不再演进）══
+# ⚠️ v5.0 语义差（engine-only，非漏拦 bug）：PowerShell cmdlet 形态的破坏模式
+#    （Remove-Item -Recurse -Force / Format-Volume 等）只在 engine 实现；本冻结层的
+#    FS_PATTERNS 全部锚在 POSIX `rm -rf` 形态。证据：SPIKES-2026-09.md spike-1。
 # v3.10.1 红线层：destructive action gate
 # OWASP Agentic Top 10 2026 — ASI01 (Agent Goal Hijacking) 头号风险
 # 教训：PocketOS 2026-04-25 — Cursor+Claude Opus 4.6 agent 9 秒删生产库 + 全部备份

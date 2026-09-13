@@ -39,6 +39,9 @@ _json_get() {
 }
 
 # 读 stdin JSON 提取常用字段
+# ⚠️ v5.0 语义差（engine-only，非漏拦 bug）：NotebookEdit 的路径在 tool_input.notebook_path，
+#    engine 的 readInput 已按 file_path → path → notebook_path 三级提取；本冻结层仍只取前两者，
+#    故 legacy 路径下 NotebookEdit 的 file-path 类红线不生效。证据：SPIKES-2026-09.md spike-2。
 read_hook_input() {
   HOOK_JSON=$(cat 2>/dev/null || echo '{}')
   HOOK_TOOL_NAME=$(_json_get "$HOOK_JSON" "tool_name")

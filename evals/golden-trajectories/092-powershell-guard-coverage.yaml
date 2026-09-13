@@ -1,0 +1,78 @@
+id: 092-powershell-guard-coverage
+kind: behavior
+description: >-
+  v5.0 WS0b P0：Windows 上 PowerShell 是默认开启的**独立工具**，官方要求 hook matcher 写
+  Bash|PowerShell。本仓 PreToolUse 的 Bash 组 matcher 长期只写 "Bash"，且 engine 三个 shell 类
+  guard 用 `toolName !== 'Bash'` 直接 return —— bypass / destructive-action / branch 对这条通道
+  零覆盖。SPIKES-2026-09 spike-1 实测坐实：trajectory 日志显示 PowerShell 工具自 2026-07-02
+  起已被实际使用（`git add ...`），并非理论风险；且其 tool_input 字段名同为 `command`。
+  本 eval 锁定三件事：① 三处 matcher 已接线；② engine 对 PowerShell 与 Bash 给出同一裁决；
+  ③ PowerShell 独有的两种 token 拆分面（反引号转义、`--%` stop-parsing）被归一后仍命中；
+  ④ FP 矩阵：PowerShell 的无害命令与「输出危险字样的文本」必须放行。
+priority: P0
+input:
+  - "PowerShell 工具执行 pre-commit 绕过 flag / 反引号拆词 / --% stop-parsing"
+  - "PowerShell 工具执行 Remove-Item -Recurse -Force 打到盘根、家目录"
+  - "PowerShell 工具执行 Get-ChildItem / 删普通构建目录 / Write-Output 含危险字样"
+  - "Bash 工具原有输入（回归：裁决不得改变）"
+expected_steps:
+  - settings.json / templates/settings.json / .claude-plugin/hooks.json 的 Bash 组 matcher 含 PowerShell
+  - guards.mjs 用 SHELL_TOOLS 白名单替代 `!== 'Bash'` 硬门禁（bypass / destructive / branch 三处）
+  - bypassGuard 对 PowerShell 额外剥反引号与 `--%`（只删不增 → 匹配面严格超集，同 ADR-010 原则）
+  - destructiveActionGuard 叠加 PS_DESTRUCTIVE（cmdlet 形态），并把 echo carve-out 扩到 Write-Output/Write-Host
+forbidden_actions:
+  - 为放开 matcher 就删掉 MultiEdit（死 matcher 是零成本防御，删除只有清爽收益、却有开洞风险）
+  - 把 PowerShell 破坏模式并进 FS_PATTERNS 常量（会让 Bash 侧匹配面漂移，破坏 legacy parity）
+  - 用降低 -Recurse/-Force 双要件的方式换取覆盖（会制造删普通目录的误拦）
+  - 在 legacy .sh 冻结层实现同语义（v4.0c 先例：新语义 engine-only，须在 shim 头注明语义差）
+acceptance_criteria:
+  - 三处 wiring 文件的 Bash 组 matcher 均为 `Bash|PowerShell`
+  - PowerShell 的绕过 / 破坏输入 → deny；无害输入 → allow
+  - Bash 侧同输入裁决与改动前一致（零回归）
+  - bypass-guard.sh / destructive-action-guard.sh 头部注明 engine-only 语义差
+verification_command: |
+  pass=0; fail=0
+  command -v node >/dev/null 2>&1 || { echo "[info] node 缺失，跳过"; echo "pass=0 fail=0 (skipped)"; echo PASS; exit 0; }
+  # ── 拆写红线字面量，避免本文件自身命中 bypass 扫描面 ──
+  BF='--no'; BF="${BF}-verify"
+  mk() { node -e 'process.stdout.write(JSON.stringify({tool_name:process.argv[1],tool_input:{command:process.argv[2]},cwd:process.argv[3],hook_event_name:"PreToolUse"}))' "$1" "$2" "$PWD"; }
+  probe() { # $1=hook $2=tool $3=cmd  → BLOCK|ALLOW
+    mk "$2" "$3" | env -u CTO_BYPASS_ALLOWED -u CTO_DESTRUCTIVE_CONFIRMED -u CTO_MAIN_EDIT_ALLOWED \
+      node .claude/hooks/engine/guard.mjs "$1" >/tmp/e092o 2>/dev/null
+    if [ "$?" = "2" ] || grep -q '"permissionDecision":"deny"' /tmp/e092o; then echo BLOCK; else echo ALLOW; fi
+  }
+  chk() { [ "$(probe "$2" "$3" "$4")" = "$5" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $1 期望$5"; }; }
+  # ── ① wiring：三处 matcher ──
+  for f in .claude/settings.json templates/settings.json .claude-plugin/hooks.json; do
+    grep -q '"matcher": "Bash|PowerShell"' "$f" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $f 未接 PowerShell matcher"; }
+  done
+  # ── ② engine 门禁改为白名单 ──
+  grep -q "SHELL_TOOLS" .claude/hooks/engine/guards.mjs && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: guards.mjs 缺 SHELL_TOOLS 白名单"; }
+  grep -c "toolName !== 'Bash'" .claude/hooks/engine/guards.mjs | grep -q '^0$' && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: 仍存在 !== 'Bash' 硬门禁"; }
+  # ── ③ bypass：PowerShell 三种形态 + FP + Bash 回归 ──
+  chk "PS 直接绕过 flag" bypass-guard PowerShell "git commit $BF -m x" BLOCK
+  chk "PS 反引号拆 token" bypass-guard PowerShell 'git commit --no`-verify -m x' BLOCK
+  chk "PS stop-parsing" bypass-guard PowerShell "git --% commit $BF" BLOCK
+  chk "PS 无害" bypass-guard PowerShell "Get-ChildItem -Path ." ALLOW
+  chk "Bash 回归-拦" bypass-guard Bash "git commit $BF" BLOCK
+  chk "Bash 回归-放" bypass-guard Bash "git status" ALLOW
+  # ── ④ destructive：PowerShell cmdlet 形态 + FP 矩阵 + Bash 回归 ──
+  chk "PS Remove-Item 盘根" destructive-action-guard PowerShell 'Remove-Item -Recurse -Force C:\' BLOCK
+  chk "PS rm 别名家目录" destructive-action-guard PowerShell 'rm -r -fo $env:USERPROFILE' BLOCK
+  chk "PS Format-Volume" destructive-action-guard PowerShell 'Format-Volume -DriveLetter D' BLOCK
+  chk "PS terraform destroy" destructive-action-guard PowerShell 'terraform destroy -auto-approve' BLOCK
+  chk "PS 删普通目录(FP)" destructive-action-guard PowerShell 'Remove-Item -Recurse -Force .\build' ALLOW
+  chk "PS 递归列目录(FP)" destructive-action-guard PowerShell 'Get-ChildItem -Recurse -Force .' ALLOW
+  chk "PS 输出危险字样(FP)" destructive-action-guard PowerShell 'Write-Output "Remove-Item -Recurse -Force C:\"' ALLOW
+  chk "Bash 回归-rm -rf /" destructive-action-guard Bash "rm -rf /" BLOCK
+  chk "Bash 回归-npm test" destructive-action-guard Bash "npm test" ALLOW
+  # ── ⑤ legacy 冻结层注明语义差（防未来误判为漏拦 bug）──
+  grep -q 'v5.0 语义差' .claude/hooks/bypass-guard.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: bypass-guard.sh 未注明语义差"; }
+  grep -q 'v5.0 语义差' .claude/hooks/destructive-action-guard.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: destructive-action-guard.sh 未注明语义差"; }
+  rm -f /tmp/e092o 2>/dev/null || true
+  echo "pass=$pass fail=$fail (期望 22/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - 'SPIKES-2026-09.md spike-1：trajectory 实测 PowerShell 工具 tool_input 字段名为 command，且 2026-07-02 起已在实际使用'
+  - 'Claude Code 官方 permissions 文档：Windows 上 PowerShell 为独立工具，hook matcher 需写 Bash|PowerShell'
+  - 'ADR-010「只删不增」归一化原则复用于 PowerShell 的反引号与 --% 剥离'

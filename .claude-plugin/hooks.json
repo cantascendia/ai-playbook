@@ -5,13 +5,13 @@
       { "matcher": "*", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/vibe-prompt-guard.sh\"" } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": [
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/immutable-guard.sh\"" },
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/forbidden-guard.sh\"" },
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/branch-guard.sh\"" },
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/test-lock-guard.sh\"" }
       ] },
-      { "matcher": "Bash", "hooks": [
+      { "matcher": "Bash|PowerShell", "hooks": [
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/bypass-guard.sh\"" },
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/destructive-action-guard.sh\"" },
         { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/branch-guard.sh\"" }
@@ -21,7 +21,7 @@
       ] }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/eval-gate.sh\"" } ] },
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/eval-gate.sh\"" } ] },
       { "matcher": "*", "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/trajectory-logger.sh\"" } ] }
     ]
   }

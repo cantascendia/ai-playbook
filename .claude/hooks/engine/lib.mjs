@@ -52,7 +52,10 @@ export function readInput(stdinText) {
     rawJson: raw,
     toolName: s(j.tool_name),
     // MCP filesystem 用 tool_input.path 不是 file_path（learned rule 2026-05-29）
-    filePath: s(ti.file_path) || s(ti.path),
+    // v5.0 WS0b：NotebookEdit 用 tool_input.notebook_path（SPIKES-2026-09 spike-2 实测；
+    // 平台自身优先级为 notebook_path → path → file_path，此处**只在尾部追加**以保持
+    // 既有 file_path/path 相对顺序不变 = 零回归；三者在实际工具中互斥，顺序无影响）。
+    filePath: s(ti.file_path) || s(ti.path) || s(ti.notebook_path),
     mcpDest: s(ti.destination),
     cmd: s(ti.command),
     oldString: s(ti.old_string),
@@ -81,15 +84,38 @@ export function normalizePaths(ctx, mode = 'basename') {
 }
 
 // ─── self vs subproject 检测（immutable-guard.sh:21-34 等价，含 env 覆盖顺序）───
+// 读文件首个 markdown H1（只读前 4KB，避免大文件开销；不存在/读失败 → 抛给调用方兜底）
+function readFirstHeading(file) {
+  const fd = fs.openSync(fsPath(file), 'r');
+  try {
+    const buf = Buffer.alloc(4096);
+    const n = fs.readSync(fd, buf, 0, 4096, 0);
+    const m = /^#\s+(.+)$/m.exec(buf.subarray(0, n).toString('utf8'));
+    return m ? m[1] : '';
+  } finally { fs.closeSync(fd); }
+}
+
 export function isAiPlaybookSelf(cwd, env = process.env) {
   let self = false;
   const c = fsPath((cwd || '.').replaceAll('\\', '/'));
+  // 信号 1（v3.9.3 原始）：playbook/handbook.md 存在且含 `^## 50.`
   try {
     if (fs.statSync(`${c}/playbook/handbook.md`).isFile() && fs.statSync(`${c}/playbook`).isDirectory()) {
       const hb = fs.readFileSync(`${c}/playbook/handbook.md`, 'utf8');
       if (/^## 50\./m.test(hb) || fs.existsSync(`${c}/CTO-PLAYBOOK.md`)) self = true;
     }
   } catch { /* 不存在 → 非 self */ }
+  // 信号 2（v5.0 WS0b）：docs/ai-cto/CONSTITUTION.md 的 H1 自述本仓身份。
+  // 为什么需要第二信号：信号 1 把「self 识别」单点绑在 handbook 的路径 + 章节标题上，
+  // 任何手册重构（改名 / 移位 / 章节整理）都会让本仓的宪法保护**静默降级为子项目模式**（不报错）。
+  // 该文件本身受 immutable-guard 红线 2 守护（AI 改不了），因此可安全用作身份签名。
+  // 两信号取 OR：任一成立即 self，互为兜底。
+  if (!self) {
+    try {
+      const h1 = readFirstHeading(`${c}/docs/ai-cto/CONSTITUTION.md`);
+      if (/ai-playbook\s*自身仓库/.test(h1)) self = true;
+    } catch { /* 不存在 → 保持信号 1 的结论 */ }
+  }
   // env 覆盖在自动检测之后；SUBPROJECT 先、SELF 后（同时设 1 时 SELF 胜 — 与 bash 顺序一致）
   if (env.CTO_IS_SUBPROJECT === '1') self = false;
   if (env.CTO_IS_AI_PLAYBOOK_SELF === '1') self = true;

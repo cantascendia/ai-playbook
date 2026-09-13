@@ -12,6 +12,16 @@ const env = () => process.env;
 const nonComment = (l) => !/^\s*(#|$)/.test(l);
 const splitLines = (s) => String(s).split(/\r?\n/);
 
+// ═══ shell 类工具白名单（v5.0 WS0b，engine-only 新语义）═══
+// Windows 上 PowerShell 是**默认开启的独立工具**，与 Bash 并列；官方要求 hook matcher 写 `Bash|PowerShell`。
+// SPIKES-2026-09 spike-1 实测：PowerShell 的 tool_input 字段名同为 `command`（故无需字段映射），
+// 且 trajectory 日志显示该工具自 2026-07-02 起已被实际使用 —— 而 PreToolUse 的 Bash 组 matcher 只写 "Bash"，
+// 导致 bypass / destructive-action / branch 三个 guard 对这条通道长期零覆盖（P0）。
+// legacy .sh 冻结层不含本语义（与 v4.0c 的 Bash branch-guard 同例），已在各 shim 头部注明。
+const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
+const isShellTool = (t) => SHELL_TOOLS.has(t);
+const isPowerShell = (t) => t === 'PowerShell';
+
 // ═══ immutable-guard ═══（4 条红线；红线 1/4 仅 self，红线 2/3 通用）
 export function immutableGuard(ctx) {
   if (!ctx.filePath) process.exit(0);
@@ -363,7 +373,7 @@ function fileInsideWorktree(ctx) {
 }
 
 export function branchGuard(ctx) {
-  if (ctx.toolName === 'Bash') return branchGuardBash(ctx);
+  if (isShellTool(ctx.toolName)) return branchGuardBash(ctx);
   if (!ctx.filePath) process.exit(0);
   const branch = gitBranch(ctx.cwd);
   if (!branch) process.exit(0); // 非 git repo / detached 空值 → 放行（与 bash 一致）
@@ -474,13 +484,18 @@ export function trajectoryLogger(ctx) {
 // /m 保留 legacy grep 逐行语义（($|\s) 的 $ 需匹配行尾而非串尾）。
 const BYPASS_PATTERNS = new RegExp(BYPASS_PATTERNS_SRC, 'm');
 export function bypassGuard(ctx) {
-  if (ctx.toolName !== 'Bash') process.exit(0);
+  if (!isShellTool(ctx.toolName)) process.exit(0);
   if (!ctx.cmd) process.exit(0);
   // v4.4b 引号插入逃逸硬化：shell 执行前吃掉引号/反斜杠字符，guard 必须看到 shell 看到的形态 ——
   // `core.hooks'Path'` / `"core.hooksPath"` / `core\.hooksPath` / 引号包 metachar 值 都归一为可命中串。
   // 广义 core.hooksPath token + 本剥字符 = 对全部 3 轮对抗验证的引号/续行逃逸免疫（子串仍在即命中）。
   // 只删不增 → 匹配面严格超集，原命中不丢失。与 legacy bypass-guard.sh tr -d 逐字节同步。DECISIONS ADR-010。
-  const scanCmd = ctx.cmd.replace(/['"\\]/g, '');
+  let scanCmd = ctx.cmd.replace(/['"\\]/g, '');
+  // v5.0 WS0b：PowerShell 独有的两种 token 拆分面 ——
+  //   ① 反引号是 PS 的转义字符，可把红线 token 拆成两段后再被 shell 拼回；
+  //   ② `--%` 是 stop-parsing token，其后内容原样传给外部程序（`git --% commit <bypass-flag>`）。
+  // 同 ADR-010 原则：**只删不增** → 匹配面严格超集，不丢失任何原命中。
+  if (isPowerShell(ctx.toolName)) scanCmd = scanCmd.replace(/[`]/g, '').replace(/--%/g, '');
   if (BYPASS_PATTERNS.test(scanCmd)) {
     if (env().CTO_BYPASS_ALLOWED === '1') {
       auditLog(ctx, 'bypass-guard', 'bypass-allowed-emergency', `cmd=${ctx.cmd}`);
@@ -507,15 +522,39 @@ const DB_PATTERNS = `${DESTRUCTIVE_SQL_CORE}|psql.*-c.*DROP|mongo.*dropDatabase|
 const CLOUD_PATTERNS = `terraform\\s+destroy|vercel\\s+rm\\s.*--yes|railway\\s+(down|destroy)|supabase\\s+project\\s+delete|aws\\s+s3\\s+rb\\s+["']?s3://.*--force|aws\\s+rds\\s+delete-db-instance|aws\\s+ec2\\s+terminate-instances.*--force|gh\\s+repo\\s+delete|gh\\s+secret\\s+remove|firebase\\s+(use\\s+.*&&.*deploy|projects:delete)|heroku\\s+apps:destroy|fly\\s+apps\\s+destroy|kubectl\\s+delete\\s+(ns|namespace|cluster|all)|docker\\s+system\\s+prune\\s+--all\\s+--volumes`;
 const COMBINED_DESTRUCTIVE = new RegExp(`${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}`, 'im');
 
+// ═══ PowerShell 专属破坏模式（v5.0 WS0b，engine-only）═══
+// 为什么必须单列：FS_PATTERNS 全部锚在 `rm -rf <target>` 的 POSIX 形态上，而该形态在 PowerShell
+// 里不合法 —— PS 用 `Remove-Item -Recurse -Force`（rm/ri/del/rd 都是 Remove-Item 别名）。
+// 只放开 matcher 而不补 pattern，等于「看得见但拦不住」。
+// DB_PATTERNS / CLOUD_PATTERNS 与 shell 无关（terraform / aws / gh 在 PS 下同形），仍复用。
+// 设计取向：文件删除类要求**三要件同时成立**（删除动词 + 递归 + 强制 + 危险目标），把误拦压到最低；
+// 磁盘/分区级动词本身即不可逆，单要件即拦。
+const PS_RM_VERB = '(?:remove-item|\\bri\\b|\\brm\\b|\\brmdir\\b|\\brd\\b|\\bdel\\b|\\berase\\b)';
+const PS_RECURSE = '(?=[^\\n;|]*\\s-r(?:ecurse)?\\b)';
+const PS_FORCE = '(?=[^\\n;|]*\\s-fo(?:rce)?\\b)';
+// 危险目标：盘根 / 文件系统根 / 家目录 / 裸通配
+const PS_DANGER_TARGET = '(?:[A-Za-z]:[\\\\/]?|[\\\\/]|~|\\$HOME|\\$env:USERPROFILE|\\*)';
+const PS_DESTRUCTIVE = new RegExp([
+  `${PS_RM_VERB}${PS_RECURSE}${PS_FORCE}[^\\n;|]*\\s["']?${PS_DANGER_TARGET}["']?(?:\\s|["']|$)`,
+  '\\b(?:format-volume|clear-disk|initialize-disk|remove-partition)\\b',
+  `\\bclear-content\\b[^\\n]*\\s["']?[A-Za-z]:[\\\\/]`,
+].join('|'), 'im');
+
 export function destructiveActionGuard(ctx) {
-  if (ctx.toolName !== 'Bash') process.exit(0);
+  if (!isShellTool(ctx.toolName)) process.exit(0);
   if (!ctx.cmd) process.exit(0);
   const scanCmd = splitLines(ctx.cmd).map((l) => l.replace(/<<-?'?[A-Za-z_]+'?.*$/, '')).join('\n');
   // 纯 echo/printf 输出（无 shell 操作符）→ 放行（v3.10.2 教训：文本不是执行）
-  if (/^[ \t]*(echo|printf)[ \t]/m.test(scanCmd) && !/&&|\|\||;|\$\(|\|\s/.test(scanCmd)) {
+  // v5.0 WS0b：PowerShell 的等价输出 cmdlet 一并纳入同一 carve-out，语义一致。
+  const ECHO_VERBS = isPowerShell(ctx.toolName)
+    ? /^[ \t]*(echo|printf|write-output|write-host)[ \t]/im
+    : /^[ \t]*(echo|printf)[ \t]/m;
+  if (ECHO_VERBS.test(scanCmd) && !/&&|\|\||;|\$\(|\|\s/.test(scanCmd)) {
     process.exit(0);
   }
-  if (COMBINED_DESTRUCTIVE.test(scanCmd)) {
+  const hit = COMBINED_DESTRUCTIVE.test(scanCmd)
+    || (isPowerShell(ctx.toolName) && PS_DESTRUCTIVE.test(scanCmd));
+  if (hit) {
     if (env().CTO_DESTRUCTIVE_CONFIRMED === '1') {
       auditLog(ctx, 'destructive-action-guard', 'destructive-action-allowed', `cmd=${headBytes(ctx.cmd, 200)} env=1`);
       process.exit(0);
@@ -564,12 +603,42 @@ export function mcpGuard(ctx) {
     }
   }
 
-  // Check 3：MCP filesystem 写类工具 → 重跑三条文件红线（learned rule 2026-05-29：path 字段）
+  // Check 3：MCP filesystem 写类工具 → 重跑**全部**文件红线（learned rule 2026-05-29：path 字段）
+  // v5.0 WS0b：此前只重跑 immutable 红线 2/3（CONSTITUTION + forbidden SSOT）与 forbidden/test-lock，
+  // 漏掉 immutable 红线 1（CLAUDE.md 铁律段）/ 4（handbook §32-§35）/ 5（guard 自保护）与 branch-guard
+  // —— 即「改用 MCP filesystem 工具」仍可覆写铁律段、手册核心章与 guard 本体，正是 learned rule
+  // 2026-05-29 指出的那类绕过，只补了一半。现补齐为 5/5 + branch。
+  // 语义取向：MCP 写类工具无 old_string 可比对，无法证明未触碰红线段落 → 一律按 Write 覆写处理（fail-safe），
+  // 与 immutable-guard 对 Write/MultiEdit 的处置一致。
   if (MCP_FS_WRITE.test(ctx.toolName) && ctx.filePath) {
-    const { normFile, normCwd, rel } = normalizePaths(ctx, 'basename');
+    const { normFile, normCwd, rel, basename } = normalizePaths(ctx, 'basename');
+    const self = isAiPlaybookSelf(ctx.cwd);
     if (!blocked && new RegExp('docs/ai-cto/CONSTITUTION\\.md|scripts/forbidden-paths\\.txt').test(`${rel} ${normFile}`)) {
       blocked = true;
-      reason = `MCP filesystem 写 immutable 文件: ${rel}（绕过 immutable-guard）`;
+      reason = `MCP filesystem 写 immutable 文件: ${rel}（绕过 immutable-guard 红线 2/3）`;
+    }
+    // 红线 1：CLAUDE.md 铁律段（仅 self 仓；子项目的 CLAUDE.md 是项目级配置，见 learned rule 2026-05-12）
+    if (!blocked && self && basename === 'CLAUDE.md') {
+      blocked = true;
+      reason = `MCP filesystem 写 CLAUDE.md（含 14 铁律段）: ${rel}（绕过 immutable-guard 红线 1）`;
+    }
+    // 红线 4：handbook §32-§35（仅 self）
+    if (!blocked && self && /playbook\/handbook\.md$/.test(normFile)) {
+      blocked = true;
+      reason = `MCP filesystem 写 handbook（含 §32-§35）: ${rel}（绕过 immutable-guard 红线 4）`;
+    }
+    // 红线 5：guard 自保护 —— 覆写 guard 本体等于关掉红线层（CONSTITUTION 安全宪法：block 逻辑不可移除）
+    if (!blocked && /\.claude\/hooks\/.+\.(sh|mjs)$/.test(normFile)) {
+      blocked = true;
+      reason = `MCP filesystem 写 guard 本体: ${rel}（绕过 immutable-guard 红线 5）`;
+    }
+    // branch-guard：保护分支上经 MCP 写工作树内文件（铁律 #8）
+    if (!blocked && env().CTO_MAIN_EDIT_ALLOWED !== '1') {
+      const branch = gitBranch(ctx.cwd);
+      if (branch && PROTECTED_BRANCHES.has(branch) && fileInsideWorktree(ctx)) {
+        blocked = true;
+        reason = `MCP filesystem 在保护分支 \`${branch}\` 上写工作树文件: ${rel}（绕过 branch-guard / 铁律 #8）`;
+      }
     }
     if (!blocked) {
       const { pattern } = forbiddenPattern(normCwd);

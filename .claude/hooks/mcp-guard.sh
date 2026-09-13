@@ -6,6 +6,9 @@ if [ "${CTO_GUARD_ENGINE:-engine}" != "legacy" ] && command -v node >/dev/null 2
   exec node "$GUARD_DIR/engine/guard.mjs" mcp-guard
 fi
 # ══ legacy fallback（v3.15 原实现，冻结不再演进）══
+# ⚠️ v5.0 语义差（engine-only，非漏拦 bug）：Check3 重跑的红线在 engine 已从 2 条补到 5 条
+#    （+CLAUDE.md 铁律段 / handbook §32-§35 / guard 本体）并新增 branch 判定；
+#    本冻结层仍只重跑 CONSTITUTION + forbidden SSOT。证据：本轮 WS0b 探针 28/28。
 # v3.11 红线层：MCP 工具 destructive 防护（飞轮第 8 轮 architect-critic + sota OWASP ASI 发现）
 #
 # 问题：destructive-action-guard / bypass-guard 只 match Bash，看不到 mcp__ 工具。

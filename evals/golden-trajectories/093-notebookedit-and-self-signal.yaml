@@ -1,0 +1,81 @@
+id: 093-notebookedit-and-self-signal
+kind: behavior
+description: >-
+  v5.0 WS0b 两处结构性加固。
+  (A) NotebookEdit 盲区：`filePatternTools` 含 NotebookEdit，其路径在 tool_input.notebook_path，
+  而 engine readInput 只取 file_path||path → NotebookEdit 的 filePath 恒为空，四条文件类红线全部
+  放行；matcher 也未包含该工具。SPIKES-2026-09 spike-2 从 2.1.178 二进制取证，平台自身优先级为
+  notebook_path → path → file_path。修法取「尾部追加」以保持既有 file_path/path 相对顺序不变（零回归）。
+  (B) self 识别单点：immutable 红线 1/4 只在 self 仓生效，而 isAiPlaybookSelf 仅靠
+  `playbook/handbook.md` 存在且含 `^## 50.` 一个信号（且旧的 CTO-PLAYBOOK.md 第二信号早已随文件消失）。
+  任何手册重构都会让本仓宪法保护**静默降级为子项目模式**且不报错。新增第二信号：
+  docs/ai-cto/CONSTITUTION.md 的 H1 自述（该文件受红线 2 守护，AI 改不了，可安全用作身份签名），两信号取 OR。
+priority: P0
+input:
+  - "NotebookEdit 写 forbidden 路径 / 写 CONSTITUTION.md / 写普通 notebook"
+  - "仅含 CONSTITUTION 身份签名、无 handbook 的仓库"
+  - "两个信号都不成立的仓库；CTO_IS_SUBPROJECT=1 强制覆盖"
+expected_steps:
+  - lib.mjs readInput 的 filePath 追加第三级 notebook_path
+  - 三处 wiring 文件的 Edit 组 matcher 包含 NotebookEdit
+  - lib.mjs isAiPlaybookSelf 增加 CONSTITUTION.md H1 信号，与 handbook 信号取 OR
+  - legacy common.sh 注明 NotebookEdit 提取为 engine-only 语义差
+forbidden_actions:
+  - 把 notebook_path 插到 file_path 之前（会改变既有 MCP filesystem / Edit 的取值顺序 = 回归风险）
+  - 用 handbook 之外的**可被 AI 修改**的文件作 self 第二信号（签名必须是 AI 改不动的）
+  - 删除 handbook 信号（两信号是互为兜底，不是替换）
+  - env 覆盖顺序变更（CTO_IS_SUBPROJECT 先、CTO_IS_AI_PLAYBOOK_SELF 后，同时设时 SELF 胜）
+acceptance_criteria:
+  - NotebookEdit 触发文件类红线，普通 notebook 路径放行
+  - 仅有 CONSTITUTION 签名的临时仓被判 self；两信号皆无则非 self；CTO_IS_SUBPROJECT=1 可强制关闭
+  - 现有 44 条引擎单测与 031 子项目检测 eval 不回归
+verification_command: |
+  pass=0; fail=0
+  command -v node >/dev/null 2>&1 || { echo "[info] node 缺失，跳过"; echo "pass=0 fail=0 (skipped)"; echo PASS; exit 0; }
+  # ── (A1) wiring：Edit 组 matcher 含 NotebookEdit ──
+  for f in .claude/settings.json templates/settings.json .claude-plugin/hooks.json; do
+    grep -q 'NotebookEdit' "$f" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $f 未接 NotebookEdit matcher"; }
+  done
+  # ── (A2) readInput 三级提取且顺序正确 ──
+  grep -q 's(ti.file_path) || s(ti.path) || s(ti.notebook_path)' .claude/hooks/engine/lib.mjs \
+    && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: readInput 未按 file_path->path->notebook_path 三级提取"; }
+  # ── (A3) 行为：NotebookEdit 命中文件类红线 ──
+  nb() { node -e 'process.stdout.write(JSON.stringify({tool_name:"NotebookEdit",tool_input:{notebook_path:process.argv[1]},cwd:process.argv[2],hook_event_name:"PreToolUse"}))' "$1" "$PWD"; }
+  probe() { nb "$2" | env -u CTO_DOUBLE_SIGNED -u CTO_CONSTITUTION_AMEND -u CTO_MAIN_EDIT_ALLOWED \
+      node .claude/hooks/engine/guard.mjs "$1" >/tmp/e093o 2>/dev/null
+    if [ "$?" = "2" ] || grep -q '"permissionDecision":"deny"' /tmp/e093o; then echo BLOCK; else echo ALLOW; fi; }
+  chk() { [ "$(probe "$2" "$3")" = "$4" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: $1 期望$4"; }; }
+  chk "NB 写 forbidden 路径" forbidden-guard "$PWD/src/auth/x.ipynb" BLOCK
+  chk "NB 写 CONSTITUTION" immutable-guard "$PWD/docs/ai-cto/CONSTITUTION.md" BLOCK
+  chk "NB 写普通 notebook" forbidden-guard "$PWD/notebooks/ok.ipynb" ALLOW
+  # ── (B) self 双信号 ──
+  node -e '
+    const fs=require("fs"),os=require("os"),p=require("path");
+    import("./.claude/hooks/engine/lib.mjs").then(m=>{
+      let ok=0,bad=0;
+      const t=fs.mkdtempSync(p.join(os.tmpdir(),"e093a-"));
+      fs.mkdirSync(p.join(t,"docs/ai-cto"),{recursive:true});
+      fs.writeFileSync(p.join(t,"docs/ai-cto/CONSTITUTION.md"),"# Constitution — ai-playbook 自身仓库\n");
+      m.isAiPlaybookSelf(t.replaceAll("\\","/"),{})?ok++:(bad++,console.log("FAIL: 仅 CONSTITUTION 信号未判 self"));
+      const t2=fs.mkdtempSync(p.join(os.tmpdir(),"e093b-"));
+      fs.mkdirSync(p.join(t2,"docs/ai-cto"),{recursive:true});
+      fs.writeFileSync(p.join(t2,"docs/ai-cto/CONSTITUTION.md"),"# Constitution — other project\n");
+      m.isAiPlaybookSelf(t2.replaceAll("\\","/"),{})?(bad++,console.log("FAIL: 无签名仓被误判 self")):ok++;
+      m.isAiPlaybookSelf(process.cwd().replaceAll("\\","/"),{})?ok++:(bad++,console.log("FAIL: 本仓未判 self"));
+      m.isAiPlaybookSelf(process.cwd().replaceAll("\\","/"),{CTO_IS_SUBPROJECT:"1"})?(bad++,console.log("FAIL: CTO_IS_SUBPROJECT 未生效")):ok++;
+      fs.rmSync(t,{recursive:true,force:true}); fs.rmSync(t2,{recursive:true,force:true});
+      console.log("SELFSIG ok="+ok+" bad="+bad);
+    });' > /tmp/e093s 2>/dev/null
+  cat /tmp/e093s | grep -v SELFSIG || true
+  S_OK=$(grep -o 'ok=[0-9]*' /tmp/e093s | head -1 | cut -d= -f2)
+  S_BAD=$(grep -o 'bad=[0-9]*' /tmp/e093s | head -1 | cut -d= -f2)
+  [ "$S_BAD" = "0" ] && [ "$S_OK" = "4" ] && pass=$((pass+4)) || { fail=$((fail+1)); echo "FAIL: self 双信号矩阵 ok=$S_OK bad=$S_BAD"; }
+  # ── legacy 语义差注明 ──
+  grep -q 'v5.0 语义差' .claude/hooks/lib/common.sh && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: common.sh 未注明 NotebookEdit 语义差"; }
+  rm -f /tmp/e093o /tmp/e093s 2>/dev/null || true
+  echo "pass=$pass fail=$fail (期望 12/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL
+sota_reference:
+  - 'SPIKES-2026-09.md spike-2：2.1.178 二进制 filePatternTools 含 NotebookEdit/Cd 不含 MultiEdit；平台路径优先级 notebook_path → path → file_path'
+  - 'learned rule 2026-05-12：子项目的 CLAUDE.md 是项目级配置，self 判定必须运行时检测而非假设'
+  - '宪法/迁移批评：self 第二信号 CTO-PLAYBOOK.md 早已随文件消失，主树实为单点依赖'
