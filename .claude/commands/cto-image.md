@@ -1,6 +1,6 @@
 ---
 name: cto-image
-description: 图像生成委派分流（§26.5）— 根据用途自动选择 Codex (gpt-image-2) 或 Antigravity (Nano Banana Pro)，输出可执行委派指令
+description: 图像生成委派分流（§26.5）— 根据用途自动选择 Codex (gpt-image-2) 或 Antigravity (Nano Banana 2)，输出可执行委派指令
 argument-hint: "[用途描述] 例如: hero 插画 / logo / icon 套装 / wireframe"
 allowed-tools: ["Read", "Glob", "Grep"]
 model: sonnet
@@ -33,7 +33,7 @@ disable-model-invocation: false
 | `4K` / `海报` / `文字渲染` / `hero` / `营销图` / `final asset` | Codex gpt-image-2 | asset-in-loop |
 | `icon 套装` / `精灵` / `批量` / `风格统一` | Codex gpt-image-2 | 同会话风格连贯 |
 | `Logo` / `品牌主视觉` | Codex 主选 + Antigravity A/B | 多版本对比 |
-| `含最新` / `实时数据` / `真实地图` / `当前事件` | Antigravity Nano Banana Pro | 联网 grounding |
+| `含最新` / `实时数据` / `真实地图` / `当前事件` | Antigravity Nano Banana 2 | 联网 grounding |
 | `数据可视化` / `chart` / `图表` | 拒绝（用代码 D3/recharts，LLM 生图不可靠） | — |
 
 ### 2. 读取项目设计系统（如有）
@@ -67,12 +67,12 @@ disable-model-invocation: false
 #### Antigravity 委派模板
 
 ```markdown
-# 委派 Antigravity 生图（Stitch / Nano Banana Pro）
+# 委派 Antigravity 生图（Stitch / Nano Banana 2）
 
 **任务**：[用途简述]
 
 **Prompt 给 Antigravity Agent**:
-"使用 Stitch 设计系统（或 Nano Banana Pro 直接生图）：
+"使用 Stitch 设计系统（或 Nano Banana 2 直接生图）：
 
 输入描述：[详细 prompt]
 - 模式：mockup（用户审）/ final asset（直接交付）

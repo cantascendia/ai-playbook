@@ -9,7 +9,7 @@
       "name": "cto-playbook",
       "source": "./",
       "description": "AI-native CTO 闭环指挥系统：guard 引擎红线 + 八维审核命令 + spec-driven skills",
-      "version": "4.0.0"
+      "version": "5.0.0"
     }
   ]
 }

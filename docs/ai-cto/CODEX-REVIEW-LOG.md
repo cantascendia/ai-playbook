@@ -212,3 +212,6 @@ HTTP 403: Sorry. Your account was suspended (https://api.github.com/graphql)
 branch 'feat/v5.0-native-convergence' set up to track 'origin/feat/v5.0-native-convergence'.
 Everything up-to-date
 HTTP 403: Sorry. Your account was suspended (https://api.github.com/graphql)
+2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=review-triggered | reason=security_relevant_change
+2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=cost-cap-degraded | reason=month_2026-09_cents_28419_over_cap_2000
+2026-09-13T12:54:32+09:00 | sha=e248d92 | mode=agy-failed+claude-failed | reviewer=none

@@ -71,3 +71,41 @@
   其余 112 行（cron/健康指标/报告）逐字节不动。经 CTO_DOUBLE_SIGNED opt-out 应用（ADR-007 通道），
   eval 079 守护（12 断言 + staged/live 双态验证设计：staged 删除后自动落 live）。
   协作：Opus W2 编码（staged），Fable 5 验收+应用。
+
+---
+
+## SPEC-002: 退役两个僵尸 workflow + eval gate 触发面补齐（.github/workflows — ☐ 待双签）
+
+- **状态**: ☐ 待人决策 + 双签（forbidden 路径，铁律 #13）
+- **提案日**: 2026-09-13（v5.0 WS8 产出，执行留 WS9）
+- **触碰路径**: `.github/workflows/llm-judge.yml`、`.github/workflows/codex-review.yml`、`.github/workflows/eval.yml`
+
+### 问题（均经本轮实读核实）
+
+1. **`llm-judge.yml` 名不副实**：文件名与 job 都叫 LLM-as-Judge，实现里**没有任何 LLM 调用** ——
+   只是 `git diff` 计数的启发式，且最后一步显式不阻断（`echo "advisory only, not blocking"`）。
+   它制造「PR 有 LLM 质量闸」的假象，实际是装饰。
+2. **`codex-review.yml` 是 placeholder**：核心步骤为
+   `echo "Run codex review (placeholder — actual integration needs openai/codex-action@v1)"`，
+   真集成被注释掉。§48 的 CI 兜底事实上不存在（本地 codex-bridge 才是真在跑的那条）。
+3. **`eval.yml` 触发面漏了 v5.0 新增的配置面**：`policy/**`、`AGENTS.md`、`.codex/hooks.json`、
+   `.agents/hooks.json` 改动不触发 eval gate，而它们恰恰是三平台红线的接线文件。
+
+### 验收标准（可量化）
+
+- `.github/workflows/` 下不再有 `llm-judge.yml` 与 `codex-review.yml`
+- `eval.yml` 的 `paths` 含 `policy/**`、`AGENTS.md`、`.codex/**`、`.agents/hooks.json`
+- 新增 eval 断言：`ls .github/workflows` 无 placeholder 字样、无自称 judge 但不调模型的 workflow
+- 既有 eval 078（llm-judge PR-only）相应退役或改写，且在同一 PR 内完成（不留悬挂引用）
+
+### plan
+
+1. 先在 WS9 内把 eval 078 改写为「CI 不得存在 placeholder / 名实不符的 workflow」的反向断言
+2. 删除两个 workflow；`eval.yml` 扩 paths
+3. 人双签后经 ADR-007 通道（`settings.local.json` env 注入 `CTO_DOUBLE_SIGNED`）应用，用完即删
+
+### 明确不做
+
+- **不**给 `llm-judge.yml` 接真 LLM：会给 CI 引入 API 密钥与成本面，而质量宪法从未要求 LLM judge；
+  三位评委一致判定「直接删除比改造更安全」。
+- **不**在 CI 里跑 codex：`codex exec` 的本地 bridge 已覆盖，CI 侧重复一遍只增成本与凭据面。

@@ -1,7 +1,7 @@
 {
   "name": "cto-playbook",
   "displayName": "CTO-PLAYBOOK",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "AI-native CTO 闭环指挥系统 — 红线 enforcement guard 引擎 + 八维审核命令 + spec-driven skills（Claude Code 原生分发）",
   "author": {
     "name": "ai-playbook"

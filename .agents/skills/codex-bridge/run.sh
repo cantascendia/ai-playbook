@@ -196,9 +196,9 @@ fi
   # codex(GPT) 不可用时先走 agy(Gemini) 再走 claude —— Gemini ≠ GPT ≠ Claude，
   # agy 补位仍是跨模型审；claude 补位才是「失去跨模型价值」的最后档。
   # 自包含 prompt（diff 直接贴入）：print 模式无交互授权，不能让 agent 自己跑 git。
-  # v4.6 模型固定：默认 gemini-3.6-flash-high（dash 形式 ID，agy 1.1.5 实测有效；
+  # v4.6 模型固定：默认 gemini-3.8-flash-high（dash 形式 ID，agy 1.1.5 实测有效；
   # 空格形式 "Gemini 3.1 Pro (High)" 会被拒绝）。加 --print-timeout 防 print 模式无限挂起。
-  AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-gemini-3.6-flash-high}"
+  AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-gemini-3.8-flash-high}"
   if [ -z "$REVIEWER" ] && [ "$HAS_AGY" = "1" ]; then
     DIFF_CONTENT=$(git show --stat --patch "$SHA" 2>/dev/null | head -c 60000)
     AGY_PROMPT="你是跨模型代码审阅者。按八维（架构/代码质量/性能/安全/测试/DX/功能完整性/UX）逐条 ✅⚠️🔴 + 文件:行号 评审以下 commit ${SHORT_SHA} 的 diff。仅输出 markdown 报告，不要调用任何工具、不要读文件。

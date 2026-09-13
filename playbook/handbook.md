@@ -434,7 +434,7 @@ user-invocable: true
 > 记录有误——**在 Antigravity IDE 内实际打开模型选择器核实前，不要假定任一方向**（铁律 #2）。
 > 若实测确认 Antigravity 已上架 Claude 5 家族，同步更新本表 + CLI 小节 + §14 委派场景。
 | Gemini 2.5 Computer Use | 浏览器子代理专用 | 不可主推理用 |
-| Nano Banana Pro / Gemini 2.5 Image | 图像生成/编辑 | 不可主推理用 |
+| Nano Banana 2（旧称 Nano Banana 2） | 图像生成/编辑 | 不可主推理用 |
 
 **Agent 模式：** Planning（先规划后执行）/ Fast（直接执行）
 **审核策略：** Artifact Review + Terminal Command（Request Review / Always Proceed）
@@ -698,9 +698,9 @@ Codex 桌面 App 内置 `image_gen` 工具，**agent 自主调用**（无需 sla
 5. 一个 turn 内完成"生成 → 落地 → 代码引用"闭环
 ```
 
-**与 Antigravity Nano Banana Pro 对比**：
+**与 Antigravity Nano Banana 2 对比**：
 
-| 维度 | Antigravity (Nano Banana Pro) | Codex (gpt-image-2) |
+| 维度 | Antigravity (Nano Banana 2) | Codex (gpt-image-2) |
 |---|---|---|
 | 触发 | Agent 自主，IDE 内嵌 | Agent 自主，Desktop App `image_gen` |
 | 工作流 | mockup-first（用户审 → 写代码） | asset-in-loop（生成 → 直接 import）|
@@ -1123,7 +1123,7 @@ Codex App 侧（如需委派）：
 | UX 可用性审核 | 委派 Antigravity | Gemini 3.1 Pro High | Planning |
 | UI 设计与原型（mockup-first） | 委派 Stitch → AG | Gemini 3.1 Pro High | Planning（MCP） |
 | 项目资产生成（asset-in-loop / 4K / 多语言文字） | 委派 Codex | gpt-image-2 | image_gen 工具 |
-| 实时数据驱动图像（含最新事件 / 真实地图） | 委派 Antigravity | Nano Banana Pro | grounding |
+| 实时数据驱动图像（含最新事件 / 真实地图） | 委派 Antigravity | Nano Banana 2 | grounding |
 | 批量风格一致资产（icon 套装 / 游戏精灵）| 委派 Codex | gpt-image-2 | 同会话风格连贯 |
 | 数据可视化图表 | Claude Code | Sonnet | 直接（用代码 D3/recharts，**不用 LLM 生图**） |
 | 独立隔离并行 | 委派 Codex | gpt-5.6 Sol | Worktree ×N |
@@ -2066,7 +2066,7 @@ AI Agent 没有审美一致性。没有统一的设计系统，Agent 每次写 U
 UI 设计与图像生成分两个阶段，使用不同工具：
 
 **阶段 A：Mockup（设计草图，用户审）**
-- 工具：**Antigravity Stitch** + Nano Banana Pro
+- 工具：**Antigravity Stitch** + Nano Banana 2
 - 工作流：自然语言 → mockup → 用户 review → 反馈迭代 → 最终设计稿
 - 产出：设计稿 + DESIGN.md tokens
 - 适用：新页面 / 新组件 / 大改版
@@ -2085,7 +2085,7 @@ UI 设计与图像生成分两个阶段，使用不同工具：
 | README 截图 / hero 插画（4K + 文字）| Codex gpt-image-2 | 4K + 文字渲染 |
 | Logo / 品牌主视觉 | Codex（A/B Antigravity） | 多版本对比 |
 | Icon / 游戏精灵套装 | Codex | 同会话风格连贯 |
-| 含实时数据 / 最新地图 | Antigravity Nano Banana Pro | 联网 grounding |
+| 含实时数据 / 最新地图 | Antigravity Nano Banana 2 | 联网 grounding |
 | 数据可视化图表 | 都不用，代码（D3/recharts）| LLM 生图不可靠 |
 
 **资产管线规则**：

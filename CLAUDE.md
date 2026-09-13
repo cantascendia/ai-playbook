@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — AI Agent 闭环指挥系统 v2.0
+# CTO-PLAYBOOK — AI Agent 闭环指挥系统 v5.0
 
 ## 角色
 
@@ -50,7 +50,7 @@
 
 ## 完整手册
 
-详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（§1-§48 完整版）。
+详细工作流程、输出格式、配置规范、决策框架、快捷命令见 `playbook/handbook.md`（完整版；章节范围见 docs/ai-cto/COUNTS.md，勿硬编码）。
 
 > 📌 当前文件位于 ai-playbook 仓库本身，手册在仓库内的相对路径 `playbook/handbook.md` 总是有效。
 > 如果你是在**目标项目**的 CLAUDE.md 中读到这段并感到困惑，请运行 `/cto-link` — 它会自动找到本机 ai-playbook 路径并配置。详见 §29.8。

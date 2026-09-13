@@ -6,7 +6,7 @@
 #   没有 codex exec 的 37s/shell 进程 Windows 沙箱税（learned rule 2026-07-10），
 #   也不要求目标目录是 git 仓库。
 #   模型阵容（`agy models` 实测 2026-07-22，agy 1.1.5，ID 为 dash 形式直接喂 --model）：
-#   gemini-3.6-flash-{high,medium,low}（✅ 实跑 9s 返回）/ gemini-3.5-flash-{high,medium,low} /
+#   gemini-3.8-flash-{high,medium,low}（v5.0 2026-09-13 `agy models` 实测在架，已成默认）/ 3.7 / 3.6 同形 /
 #   gemini-3.1-pro-{high,low} / claude-sonnet-4-6 / claude-opus-4-6-thinking / gpt-oss-120b-medium。
 #   需 Google 登录（无参跑一次 agy 授权）；winget PATH 别名需新 shell。
 #
@@ -18,7 +18,7 @@
 #
 # 用法：
 #   bash scripts/agy-delegate.sh "<自包含 prompt>" [工作目录=当前]
-#   AGY_MODEL=gemini-3.6-flash-low bash scripts/agy-delegate.sh "..."   # 指定模型（dash ID，实测有效）
+#   AGY_MODEL=gemini-3.8-flash-low bash scripts/agy-delegate.sh "..."   # 指定模型（dash ID，实测有效）
 #   AGY_TIMEOUT=10m bash scripts/agy-delegate.sh "..."                      # print 超时（默认 5m）
 #
 # 自包含三要素（print 模式无交互授权界面，脚本会 lint 提醒）：
@@ -51,9 +51,9 @@ echo "$PROMPT" | grep -qiE '先读|读取.*文件|read the|修改.*文件|edit t
 [ "${#PROMPT}" -lt 200 ] && \
   warn "prompt 偏短（${#PROMPT} 字符）—— 委派应贴入全部所需上下文，避免 agent 缺上下文瞎写（§32.5 Context Starvation）"
 
-# v4.6 模型固定：默认 gemini-3.6-flash-high（dash 形式 ID；agy 1.1.5 拒绝空格形式串）。
-# 覆盖：AGY_MODEL=gemini-3.6-flash-low bash scripts/agy-delegate.sh "..."
-MODEL="${AGY_MODEL:-gemini-3.6-flash-high}"
+# v4.6 模型固定：默认 gemini-3.8-flash-high（dash 形式 ID；agy 1.1.5 起拒绝空格形式串；本机 1.2.2 复核仍然如此）。
+# 覆盖：AGY_MODEL=gemini-3.8-flash-low bash scripts/agy-delegate.sh "..."
+MODEL="${AGY_MODEL:-gemini-3.8-flash-high}"
 TIMEOUT="${AGY_TIMEOUT:-5m}"
 echo "→ agy -p [model=$MODEL] [timeout=$TIMEOUT] @ $WORKDIR"
 T0=$(date +%s)
