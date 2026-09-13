@@ -24,8 +24,19 @@
 | `b80b0ee` | **WS0**：绿色基线存档（44 单测 / 67 eval / TIER1）+ `SPIKES-2026-09.md`（8 项 spike 中 4 项已成一手事实，4 项待测但各有不退化的安全默认） |
 | `1d25744` | **WS0b**：三个红线盲区修复 —— PowerShell 工具全程零覆盖（P0）、NotebookEdit 路径恒空（P1）、mcp-guard Check3 只重跑 2/5 条 immutable 红线（P0）；另加 self 识别第二信号 |
 | `dd3b49a` | **WS1-WS3**：一套 guard core 服务三平台（Claude / Codex / agy），Codex `apply_patch` 路径解析 + `group.mjs` 串联把 Codex trust 批准次数 8→3；`.codex/` 与 `.agents/` 接线落地；`RUNBOOK-platforms.md` |
+| `e248d92` | **WS8**：记忆层治理（ADR-011）—— review 全文本地-only（12MB 不再进 git）、REVIEW-QUEUE 1.6MB→11KB 并把体积升为 TIER1 硬 gate、**cost cap 从只写变真闸**、新增 immutable 红线 6（ASI06 记忆投毒）、SessionStart 指针化、PostCompact |
+| `ea02918` | **WS7 部分**：模型名过期修复（agy 3.6→3.8 实测、Nano Banana Pro→Nano Banana 2）、版本漂移（CLAUDE.md v2.0→v5.0、plugin 4.0.0→5.0.0）、**omnibus amendment 提案** + **SPEC-002** 草案 |
 
-**当前闸门**：44/44 单测 · **71 PASS / 0 FAIL** eval · check-counts TIER1 绿
+**当前闸门**：44/44 单测 · **72 PASS / 0 FAIL** eval · check-counts TIER1 绿 + **零 TIER2 软警告**
+
+### 本轮修正的两个「治理只写不读」
+
+1. **cost cap 从未被执行过**：`.evolve-cost-month.json` 一直只被写入、从不被读取。2026-09 已记 28419 分
+   （≈$284）对上限 2000 分且 `exceeded: true`，而跨模型审照跑不误 —— 安全宪法 #5 自建立起是空文。
+   现在触发前读它，超限复用既有 `SKIP_CODEX` 通道降级为 agy/claude 补位（符合宪法「只 detect 不 codex」），
+   月份字段比对使其跨月自动失效，无需人工清零。
+2. **双签从未被形式化记录过**：唯一先例（2026-07-02 平台条款）已应用，但提案签署栏至今空着、
+   Amendment History 里没有那次记录。A4 补登并把流程写成规程。
 
 ### 本轮实测出的关键事实（全部有一手证据，见 SPIKES-2026-09.md）
 
@@ -42,13 +53,24 @@
 
 ### 待办（按计划顺序）
 
-- **WS4 余项**：序列回放 `evals/lib/replay.mjs` + audit 行序列断言（parity 矩阵已由 eval 095 覆盖 31 条断言）
-- **WS5**：`scripts/compile-policy.mjs`（吸收 sync-agents-md.mjs）+ `policy/{models,deny,hook-matrix}.json`；AGENTS.md 铁律 SSOT（**需先签 amendment A1**）
-- **WS6**：18 commands → 13 skills；`.claude/rules` 补 `paths:`（**前置：Claude Code ≥2.1.217**，本机 2.1.178）
-- **WS7**：handbook 原地瘦身（先加 self 第二信号，已完成）+ 文档漂移修复
-- **WS8**：审计单采集面 + 记忆瘦身（含 `reviews/` 9.77MB 治理 —— v4.4e 已定方案为 gitignore 本地-only，尚未执行；本轮新产生的 `reviews/a058745.md` 616KB 已刻意不入 git）
-- **WS9/WS10**：eval 契约化（kind/bucket/binds）· fleet 升级工具与灰度
-- **治理**：omnibus amendment（A1 铁律迁移 / A2 row5 措辞 / A3 命令数 / **A5 平台条款反转** / A4 补登 07-08）待人双签
+**阻塞在人的三件事（其余工作均已绕开它们推进）**
+
+| 事项 | 阻塞了什么 |
+|---|---|
+| 签 `AMENDMENT-PROPOSAL-2026-09-v5.md`（A1…A5，分条勾选） | A1 阻塞 WS5 的 AGENTS.md 单源；**A5 阻塞 WS10 的下游默认三平台**（这是 D2=B 的合法性前提） |
+| 升级 Claude Code ≥2.1.217（本机 2.1.178） | WS6 的 `.claude/rules` `paths:` 惰性加载（低版本有 glob 崩溃缺陷，加了会踩） |
+| 在各仓 Codex TUI 跑 `/hooks` 批准 trust | Codex 侧守护实际生效；未批准时 doctor 会红字显示，不会假装 ✓ |
+
+**可继续推进（无前置）**
+
+- **WS4 余项**：序列回放 `evals/lib/replay.mjs` + audit 行序列断言（parity 矩阵已由 eval 095 的 31 条断言覆盖）
+- **WS5**：`scripts/compile-policy.mjs`（吸收 sync-agents-md.mjs）+ `policy/{models,deny,hook-matrix}.json`
+  —— 编译器本身不依赖 A1，只有「铁律搬家」那一步依赖
+- **WS6**：18 commands → 13 skills（skill 化不依赖版本升级，只有 rules `paths:` 依赖）
+- **WS7 余项**：handbook 原地瘦身（零引用 6 章 + 内嵌模板 375 行 + §38-40 压缩；self 第二信号已就位，可安全动手）
+- **WS9**：eval 契约化（kind/bucket/binds）+ **telemetry / ledger 正式下线**（ADR-011 已决定，执行与 eval 080/084/085/088 重写同批）
+- **WS10**：fleet 升级工具与灰度（33 个安装点，wave 0 = 本仓）
+- **SPEC-002**：两个僵尸 workflow 退役（forbidden 路径，需双签）
 
 ---
 
