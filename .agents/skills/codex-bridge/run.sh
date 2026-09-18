@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # codex-bridge runner — 被 Stop hook 异步调用
-# 作用：跑 codex review（订阅 auth）→ 写 REVIEW-QUEUE.md → 同步到 PR comment
-#       + 自动开 PR（如有未推 commits 且无 open PR）
+# 作用：跑 codex review（订阅 auth）→ 写 REVIEW-QUEUE.md → 同步到 MR note（GitLab）
+#       + 自动开 MR（如有未推 commits 且无 open MR）
 # 文档：手册 §48 + .agents/skills/codex-bridge/SKILL.md
 # 哲学：AI-native autopilot — 不询问、不打扰，能自动就自动
 set +e
@@ -60,7 +60,7 @@ if [ -f "$SSOT" ]; then
 elif command -v forbidden_fallback_pattern >/dev/null 2>&1; then
   PATTERN="$(forbidden_fallback_pattern)"  # v3.13 O7：单源（修旧版漏 billing/keys/terraform/.github）
 else
-  PATTERN='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+  PATTERN='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
 fi
 FORBIDDEN=$(git diff --name-only "${TARGET}~1" "${TARGET}" 2>/dev/null | run_grep -E "$PATTERN")
 
@@ -108,11 +108,14 @@ if [ -f docs/ai-cto/CODEX-REVIEW-LOG.md ] && \
   exit 0
 fi
 
-# 4. 检测 codex / agy / claude / gh 可用性
+# 4. 检测 codex / agy / claude / glab 可用性
+# SPEC-002（2026-09-08）：GitHub 账号封禁 → gh CLI 全线失效，MR autopilot 改走 glab。
+# HAS_GLAB 要求 glab 存在**且已登录**（gh 时代只查 command -v，未登录时 pr create 才失败，
+# 日志里只留一行 tail -3 噪声）；此处提前判定，未登录 = HAS_GLAB=0 优雅跳过。
 HAS_CODEX=0
 HAS_AGY=0
 HAS_CLAUDE=0
-HAS_GH=0
+HAS_GLAB=0
 command -v codex >/dev/null 2>&1 && HAS_CODEX=1
 # agy PATH 兜底（v4.6）：winget 装到 WinGet\Links，父进程在安装前启动时 PATH 里没有 →
 # command -v 找不到但二进制真实存在。兜底探测 Links 目录（LOCALAPPDATA 仅 Windows 有，POSIX 下跳过）。
@@ -125,7 +128,9 @@ elif [ -n "${LOCALAPPDATA:-}" ]; then
   done
 fi
 command -v claude >/dev/null 2>&1 && HAS_CLAUDE=1
-command -v gh >/dev/null 2>&1 && HAS_GH=1
+if command -v glab >/dev/null 2>&1 && glab auth status >/dev/null 2>&1; then
+  HAS_GLAB=1
+fi
 
 # 4a. Codex 配额冷却
 COOLDOWN_FILE="docs/ai-cto/.codex-quota-cooldown"
@@ -305,63 +310,92 @@ ${DIFF_CONTENT}"
   else
     echo "$TS | sha=${SHORT_SHA} | mode=${MODE:-no-reviewer-available} | reviewer=none" \
       >> docs/ai-cto/CODEX-REVIEW-LOG.md
-    exit 0  # 没 review 结果 → 后续 PR 同步无意义
+    exit 0  # 没 review 结果 → 后续 MR 同步无意义
   fi
 
   # ============================================================
-  # 7. 🆕 PR autopilot — 不需要 reviewer 介入也能自动跑
+  # 7. 🆕 MR autopilot（GitLab）— 不需要 reviewer 介入也能自动跑
   # ============================================================
+  # SPEC-002（2026-09-08）：GitHub 账号封禁 → gh CLI 全线失效，本段整体改走 glab。
   # 触发条件（全部满足）：
-  #   - gh CLI 可用 + gh auth 已登录
+  #   - glab CLI 可用 + glab auth status 已登录（HAS_GLAB，见 §4）
   #   - 当前 branch 非 main/master
   #   - 至少有 1 个 commit ahead of base
   # 行为：
-  #   - 若无 open PR → 自动 push + gh pr create（auto-generated title/body）
-  #   - 若有 open PR → 跳过创建
-  #   - 用 sha marker 防止重复 comment
-  # 关闭：在 settings.local.json 关闭 Stop hook，或设 NO_PR_AUTOPILOT=1
-  if [ "$HAS_GH" = "1" ] && [ "${NO_PR_AUTOPILOT:-0}" != "1" ]; then
+  #   - 若无 open MR → 自动 push + glab mr create（auto-generated title/description）
+  #   - 若有 open MR → 跳过创建
+  #   - 用 sha marker 防止重复 note
+  # 关闭：在 settings.local.json 关闭 Stop hook，或设 NO_MR_AUTOPILOT=1
+  #      （旧名 NO_PR_AUTOPILOT 保留兼容 — 已有 settings/文档引用它，别名双认）
+  if [ "$HAS_GLAB" = "1" ] && [ "${NO_MR_AUTOPILOT:-${NO_PR_AUTOPILOT:-0}}" != "1" ]; then
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     if [ -n "$BRANCH" ] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ] && [ "$BRANCH" != "HEAD" ]; then
 
-      # 7a. 检测 PR 是否存在
-      PR_NUMBER=$(gh pr view --json number -q .number 2>/dev/null)
+      # 7a. 检测 MR 是否存在
+      # ⚠️ glab 1.116 实测：无 open MR 时 `glab mr view -F json` **把 error JSON 打到 stdout**
+      # （{"error":{"message":"no open merge request available..."}}）且 rc=1 —— 不做纯数字校验
+      # 会把整个 error blob 当成 IID 往下传（后续 glab api URL 拼坏 / 日志污染）。
+      MR_IID=$(glab mr view -F json --jq .iid 2>/dev/null)
+      case "$MR_IID" in ''|*[!0-9]*) MR_IID="" ;; esac
 
-      # 7b. 不存在则自动开 PR（先 push）
-      if [ -z "$PR_NUMBER" ]; then
+      # 7b. 不存在则自动开 MR（先 push）
+      if [ -z "$MR_IID" ]; then
         # 推 branch（首次或更新）
         git push -u origin "$BRANCH" 2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
-        # 自动生成 title（从最近 commit message）+ body（从最近 commits）
-        AUTO_TITLE=$(git log -1 --format=%s)
-        AUTO_BODY=$(printf "## Summary\n\n%s\n\n## Recent commits\n\n%s\n\n---\n\n_由 codex-bridge autopilot 自动开启。codex review 见下方 comment。_" \
-          "$(git log -1 --format=%b | head -20)" \
-          "$(git log --format='- %h %s' main..HEAD 2>/dev/null | head -10 || git log --format='- %h %s' HEAD~5..HEAD)")
+        # 默认分支：不再硬编码 main（fork / 老仓库可能是 master 或别的）。
+        # origin/HEAD 是本地 remote 的默认分支指针（`git remote set-head origin -a` 建立）；
+        # 取不到就回退 main。
+        DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+        [ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=main
 
-        gh pr create --title "$AUTO_TITLE" --body "$AUTO_BODY" 2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
-        PR_NUMBER=$(gh pr view --json number -q .number 2>/dev/null)
-        if [ -n "$PR_NUMBER" ]; then
-          echo "$TS | sha=${SHORT_SHA} | mode=pr-autopilot-created | pr=#${PR_NUMBER}" \
+        # 自动生成 title（从最近 commit message）+ description（从最近 commits）
+        # ⚠️ 不能写成 `git log A..B | head -10 || git log C..D`：`||` 绑定的是 **head** 的退出码，
+        # 而 head 读到空输入照样 rc=0 → 回退分支永不触发（v4.7 独立评审 P2）。
+        # 改成先算进变量、判空再回退，回退才真的生效。
+        AUTO_TITLE=$(git log -1 --format=%s)
+        RECENT_COMMITS=$(git log --format='- %h %s' "${DEFAULT_BRANCH}..HEAD" 2>/dev/null | head -10)
+        [ -z "$RECENT_COMMITS" ] && RECENT_COMMITS=$(git log --format='- %h %s' HEAD~5..HEAD 2>/dev/null | head -10)
+        [ -z "$RECENT_COMMITS" ] && RECENT_COMMITS=$(git log --format='- %h %s' -10 2>/dev/null)
+        AUTO_BODY=$(printf "## Summary\n\n%s\n\n## Recent commits\n\n%s\n\n---\n\n_由 codex-bridge autopilot 自动开启。codex review 见下方 note。_" \
+          "$(git log -1 --format=%b | head -20)" \
+          "$RECENT_COMMITS")
+
+        # --yes 跳过交互确认（后台 disown 环境无 TTY，缺它会挂起）；--source/--target-branch 显式指定
+        # 避免依赖 upstream 推断；--remove-source-branch 合并后清理分支。
+        glab mr create --title "$AUTO_TITLE" --description "$AUTO_BODY" \
+          --source-branch "$BRANCH" --target-branch "$DEFAULT_BRANCH" --remove-source-branch --yes \
+          2>&1 | tail -3 >> docs/ai-cto/CODEX-REVIEW-LOG.md
+        MR_IID=$(glab mr view -F json --jq .iid 2>/dev/null)
+        case "$MR_IID" in ''|*[!0-9]*) MR_IID="" ;; esac
+        if [ -n "$MR_IID" ]; then
+          echo "$TS | sha=${SHORT_SHA} | mode=mr-autopilot-created | mr=!${MR_IID}" \
             >> docs/ai-cto/CODEX-REVIEW-LOG.md
         fi
       fi
 
-      # 7c. 同步 review 到 PR comment（按 sha 去重，v3.8 加调试日志）
-      if [ -n "$PR_NUMBER" ]; then
+      # 7c. 同步 review 到 MR note（按 sha 去重，v3.8 加调试日志）
+      if [ -n "$MR_IID" ]; then
         MARKER="<!-- codex-bridge:${SHORT_SHA} -->"
-        echo "$TS | sha=${SHORT_SHA} | step=pr-comment-check | pr=#${PR_NUMBER} | marker=$MARKER" \
+        echo "$TS | sha=${SHORT_SHA} | step=mr-note-check | mr=!${MR_IID} | marker=$MARKER" \
           >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
-        # 查重：用 gh api 看 comments，找 marker
-        # 注意：grep -c 返回非零时 || echo 0 兜底
-        EXISTING=$(gh api "repos/{owner}/{repo}/issues/${PR_NUMBER}/comments" --jq ".[].body" 2>/dev/null | grep -c "$MARKER" 2>/dev/null)
+        # 查重：用 glab api 读 MR notes，找 marker。
+        # ⚠️ glab 1.116 的 `glab api` **没有** --jq（只有 --output/--paginate/--silent，与 gh api 不同），
+        # 且 Windows git-bash 常无外部 jq → 直接对原始 JSON body grep marker。
+        # marker 是纯 ASCII 且不含需 JSON 转义的字符，原样出现在响应里，grep 可靠。
+        # `:id` 是 glab api 的项目占位符（由当前目录的 git remote 解析），无需硬编码 namespace。
+        EXISTING=$(glab api "projects/:id/merge_requests/${MR_IID}/notes" --paginate 2>/dev/null | grep -c "$MARKER" 2>/dev/null)
         EXISTING="${EXISTING:-0}"
         echo "$TS | sha=${SHORT_SHA} | step=existing-check | found=$EXISTING" \
           >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
         if [ "$EXISTING" = "0" ]; then
-          # 写到临时文件再 post（避免 stdin pipe 在 disown 后台环境下失效）
-          COMMENT_FILE="/tmp/codex-comment-${SHORT_SHA}.md"
+          # 写到临时文件再 post（避免 stdin pipe 在 disown 后台环境下失效）。
+          # 用 mktemp 而非固定 /tmp/codex-comment-<sha>.md：固定名在共享 /tmp 上可被他人预建/符号链接
+          # 抢占（写到别处），并发跑同 sha 时也会互相覆写。mktemp 失败再回退固定名（保功能不保并发）。
+          COMMENT_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-comment-${SHORT_SHA}-XXXXXX.md" 2>/dev/null) \
+            || COMMENT_FILE="${TMPDIR:-/tmp}/codex-comment-${SHORT_SHA}.md"
           {
             echo "$MARKER"
             echo "## 🤖 Codex Cross-Model Review (\`$SHORT_SHA\`)"
@@ -384,20 +418,23 @@ ${DIFF_CONTENT}"
             echo "_由 \`.agents/skills/codex-bridge/run.sh\` 本地跑（订阅 auth），非 CI。autopilot 自动同步。_"
           } > "$COMMENT_FILE"
 
-          # 用文件路径调 gh pr comment（更稳定）
-          POST_OUT=$(gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE" 2>&1)
+          # 用 `glab mr note create`（裸 `glab mr note --message` 在 1.116 已 deprecated，
+          # glab 自己提示改用 create 子命令）。--resolvable=false：autopilot 的信息性 note
+          # 不该建成未解决讨论线程（项目若开「合并前须解决全部线程」会被自己的机器人卡住）。
+          # 内容走 argv 而非 stdin（disown 后台环境下 stdin pipe 不可靠 — 原 gh 实现同理）。
+          POST_OUT=$(glab mr note create "$MR_IID" --resolvable=false --message "$(cat "$COMMENT_FILE")" 2>&1)
           POST_STATUS=$?
 
-          echo "$TS | sha=${SHORT_SHA} | step=pr-comment-post | status=$POST_STATUS | out=$(echo "$POST_OUT" | tr '\n' ' ' | head -c 200)" \
+          echo "$TS | sha=${SHORT_SHA} | step=mr-note-post | status=$POST_STATUS | out=$(echo "$POST_OUT" | tr '\n' ' ' | head -c 200)" \
             >> docs/ai-cto/CODEX-REVIEW-LOG.md
 
           if [ $POST_STATUS -eq 0 ]; then
-            echo "$TS | sha=${SHORT_SHA} | mode=pr-comment-posted | pr=#${PR_NUMBER}" \
+            echo "$TS | sha=${SHORT_SHA} | mode=mr-note-posted | mr=!${MR_IID}" \
               >> docs/ai-cto/CODEX-REVIEW-LOG.md
             rm -f "$COMMENT_FILE"
           else
             # 失败保留临时文件供人工排查
-            echo "$TS | sha=${SHORT_SHA} | mode=pr-comment-failed | file=$COMMENT_FILE" \
+            echo "$TS | sha=${SHORT_SHA} | mode=mr-note-failed | file=$COMMENT_FILE" \
               >> docs/ai-cto/CODEX-REVIEW-LOG.md
           fi
         fi

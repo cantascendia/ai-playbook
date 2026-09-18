@@ -32,7 +32,7 @@ CTO 操作手册见 ai-playbook 仓库的 `playbook/handbook.md`。
 本项目装了 ai-playbook v3.8 的三层 enforcement：
 
 **第 1 层 — Hard hooks（exit 2 + stderr 真阻止）**：
-- `forbidden-guard.sh` — 编辑 `auth/payment/secrets/migration/crypto/infra/.github/workflows` 时直接阻止
+- `forbidden-guard.sh` — 编辑 `auth` / `payment` / `secrets` / `migration` / `crypto` / `infra` / CI 定义（`.gitlab-ci.yml`、`.gitlab/`、`.github/workflows`）时直接阻止
 - `bypass-guard.sh` — 拦 6+ 种 pre-commit 绕过（`--no-verify` / `core.hooksPath` / `HUSKY=0` / stash 绕过）
 - `branch-guard.sh` — 在 main/master 上 Edit 时阻止
 - 脚本位置：`.claude/hooks/*.sh`
@@ -70,7 +70,7 @@ export CTO_MAIN_EDIT_ALLOWED=1  # 解锁 main branch 直 Edit
 - `/cto-evolve detect|propose|apply|status` — 飞轮入口
 - `.claude/skills/learned-rules-loader/` — Bugbot-style 自动加载教训
 - `.claude/rules/learned/` — 学到的具体教训归档目录
-- `.github/workflows/self-audit-weekly.yml` — 每周一 cron + GitHub Issue（不开 PR）
+- `.gitlab-ci.yml` 的 `self-audit-weekly` job — GitLab pipeline schedule（每周一）+ GitLab Issue（不开 MR）
 - `docs/ai-cto/EVOLUTION-LOG.md` — 进化历史
 - `docs/ai-cto/SKILL-CANDIDATES.md` — Voyager 风格候选 skill（不自动入库）
 
@@ -110,7 +110,7 @@ export CTO_FORBIDDEN_REMOVE=1     # 删 forbidden-paths.txt 条目
 
 ## 模型路由
 
-默认 Claude Code 直接执行（Opus 5 规划 / Sonnet 5 编码 / Haiku 4.5 轻量；极难推理 opt-in Fable 5）。
+默认 Claude Code 直接执行（Opus 5 规划 + 长程执行 / Sonnet 5 编码 / Haiku 4.5 轻量；极难推理 / 跨代理编排 opt-in Fable 5.1，上一代 Opus 4.8 + Fable 5 仍可用）。
 浏览器验证 / UI 设计 → 委派 Antigravity（Gemini 3.1 Pro High）。
 隔离并行 / 自动化 → 委派 Codex（gpt-5.6 Sol）。
 

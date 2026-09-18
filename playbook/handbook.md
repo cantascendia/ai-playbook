@@ -1,4 +1,4 @@
-# CTO-PLAYBOOK — 完整操作手册（§1-§50）
+# CTO-PLAYBOOK — 完整操作手册（§1-§51）
 
 > 本文件是 CTO-PLAYBOOK 操作手册的完整版。入口与快速回忆区见仓库根 `CLAUDE.md`，章节定位用 `playbook/INDEX.md`（grep 方式，见其头部说明）。
 
@@ -23,10 +23,11 @@
 
 | 模型 | 模型 ID | 特点 | 适用场景 |
 |---|---|---|---|
-| **Claude Opus 5** | `claude-opus-5` | **当代 Opus（2026-07-24 发布）**：接近 Fable 的表现、$5/$25（同 4.8 价）；带 **effort dial**（低 effort 省 token 仍保大部分能力）；官方称"最对齐、最难被诱导滥用的 Opus" | CTO 规划、架构设计、深度审核（**默认**）；Max 订阅默认模型 |
-| Claude Fable 5 | `claude-fable-5` | 最强推理档（约 2× 价：$10/$50） | 极难推理 opt-in；成本敏感时用 Opus 5 |
+| **Claude Opus 5** | `claude-opus-5` | **当代 Opus（2026-07-24 发布）**：接近 Fable 的表现、$5/$25（同 4.8 价）；带 **effort dial**（低 effort 省 token 仍保大部分能力）；官方称"最对齐、最难被诱导滥用的 Opus" | CTO 规划、架构设计、深度审核（**默认**）；长程 agentic 执行 sub-agent 默认；Max 订阅默认模型 |
+| Claude Fable 5.1 | `claude-fable-5-1` | Mythos-class，Opus 之上最强通用推理；与 Claude Mythos 5.1 同底模型（Fable 变体含额外双用途安全措施）| 当代最强推理档：极难推理 / 跨代理编排 **opt-in**（取代 Fable 5 的该角色）|
+| Claude Fable 5 | `claude-fable-5` | 上一代最强推理档（约 2× 价：$10/$50） | 极难推理 opt-in（**上一代**）；成本敏感时用 Opus 5 |
 | Claude Sonnet 5 | `claude-sonnet-5` | 当代 Sonnet（2026-06） | 标准编码、测试、日常任务 |
-| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 最快响应，轻量高效 | 快速查询、配置生成、轻量任务（sub-agent 默认）|
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 最快响应，轻量高效 | 快速查询、配置生成、**轻量** sub-agent 默认（长程执行 sub-agent 用 Opus 5）|
 | Claude Opus 4.8 | `claude-opus-4-8` | 上代 Opus（Opus 5 发布前的默认） | 仍可用；新工作走 Opus 5 |
 | Claude Sonnet 4.6 | `claude-sonnet-4-6` | 上代 Sonnet | 仍可用 |
 
@@ -35,7 +36,9 @@
 > 阵容更新（2026-07-25 核实，铁律 #3）：Claude 5 家族 = Opus 5 / Fable 5 / Sonnet 5（+ Haiku 4.5）。
 > Opus 5 于 2026-07-24 发布，是 Anthropic 两个月内第四个模型（Mythos 5 → Fable 5 → Sonnet 5 → Opus 5）。
 > **Claude Code 运行形态**（v3.15 对齐）：CLI 终端 / 桌面 App（Mac + Windows）/ web（claude.ai/code）/ IDE 扩展（VS Code、JetBrains）——同一套配置（CLAUDE.md / settings / commands / hooks / skills）跨形态通用。
-> **effort**：Claude Code 默认 `xhigh`（编码/agentic 最佳）；最强外部推理用 `max`；轻量 sub-agent 用 `low`。4.8/4.7/Fable 5 只支持 adaptive thinking（`budget_tokens` 已移除）。
+> **effort**：Claude Code 默认 `xhigh`（编码/agentic 最佳）；最强外部推理用 `max`；轻量 sub-agent 用 `low`。4.8/4.7/Fable 5/**Fable 5.1**/**Opus 5** 只支持 adaptive thinking（`budget_tokens` 已移除）。
+> **编排 / 执行分工（v4.9 统一，2026-09-18）**：默认**全程 Opus 5** —— 规划、架构设计、深度审核、长程 agentic 执行（sub-agent）都走 `claude-opus-5`（v4.8 阵容决定，本表 **默认** 列即此）。
+> 仅当任务需要 Mythos-class 推理时，**编排层可 opt-in `claude-fable-5-1`**（跨代理调度 / 架构裁决 / 终审），执行 sub-agent 仍用 Opus 5。Opus 4.8 / Fable 5 为上一代，成本敏感或已验证流程可继续用。
 
 ### 1.3 辅助委派平台
 
@@ -583,13 +586,13 @@ npx add-skill google-labs-code/stitch-skills --skill <skill-name> --global
 
 **委派场景**：隔离并行 Worktree、定时 Automation、跨会话长任务、最强外部推理
 
-**可选模型（截至 2026-07，WebSearch 验证 2026-07-22）：**
+**可选模型（截至 2026-09，WebSearch 验证 2026-09-01）：**
 
 | 模型 | 特点 | 备注 |
 |---|---|---|
-| **gpt-5.6 Sol** | **当前旗舰，推荐默认**（最强智能档；Codex 客户端搭载 Sol Ultra） | 2026-07-09 发布；API $5/$30 每 M token |
-| gpt-5.6 Terra | 中间档（智能/速度/成本平衡） | $2.50/$15 |
-| gpt-5.6 Luna | 快速/省配额档 | $1/$6 |
+| **gpt-5.6 Sol** | **当前旗舰，推荐默认**（最强智能档；Codex 客户端搭载 Sol Ultra） | 2026-07-09 发布；API $5/$30 每 M token（07-30 调价未涉及） |
+| gpt-5.6 Terra | 中间档（智能/速度/成本平衡） | **2026-07-30 降价 $2/$12**（原 $2.50/$15）；API ID 推定 `gpt-5.6-terra`（未实测） |
+| gpt-5.6 Luna | 快速/低成本档（≈上代 nano 位；批量抽取/分类/轻 agentic，**不当深度推理主力**） | **2026-07-30 降价 80%：$0.20/$1.20**（原 $1/$6），cached input $0.02；API ID **`gpt-5.6-luna`**（✅ 官方 API 模型页核实 2026-09-01）；1M 上下文 / 128K 输出 / structured outputs / 多模态输入 text+image |
 | gpt-5.5 | 上代旗舰 | 仍可用 |
 | gpt-5.3-codex | 编码专精（旧代底座） | |
 | **gpt-image-2** | **图像生成 + 4K + 文字渲染 + reasoning** | 2026-04-21 新增 |
@@ -1106,8 +1109,9 @@ Codex App 侧（如需委派）：
 
 | 任务 | 执行者 | 模型 | 模式 |
 |---|---|---|---|
-| CTO 规划/架构设计 | Claude Code | Opus 5 | 直接 |
-| 深度代码审核 | Claude Code | Opus 5 | 直接 |
+| CTO 规划/架构设计 | Claude Code | Opus 5（**默认**；Mythos-class 推理 opt-in Fable 5.1）| 直接 |
+| 深度代码审核 | Claude Code | Opus 5（**默认**；终审可 opt-in Fable 5.1）| 直接 |
+| 长程 agentic 执行（编码 / 迁移 / 批量改造）| Claude Code | Opus 5（执行默认）| Sub-agent |
 | 标准全栈开发 | Claude Code | Sonnet 5 | 直接 |
 | 日常编码 | Claude Code | Sonnet 5 | 直接 |
 | 快速配置/查询 | Claude Code | Haiku 4.5 | 直接 |
@@ -1122,9 +1126,10 @@ Codex App 侧（如需委派）：
 | 独立隔离并行 | 委派 Codex | gpt-5.6 Sol | Worktree ×N |
 | 定时自动化 | 委派 Codex | — | Automation |
 | 最强外部推理 | 委派 Codex | gpt-5.6 Sol xhigh | Worktree |
-| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 | 直接 / $skill-creator |
+| 海量批量抽取/分类/结构化转换（数据管线） | OpenAI API 直调或委派 Codex | gpt-5.6 Luna | structured outputs；降价后 $0.20/$1.20 每 M（§5.2） |
+| 新 Skill 创建 | Claude Code 或 Codex | Sonnet / gpt-5.6 Sol | 直接 / $skill-creator（裸 `gpt-5.6` 无效，见 §5.2 config 实测） |
 | CI/CD 流水线搭建 | Claude Code | Sonnet 5 | 直接 |
-| 发布前合规检查 | Claude Code | Opus 5 | 直接 |
+| 发布前合规检查 | Claude Code | Opus 5（**默认**）| 直接 |
 | 安全交叉审核 | Claude Code + 委派 | 多模型 | 交叉 |
 
 ### 14.2 决策原则
@@ -1819,36 +1824,35 @@ AI Agent 每轮产出代码后，只有 commit 和人工验证。没有自动化
 
 CTO 在第零轮，必须包含搭建基础 CI 的任务。最小配置：
 
-**GitHub Actions 示例（Flutter 项目）：**
+**GitLab CI 示例（Flutter 项目）：**
 
 ```yaml
-# .github/workflows/ci.yml
-name: CI
-on:
-  push:
-    branches: [main, improve/*, feat/*, fix/*]
-  pull_request:
-    branches: [main]
+# .gitlab-ci.yml
+stages: [verify]
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'stable'
-      - run: flutter pub get
-      - run: flutter analyze --fatal-infos
-      - run: flutter test
-      - run: flutter build apk --debug
+build-and-test:
+  stage: verify
+  image: ghcr.io/cirruslabs/flutter:stable
+  rules:
+    # MR 事件 + 目标分支 main 的 push（GitLab 无 pull_request 触发器）
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ /^(improve|feat|fix)\//
+  script:
+    - flutter pub get
+    - flutter analyze --fatal-infos
+    - flutter test
+    - flutter build apk --debug
 ```
 
 最小要求：
 - lint（或对应语言的 lint）— 每次 push 触发
 - test — 每次 push 触发
 - 构建验证 — 每次 push 触发
-- PR 合并到 `main` 必须 CI 绿灯
+- MR 合并到 `main` 必须流水线绿灯（GitLab 项目设置「Pipelines must succeed」）
+
+> 平台迁移（2026-09，见 §51）：本仓与全部下游项目已从 GitHub Actions 迁到 GitLab CI。
+> 仍用 GitHub 的外部项目，把上表映射回 `.github/workflows/ci.yml` 即可（§51 有逐项对照表）。
 
 > 上述示例基于 Flutter。其他语言栈的 CI 原则相同（lint → test → build），使用各自生态工具即可：Node.js（eslint + jest + npm build）、PHP（phpstan + phpunit + composer）、Python（ruff + pytest）、Go（go vet + go test + go build）、Java（checkstyle + maven test + mvn package）。
 
@@ -1876,12 +1880,13 @@ jobs:
 - **Codium / Qodo**：AI 测试生成 + PR 描述自动化
 - **CTO 策略**：AI Review 作为初筛（必过），人工 Review 作为终审（关键路径必须）
 
-#### D. GitHub Actions 工程化
-- **Reusable Workflows**：抽取共用 CI 逻辑（如 `.github/workflows/_lint.yml`），多仓库 / 多分支共用
-- **Composite Actions**：自定义可复用步骤
-- **Matrix builds**：多 OS / 多语言版本并行
-- **Concurrency 控制**：相同 PR 新 push 自动取消旧 run
-- **缓存策略**：`actions/cache` 加速 npm/pnpm/pip/composer
+#### D. GitLab CI 工程化
+- **`include:`**：抽取共用 CI 逻辑（`include: {project: 'group/ci-templates', file: '/lint.yml'}` 或 `local: '.gitlab/ci/lint.yml'`），多仓库 / 多分支共用（≈ Reusable Workflows）
+- **`extends:`** + YAML 锚点：job 模板继承，自定义可复用步骤（≈ Composite Actions）
+- **Child pipelines**：`trigger: {include: '.gitlab/ci/canary.yml'}` 拆分大流水线，动态生成子流水线
+- **`parallel: matrix:`**：多 OS / 多语言版本并行
+- **`interruptible: true` + `workflow: auto_cancel`**：相同 MR 新 push 自动取消旧流水线
+- **`cache:` key/paths**：加速 npm/pnpm/pip/composer（`cache:key:files` 按 lockfile 失效）
 
 #### E. 通用进阶项
 - 集成测试 / 端到端测试（Playwright / Cypress）
@@ -1892,7 +1897,7 @@ jobs:
 
 ### 23.4 CTO 职责
 
-- 第零轮：任务中包含创建 `.github/workflows/ci.yml` + 至少一个安全扫描（gitleaks 必装）
+- 第零轮：任务中包含创建 `.gitlab-ci.yml`（GitHub 项目则 `.github/workflows/ci.yml`）+ 至少一个安全扫描（gitleaks 必装）
 - 每轮：检查 CI 状态（通过/失败）；CI 失败则优先修复
 - Agent 犯错导致 CI 红 → 写入 Rules 防再犯
 - 每 3 轮审视：CI 流水线是否需要加新步骤
@@ -2314,7 +2319,7 @@ project-b/             ← 目标项目 B
 
 如果团队多人使用：
 
-1. ai-playbook 仓库 push 到 GitHub/GitLab，所有人 clone 同一份
+1. ai-playbook 仓库 push 到 GitLab（本仓：`gitlab.com/cantascendia/ai-playbook`，private），所有人 clone 同一份；auth 走 SSH key + `glab auth login`（OAuth device flow），不在仓库里放 PAT（§51）
 2. 每人在本机的 ai-playbook 路径可能不同 — 使用 §29.8 的 `/cto-link` 机制自动适配
 3. `docs/ai-cto/` 建议纳入版本控制，团队共享 CTO 记忆
 
@@ -2364,7 +2369,7 @@ Claude 看到这段 → 用 Read 逐个尝试 → 第一个成功的即为本机
 **Mac / Linux**：
 ```bash
 # 方法 A：直接 clone 到此位置
-git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
+git clone https://gitlab.com/cantascendia/ai-playbook ~/.claude/playbook
 
 # 方法 B：symlink 到任意位置（如已有 clone）
 ln -s ~/projects/ai-playbook ~/.claude/playbook
@@ -2373,7 +2378,7 @@ ln -s ~/projects/ai-playbook ~/.claude/playbook
 **Windows**（PowerShell 管理员或开发者模式）：
 ```powershell
 # 方法 A：clone
-git clone https://github.com/<org>/ai-playbook $env:USERPROFILE\.claude\playbook
+git clone https://gitlab.com/cantascendia/ai-playbook $env:USERPROFILE\.claude\playbook
 
 # 方法 B：symlink
 New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
@@ -2442,7 +2447,7 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\playbook" `
 4. /cto-link --check                               # 命令的诊断模式
 
 若仍找不到，重新 clone：
-git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
+git clone https://gitlab.com/cantascendia/ai-playbook ~/.claude/playbook
 /cto-link
 ```
 
@@ -2538,14 +2543,19 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 ### 31.4 CI 门禁
 
 ```yaml
-# .github/workflows/perf.yml
-- name: Lighthouse CI
-  uses: treosh/lighthouse-ci-action@v10
-  with:
-    budgetPath: ./lighthouse-budget.json
-    # budget.json 中 LCP/INP/CLS 阈值超出则 fail
-- name: Bundle Size
-  uses: andresz1/size-limit-action@v1
+# .gitlab-ci.yml（或 .gitlab/ci/perf.yml 经 include: 引入）
+perf-budget:
+  stage: verify
+  image: node:22
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    # budget.json 中 LCP/INP/CLS 阈值超出则 exit 非 0 → job fail
+    - npx @lhci/cli autorun --budgetPath=./lighthouse-budget.json
+    - npx size-limit
+  artifacts:
+    when: always
+    paths: [.lighthouseci/]
 ```
 
 ### 31.5 CTO 职责
@@ -2576,35 +2586,69 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 | **生产删除脚本** | 数据清理、用户删除、文件批量操作 | 一个 typo 就是事故 |
 | **跨境数据传输** | 用户数据流向、第三方 API 调用 | 合规风险（GDPR / PIPL） |
 | **AI Prompt 设计** | System prompt、tool 定义、安全限制 | Prompt injection / 越权调用 |
+| **CI/CD 定义** | .gitlab-ci.yml / .gitlab/ / .github/workflows | 流水线即供应链：AI 改 CI 可静默放行门禁，或把 CI 变量里的 secret / 密钥（API key）打进日志 |
 
 ### 32.2 强制双签机制
 
-**触发规则**：变更涉及上述黑名单中的文件 → CI 自动添加 `requires-double-review` 标签 → 必须满足：
-1. **Human Review**：CODEOWNERS 中指定的安全 / 资深工程师 approve
-2. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 5 ↔ gpt-5.6 Sol）独立审一遍
+**触发规则**：PR / MR 的改动文件命中上述黑名单（SSOT `scripts/forbidden-paths.txt`）→ 必须满足：
+
+1. **机器强制半（已实现，双平台）**：一个独立的 `double-sign-gate` job 比对改动文件与 forbidden SSOT；
+   命中且 PR/MR **未带** `requires-double-review` 标签 → job **失败**。
+   - **GitHub（当前主平台）**：`.github/workflows/double-sign-gate.yml`，标签从
+     `${{ github.event.pull_request.labels.*.name }}` 读（PR 事件载荷自带，**不需要任何 token**）。
+     配合 branch protection 的 required status check → 合不进去。
+   - **GitLab（镜像平台）**：`.gitlab-ci.yml` 的 `double-sign-gate` job，标签从
+     `$CI_MERGE_REQUEST_LABELS` 预定义变量读（同样零 token；`CI_JOB_TOKEN` 无 MR 读写权限，见 §51）。
+     配合 protected branch 的「Pipelines must succeed」→ 合不进去。
+   - **为什么独立成 job**：`eval-gate` 只在 config surface 变动时才跑，一个只碰 `src/auth/**` 的
+     PR/MR 不会触发它 → 标签检查永远不生效。故 `double-sign-gate` 对**每个 PR/MR** 都跑、
+     **无 `paths:` / `changes:` 过滤**、无 token 依赖。
+   - 标签的**自动补打**在 `llm-judge` 里（GitHub：`gh pr edit --add-label`，用 workflow 自动注入的
+     `GITHUB_TOKEN` + `pull-requests: write`；GitLab：`curl --request PUT $CI_API_V4_URL/...` +
+     `PRIVATE-TOKEN: $GITLAB_TOKEN`，未配则**优雅跳过**，不假绿也不硬失败）。
+     补标不会重跑当前 pipeline —— 下一次 push / 手动重跑才会通过，这是刻意的人审停顿点。
+2. **人工半（流程约束，非平台强制）**：
+   - **GitHub**：CODEOWNERS 中指定的安全 / 资深工程师 approve（公开仓库免费层即生效）；
+     main 走 branch protection（require PR + required checks + 人 merge）。
+   - **GitLab**：`.gitlab/merge_request_templates/Default.md` 的 forbidden 勾选框（列出触及路径 +
+     确认已打标签）；main 为 protected branch（**No one push / Maintainers merge**）。
+   - ⚠️ `.gitlab/CODEOWNERS` **不构成审批强制**：GitLab 的 CODEOWNERS approval rules 需 **Premium 及以上**；
+     Free 层它只作 reviewer 提示（见 §32.3）。别把它当成"已强制 approve"。
+3. **Second Model Review**：用 §19 交叉审核机制，由不同模型（Opus 5 ↔ gpt-5.6 Sol；
+   需 Mythos-class 终审时 opt-in Fable 5.1）独立审一遍。
+   本地由 `codex-bridge` / `/cto-review` 产出，结论进 PR/MR 评论；这一条**由人核对**，CI 不判定。
 
 ### 32.3 CODEOWNERS 配置示例
 
 ```
-# .github/CODEOWNERS
+# .gitlab/CODEOWNERS（GitLab 语法：可用 [Section] 分组 + [Section][N] 指定最少审批人数）
 # 加密/认证 — 必须 security 团队签字
+[Security]
 /src/auth/        @security-team @cto
 /src/crypto/      @security-team @cto
 
 # 支付 — 必须 finance 团队签字
+[Payments][1]
 /src/payment/     @finance-team @cto
 
 # 迁移 — 必须 DBA 签字
+[Database]
 /database/migrations/  @dba-team
 
-# Infra — 必须 SRE 签字
+# Infra + CI 定义 — 必须 SRE 签字
+[Infra]
 /infra/           @sre-team
-/.github/workflows/    @sre-team @cto
+.gitlab-ci.yml    @sre-team @cto
+/.gitlab/         @sre-team @cto
 ```
 
-### 32.4 PR 模板钩子
+> GitLab CODEOWNERS 放 `.gitlab/CODEOWNERS`（仓库根 / `docs/` 亦可）。**Approval rules 强制生效需 Premium 及以上**；
+> Free 层 CODEOWNERS 只作 reviewer 提示，硬阻断靠 protected branch + 人 merge（§47.4）。
 
-`.github/PULL_REQUEST_TEMPLATE.md` 中根据路径自动注入审核清单：
+### 32.4 MR 模板钩子
+
+`.gitlab/merge_request_templates/Default.md` 中根据路径自动注入审核清单
+（GitLab 把该目录下每个文件作为一个 MR 模板选项；`Default.md` 是新建 MR 的默认模板）：
 
 ```markdown
 ## 高风险路径检查（自动检测）
@@ -2658,11 +2702,12 @@ git clone https://github.com/<org>/ai-playbook ~/.claude/playbook
 
 ### 33.2 Forbidden 路径自动检测
 
-CI 中扫描 commit 消息和 author 元数据，触发条件：
+GitLab CI 中扫描 commit 消息和 author 元数据（`git log $CI_MERGE_REQUEST_DIFF_BASE_SHA..HEAD`），触发条件：
 - commit 含 `vibe`、`yolo`、`accept all`、`auto-merge` 等关键词
 - author 是 AI bot（`[bot]` 后缀）但路径命中 §32.1 黑名单
 
-**门禁规则**：触发即标记 `requires-double-review` 标签，必须满足 §32.2 双签后才能合并。
+**门禁规则**：触发即给 MR 打 `requires-double-review` **标签**（`glab api --method PUT ...` 需 `GITLAB_TOKEN`，
+见 §32.2 / §51），必须满足 §32.2 双签后才能合并。
 
 ### 33.3 Vibe Coding 工作流（仅 🟢 档）
 
@@ -2821,7 +2866,7 @@ acceptance_criteria:
 ### 36.2 Forbidden 路径（永远不 auto-merge）
 
 引用 §32.1 高风险路径黑名单全部条目，外加：
-- `.github/workflows/**`（CI 配置）
+- `.gitlab-ci.yml`、`.gitlab/**`、`.github/workflows/**`（CI 配置）
 - `infra/**`、`terraform/**`、`ansible/**`（基础设施）
 
 > 黑名单是 §32.1 的 superset。任何对 §32.1 黑名单的更新会自动影响本节。
@@ -2834,31 +2879,24 @@ acceptance_criteria:
 | 🟡 Auto-PR + 人审 | 白名单 + 业务路径 | 开 PR，标 `[bot]`，人工 review approve |
 | 🔴 升级人类 | Forbidden 路径或迭代 ≥3 次仍失败 | 关闭 autofix PR，开 issue 给 oncall |
 
-### 36.4 配置示例（Sentry Autofix + Claude PR Action）
+### 36.4 配置示例（Sentry Autofix + GitLab CI autofix job）
 
 ```yaml
-# .github/workflows/autofix.yml
-name: AI Auto-Fix
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-jobs:
-  autofix:
-    if: github.event.workflow_run.conclusion == 'failure'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: anthropics/claude-code-action@v1
-        with:
-          mode: fix-ci
-          max_iterations: 3
-          forbidden_paths: |
-            src/auth/**
-            src/payment/**
-            database/migrations/**
-            .github/workflows/**
-          require_human_review_paths: |
-            src/**
+# .gitlab/ci/autofix.yml（经 include: 引入 .gitlab-ci.yml）
+ai-autofix:
+  stage: autofix
+  image: node:22
+  # GitLab 无 workflow_run 事件：用 when: on_failure 挂在 verify job 之后
+  needs: [{ job: build-and-test, artifacts: false }]
+  when: on_failure
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    AUTOFIX_MAX_ITERATIONS: "3"
+    # 触及以下路径一律不 autofix（与 §32.1 / scripts/forbidden-paths.txt 同源）
+    AUTOFIX_FORBIDDEN: "src/auth/|src/payment/|database/migrations/|.gitlab-ci.yml|.gitlab/|.github/workflows/"
+  script:
+    - bash scripts/ai-autofix.sh   # 内部读 AUTOFIX_* 变量，命中 forbidden → 直接开 issue 给 oncall
 ```
 
 ### 36.5 审计要求
@@ -3792,7 +3830,7 @@ trajectory 含敏感内容：
 ### 45.2 Canary 三要素
 
 ```yaml
-# .github/workflows/canary.yml input
+# .gitlab/ci/canary-<feature>.yml input（child pipeline，由 .gitlab-ci.yml 的 trigger: include: 拉起）
 canary:
   percent: 5             # 先给 5% 用户
   success_metric: |
@@ -3814,7 +3852,7 @@ canary:
 | ConfigCat | 多机器开关（A/B 测 prompt）|
 | Unleash | 自托管 + GitOps |
 | PostHog | 含 analytics，看用户分组效果 |
-| GitHub branch | 简单方案：claude/canary 分支 → 部分项目 cherry-pick |
+| GitLab branch | 简单方案：claude/canary 分支 → 部分项目 cherry-pick |
 
 ```python
 # 在 hooks 中读 feature flag
@@ -3842,7 +3880,8 @@ PR → CI eval gate（§47）→ 通过 → canary 5%（§45）
 
 ### 45.6 `/cto-canary` 命令
 
-入参：percent + metric + duration → 输出 GitHub Actions workflow + feature flag 配置。
+入参：percent + metric + duration → 输出 GitLab CI **child pipeline**（`.gitlab/ci/canary-<feature>.yml`，
+由 `.gitlab-ci.yml` 的 `trigger: {include: ...}` 拉起）+ feature flag 配置。
 
 ### 45.7 CTO 职责
 
@@ -3934,11 +3973,11 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
 ### 47.1 三种模式
 
 **模式 A：Eval Gate**（推荐起步）
-- PR opened → GH Actions 跑 `bash scripts/run-evals.sh` → **全部可执行类 eval 真跑 pass** 才能 merge（数量见 `docs/ai-cto/COUNTS.md`，不硬编码）
+- MR opened → GitLab CI `eval-gate` job 跑 `bash scripts/run-evals.sh` → **全部可执行类 eval 真跑 pass** 才能 merge（数量见 `docs/ai-cto/COUNTS.md`，不硬编码）
 - 触发条件：改动 commands / agents / skills / CLAUDE.md / handbook
 
 **模式 B：LLM-as-Judge 评分**
-- PR description / commit message 送给 Judge（gpt-5.6 Sol 或 Opus）评分
+- MR description / commit message 送给 Judge（gpt-5.6 Sol 或 Fable 5.1 / Opus 5）评分
 - 维度：clarity（描述是否清晰）/ risk（改动是否触及高风险）/ cost（潜在成本影响）/ 八维 mapping
 - Judge 评分 < 阈值 → request changes
 
@@ -3961,27 +4000,79 @@ Anthropic 在 `anthropics/skills` 仓库发布官方 skill。本项目可：
 ```
 开发者 commit
   ↓
-GH Actions trigger
+GitLab CI pipeline trigger（`$CI_PIPELINE_SOURCE == "merge_request_event"` 或 main push）
   ↓
 run-evals.sh（全部可执行 golden trajectory，数量见 COUNTS.md）
   ↓ pass
-LLM-as-Judge（双 Judge：Opus + gpt-5.6 Sol）
+LLM-as-Judge（双 Judge：Fable 5.1 / Opus 5 + gpt-5.6 Sol）
   ↓ avg score > 7
-Branch protection 允许 merge
+Protected branch 允许 Maintainer merge
   ↓
 Canary 5%（§45）→ 24h → 100%
 ```
 
-### 47.4 GitHub Branch Protection
+### 47.4 分支保护（GitHub 主 / GitLab 镜像）
 
-```yaml
-# main 分支保护
-require_status_checks:
-  - eval-gate
-  - llm-judge
-require_reviews: 1
-restrict_push: true
+主平台 = **GitHub**（2026-09-18 解封回迁，见 §51 / ADR-012 / SPEC-003）。合规宪法 #4 指向本节。
+
+#### 47.4.1 GitHub Branch Protection（现行强制点）
+
+本仓 `main` 的**目标配置**：
+
+| 设置 | 值 | 效果 |
+|---|---|---|
+| Require a pull request before merging | **on** | 任何人（含 owner）都不能直推 main —— 改动只能经 PR |
+| Require status checks to pass | **on**：`eval-gate`、`double-sign-gate` | eval 红 / 未打双签标签 → merge 按钮禁用（铁律 #12 / #13） |
+| Require branches to be up to date | **on** | 防"各自绿、合起来红" |
+| Allow force pushes | **off** | 禁止 force push 抹历史 |
+| Require conversation resolution | **on** | §48 跨模型 review 的意见不能装没看见 |
+| 人 merge | 保持 | 铁律 #12 的人闸；不开 auto-merge |
+
+```bash
+# 设置方式（gh；需 admin 权限）。CLI 只做检查/记录，实际开关由人在 Settings 里确认。
+gh api --method PUT "repos/cantascendia/ai-playbook/branches/main/protection" \
+  --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["Run evals (v3.12 真执行)", "Forbidden 路径双签标签检查"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {"required_approving_review_count": 1},
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "required_conversation_resolution": true
+}
+JSON
+gh api "repos/cantascendia/ai-playbook/branches/main/protection" --jq '.required_status_checks'
 ```
+
+#### 47.4.2 GitLab Protected Branch（镜像平台，保持开启）
+
+2026-09-08 经 GitLab API 设置（SPEC-002）。主平台迁回 GitHub 后**不撤销** —— 它是主平台
+不可用时的备份闸门（§51.6：第二 remote 必须保持可写且有门禁，否则只是纸面上的第二来源）。
+
+| 设置 | 值 | 效果 |
+|---|---|---|
+| `allowed_to_push` | **No one** | 不能直推 main —— 改动只能经 MR |
+| `allowed_to_merge` | **Maintainers** | 只有 Maintainer 能 merge MR |
+| `allow_force_push` | **false** | 禁止 force push 抹历史 |
+| 项目设置「Pipelines must succeed」 | **on** | `eval-gate` / `double-sign-gate` 红 → merge 按钮禁用 |
+
+```bash
+# 设置方式（glab；需 Maintainer/Owner token）
+glab api --method POST "projects/:id/protected_branches" \
+  --field "name=main" \
+  --field "allowed_to_push=[]" \
+  --field "allowed_to_merge=[{\"access_level\":40}]" \
+  --field "allow_force_push=false"
+# 「Pipelines must succeed」是项目级设置，非 protected-branch 字段：
+glab api --method PUT "projects/:id" --field "only_allow_merge_if_pipeline_succeeds=true"
+```
+
+> ⚠️ **阻断权归属**：LLM judge 是**建议**（本节开头红字），真阻断只有三层 —— 确定性 hook（exit 2 / deny JSON）
+> + 可执行 eval（`eval-gate` FAIL → exit 1 → merge 被 required status check / pipeline 门禁挡住）+ 人 merge。
+> **两个平台的强制点必须都配好**：只在一边设门禁 = 另一边成为绕行通道。
 
 ### 47.5 反模式：Judge Gaming
 
@@ -3994,7 +4085,7 @@ restrict_push: true
 ### 47.6 CTO 职责
 
 - 第零轮：决定项目是否需要 LLM-as-Judge（小项目 eval gate 够了）
-- 配置 branch protection rules
+- 配置 GitLab protected branch 规则（§47.4）+ 「Pipelines must succeed」
 - 月度：审视 Judge 评分分布，调整阈值
 - 出现 Judge gaming → 立即加抽样人审 + 升级 prompt
 
@@ -4015,7 +4106,7 @@ restrict_push: true
 | 方案 | 可行性 | 工作量 | 异步 | 推荐度 |
 |---|---|---|---|---|
 | A：Stop hook + `codex exec -` CLI | ✅ | 中 | ✅ | ⭐⭐ TTY 不稳 |
-| B：GitHub Actions + `openai/codex-action@v1` | ✅ | 低 | ✅ | ⭐⭐⭐ 生产稳定 |
+| B：GitLab CI `codex-review` job（`npm i -g @openai/codex` + `OPENAI_API_KEY` CI 变量）| ✅ | 低 | ✅ | ⭐⭐⭐ 生产稳定 |
 | C：Codex MCP server（app-server JSON-RPC）| ✅ | 低 | ✅ | ⭐⭐⭐⭐ **本地最优** |
 | D：文件信号量 + Codex Automation 监听 | ✅ | 中 | ✅ | ⭐ 易出错 |
 | E：OpenAI API 直调 gpt-5.6 | ✅ | 低 | ✅ | ⭐⭐ 不用 Codex 生态 |
@@ -4036,10 +4127,16 @@ restrict_push: true
     → 用户立即看到跨模型 review
 
 方案 B（CI 兜底）：
-  PR opened → GH Actions → openai/codex-action@v1
-    → Codex review → 评论 PR
+  MR opened → GitLab CI job `codex-review`
+    → npm i -g @openai/codex + OPENAI_API_KEY（项目 CI/CD 变量，masked+protected）
+    → codex exec 跑八维 review
+    → glab mr note（需 GITLAB_TOKEN；CI_JOB_TOKEN 不能写 MR note，见 §51）
   防本地 hook 漏触发
 ```
+
+> 平台迁移注（2026-09，§51）：原方案 B 是 GitHub Actions + `openai/codex-action@v1`。GitLab 无对应
+> marketplace action → 改为**普通 job 里装 codex CLI**。两个 CI/CD 变量（`OPENAI_API_KEY`、`GITLAB_TOKEN`）
+> 需在 GitLab 项目设置里由人录入，agent 不经手明文密钥。
 
 ### 48.4 工作流详解
 
@@ -4322,8 +4419,8 @@ hook 运行时自动判别（immutable-guard `IS_AI_PLAYBOOK_SELF`：含 `playbo
 │ 2. 分析：pattern-detector sub-agent 找反复失败           │
 │ 3. 评估：4 auditor 并行 + codex 跨模型审                │
 │ 4. 提议：写 EVOLUTION-LOG / SKILL-CANDIDATES（不直接改） │
-│ 5. 用户决策：手动 /cto-evolve apply 或 GH Issue 批准     │
-│ 6. 执行：autopilot 开 PR + codex 自审 + 人 merge         │
+│ 5. 用户决策：手动 /cto-evolve apply 或 GitLab Issue 批准 │
+│ 6. 执行：autopilot 开 MR + codex 自审 + 人 merge         │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -4346,13 +4443,13 @@ hook 运行时自动判别（immutable-guard `IS_AI_PLAYBOOK_SELF`：含 `playbo
 | .claude/rules/learned/ | 目录 | Cursor 启发的 learned rules archive |
 | EVOLUTION-LOG.md | `docs/ai-cto/` | 进化历史 |
 | SKILL-CANDIDATES.md | `docs/ai-cto/` | Voyager 候选库（不自动入库） |
-| self-audit-weekly.yml | `.github/workflows/` | 每周一 cron |
+| `self-audit-weekly` job | `.gitlab-ci.yml` | GitLab **pipeline schedule**（每周一 cron，`$CI_PIPELINE_SOURCE == "schedule"`）|
 
 ### 50.7 Cost Cap & Failure Budget
 
 - **月度 codex token cap**: $20（默认）
 - **退化模式**: 超 cap → 仅跑 pattern-detector，不跑 codex
-- **失败 budget**: 同 pattern 连续 3 周未采纳 → 自动 P0 + GitHub Issue + 邮件
+- **失败 budget**: 同 pattern 连续 3 周未采纳 → 自动 P0 + GitLab Issue + 邮件
 - **冷却**: 同 pattern 30 天内不重复提议
 
 ### 50.8 为什么不闭合 RSI loop
@@ -4385,7 +4482,138 @@ hook 运行时自动判别（immutable-guard `IS_AI_PLAYBOOK_SELF`：含 `playbo
 
 ### 50.10 CTO 职责
 
-- 每周 review SELF-AUDIT GitHub Issue（cron 自动开）
+- 每周 review SELF-AUDIT GitLab Issue（pipeline schedule 自动开 / 更新 rolling issue）
 - 月度 review SKILL-CANDIDATES → accept / reject 候选
 - 季度 review EVOLUTION-LOG 失败 budget — 处理 P0 升级
 - 出现 immutable-guard 拦截高于阈值 → 调查是否合法操作被误拦
+
+---
+
+## 51. 平台动词映射层：GitHub（主）⇄ GitLab（镜像）
+
+> 本章是 harness 的**平台动词映射层**，**双向**。任何提到 PR / MR / Actions / `gh` / `glab` 的
+> 文档、记忆、skill，都在这里找到当前平台与另一平台的等价物。
+> **目的**：把平台耦合收敛到一章 —— 换平台（或被迫换回来）只改这里 + 少数派生实现入口。
+> **当前主平台：GitHub**（`github.com/cantascendia`）。**镜像平台：GitLab**（`gitlab.com/cantascendia`）。
+
+### 51.1 为什么有这一章（一次完整的往返，两个方向都走过）
+
+**2026-09-08 · 封禁 → 迁出。** GitHub 账号 `cantascendia` 被**封禁**。后果是**全链路**的，
+不是"换个 remote"那么简单：
+
+1. 6 个仓库的远端全部不可达（含 ai-playbook 自身）。
+2. `gh` CLI token 失效 → §48 跨模型 review 的 PR 评论通道断。
+3. 5 个 GitHub Actions workflow（canary / codex-review / eval / llm-judge / self-audit-weekly）不再执行
+   → **铁律 #12 的 eval gate 在远端归零**（本地 pre-commit 是唯一兜底，而它未必装）。
+4. Branch protection 消失 → 合规宪法 #4 指向一个不存在的平台。
+
+人于 2026-09-08 决策「全量迁移」：6 仓库全部迁到 `gitlab.com/cantascendia`（private）。
+
+**2026-09-18 · 解封 → 迁回。** 封禁被**解除**，账号与 6 个仓库**原样恢复**（提交历史、
+branch protection 规则、Actions 定义都在）。人决策：**主平台回 GitHub，GitLab 降为镜像**
+（见 ADR-012 / SPEC-003）。
+
+**这次往返正好是本章存在的理由，两个方向各贡献一半证据：**
+
+- **迁出那次**证明了"单一托管账号 = 单点故障"，以及平台动词散落全仓的代价 ——
+  一次封禁要 sweep 十几个章节 + 脚本 + skill，而不是改一个常量。
+- **迁回这次**证明了"**账号回来了也不能把映射层删掉**" ——
+  ① 恢复是**运气**不是**权利**（当时无法预知会不会恢复、什么时候恢复）；
+  ② 有了映射层，迁回只用了一次 merge，而不是第二次全仓 sweep；
+  ③ **迁不走的东西还是迁不走**（Issues / PR 讨论 / run 历史在封禁期间就永久丢了，
+  解封也没把它们变回来 —— 见 §51.4）。
+  所以 GitLab remote **保留**，`.gitlab-ci.yml` / `.gitlab/` **保留**（也是 §32.1 红线路径，
+  宪法「仅可加不可删」），映射表**保留并改成双向**。
+
+**教训见 learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`**（含解封后的追记）。
+
+### 51.2 动词映射表（双向权威对照）
+
+| 概念 | **GitHub（主平台，现行）** | GitLab（镜像平台） | 备注 |
+|---|---|---|---|
+| CLI | `gh` | `glab` | 两者本机都已登录；写脚本时无 CLI / 未登录 → `HAS_GH=0` / `HAS_GLAB=0` 优雅跳过 |
+| 开 PR / MR | `gh pr create` | `glab mr create` | 术语：GitHub 叫 PR，GitLab 叫 MR；旧文档里的用词保留原文（铁律 #2 不篡改史实） |
+| PR 评论 | `gh pr comment` | `glab mr note` | §48 codex review 结果回帖 |
+| REST 调用 | `gh api repos/<o>/<r>/...` | `glab api projects/:id/...` | 路径形状不同，注意别直译 |
+| CI 定义 | `.github/workflows/*.yml`（多文件，一事件一文件）| `.gitlab-ci.yml`（+ `.gitlab/ci/*.yml` 经 `include:`）| **两者都在仓库里、都是红线路径** |
+| CI 复用 | Reusable Workflow / Composite Action | `include:` / `extends:` / child pipeline | §23.3 D |
+| 密钥 | Repository secrets | **CI/CD variables**（masked + protected）| 两边都由人在项目设置里录入，agent 不经手明文 |
+| 分支保护 | **Branch protection rules**（现行强制点）| Protected branches + 项目设置 | §47.4 有两边实配 |
+| Issue | GitHub Issue | GitLab Issue | 飞轮 rolling issue / 失败 budget 升级 |
+| PR/MR 标签 | PR label | MR label | `requires-double-review`（§32.2），两边都靠它 |
+| PR/MR 触发器 | `on: pull_request` | `rules: - if: $CI_PIPELINE_SOURCE == "merge_request_event"` | GitLab 无 `pull_request` 事件 |
+| 读 PR/MR 标签（零 token）| `${{ github.event.pull_request.labels.*.name }}` | `$CI_MERGE_REQUEST_LABELS` | §32.2 double-sign-gate 两边都用这条，**不调 API** |
+| 定时任务 | `on: schedule` cron（写在 yml 里）| **Pipeline schedule**（UI/API 建）+ `$CI_PIPELINE_SOURCE == "schedule"` | GitLab 的 cron **不在**仓库里 → 换平台时最容易静默丢掉 |
+| CI 令牌 | `GITHUB_TOKEN`（**自动注入**，配 `permissions: pull-requests: write` 即可写 PR）| **`GITLAB_TOKEN`** = project access token（**人建**） | ⚠️ 语义**不可类比**：`CI_JOB_TOKEN` **不能**发 MR note / 打标签 / 开 issue —— 最容易踩的坑 |
+| 合并前必绿 | required status checks | 项目设置「Pipelines must succeed」 | §47.4 |
+| 代码所有者 | CODEOWNERS（公开仓库免费层即生效）| `.gitlab/CODEOWNERS` —— **Free 层不构成审批强制**（需 Premium）| §32.3，别把 GitLab 的当成"已强制 approve" |
+
+### 51.3 认证模型（无明文 PAT 落盘，两边同规）
+
+- **git 传输**：SSH key —— `git@github.com:cantascendia/<repo>.git`（主）与
+  `git@gitlab.com:cantascendia/<repo>.git`（镜像）。不用 https + PAT，避免凭据进 URL / 配置文件。
+- **CLI**：`gh auth login` / `glab auth login` 都走 **OAuth device flow**，token 存 OS 凭据存储，
+  **不落仓库、不进 env 文件**。
+- **CI 侧**：
+  - GitHub：`GITHUB_TOKEN` **自动注入**（按需在 workflow 里声明 `permissions:`）；
+    `OPENAI_API_KEY`（§48 codex-review）是仓库 **secret**，由人录入。
+  - GitLab：`OPENAI_API_KEY` 与 `GITLAB_TOKEN`（发 MR note / 打标签）是项目 **CI/CD variables**，
+    勾 masked + protected，由人录入。
+  - agent 全程不读、不写、不转述其值。
+- 红线：任何把 PAT 写进 `.git/config` / `.env` / 文档 / commit 的做法一律禁止（安全宪法 #2 + §30）。
+
+### 51.4 往返中永久丢失的东西（诚实清单）
+
+封禁期间无 API 访问 → 无法导出；**2026-09-18 解封也没把它们带回来**。这一栏是"平台是依赖不是
+环境常量"的实物证据，不要因为账号回来了就把它删掉。
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 封禁前的 GitHub Issues | ⚠️ 部分幸存 | 仓库随账号恢复，但封禁期间（2026-09-08 → 09-18）在 GitLab 侧新开的 issue **未回迁** |
+| 封禁期间的 GitLab MR 讨论 | ❌ 未回迁 | v4.7 迁移那批 MR 的讨论留在 GitLab；结论已落进 `docs/ai-cto/`，过程没有 |
+| GitLab pipeline run 历史 | ❌ 未回迁 | 同上 |
+| GitLab **pipeline schedule** | ⚠️ 不在仓库里 | self-audit-weekly 的 cron 在 GitLab **UI** 里；GitHub 侧的 cron 写在 yml 里随代码回来了 |
+| git 提交历史 | ✅ 完整 | 两边都是全量，本次 merge 把两条线合回一条 |
+| 历史 PR / MR 编号 | ✅ 原文保留 | `#38/#39/#40/#43/#67-#70` 等在旧文档里保留原文，仅作史料（铁律 #2） |
+| `origin`（GitLab）remote | ✅ **保留为活的第二来源** | 不删除。它现在是镜像，不是死指针 —— 保留可写第二远端是本章的核心结论 |
+
+### 51.5 harness 内的落点（两次改动都记在这里）
+
+**v4.7（2026-09-08，迁出 GitLab）：**
+
+- 新建 `.gitlab-ci.yml`：`double-sign-gate` / `eval-gate` / `llm-judge` / `codex-review` /
+  `self-audit-weekly` / `canary`，当时删除了 `.github/workflows/*`。
+- `scripts/forbidden-paths.txt`：**追加** `.gitlab-ci.yml` 与 `.gitlab/`；`.github/workflows/` **保留**
+  （红线只加不删 —— Constitution 不可妥协清单 🟠 条）。
+- §32.1 新增「CI/CD 定义」行；§32.3 CODEOWNERS → 增补 `.gitlab/CODEOWNERS` 说明；
+  §32.4 → `.gitlab/merge_request_templates/Default.md`。
+- `.agents/skills/codex-bridge/run.sh`：加 `glab mr create/note` + `glab api` 路径。
+- 首次造出 §32.2 的**机器强制半**：独立 job `double-sign-gate`（这是 v4.7 留下的真资产）。
+
+**v4.9（2026-09-18，迁回 GitHub）：**
+
+- 从 `github/main` 恢复 `.github/workflows/` 五个 workflow 为**主闸门**；
+  **`.gitlab-ci.yml` 与 `.gitlab/` 保留**（镜像平台定义 + 红线路径，删了等于丢红线又丢第二来源）。
+- 把 v4.7 的 `double-sign-gate` **搬回主平台**：新增 `.github/workflows/double-sign-gate.yml`
+  （每个 PR 必跑、无 `paths:` 过滤、零 token 读 PR label）；`llm-judge.yml` 补自动打标签步骤。
+- Constitution 合规宪法 #4：GitLab Protected Branch → **GitHub Branch Protection**（GitLab 为只读镜像）；
+  安全宪法 #1 的 forbidden 清单**两个平台的 CI 路径都留着**。
+- 本章从单向「GitHub → GitLab」改写为**双向映射**；§47.4 主体回 GitHub、保留 GitLab 小节。
+- eval：`092-ci-platform-parity`（双平台 CI 定义都在且各自完整）+
+  `093-double-sign-gate-dual-platform`（两边的双签 gate 都是真强制）。
+
+### 51.6 CTO 职责（防再次单点故障）
+
+- **第二 remote 是常备品，不是应急品**：每个仓库至少两个可写远端（现行 = GitHub 主 + GitLab 镜像），
+  `git remote -v` 定期核。**封禁是账号级的** —— 同账号下的第二个仓库不算第二来源。
+- **平台动词只经本章**：新写 skill / hook / 命令时不硬编码平台假设；平台特定调用集中在少数入口
+  （CI 定义 / codex-bridge `run.sh`），改平台时只改这些点 + 本表。写之前先
+  `grep -n "§51" playbook/handbook.md` 确认当前主平台的等价动词。
+- **红线只加不删**：换平台时新平台的 CI 定义路径**追加**进 `scripts/forbidden-paths.txt`，
+  旧平台条目**保留**。改完跑 `bash scripts/check-forbidden-consistency.sh`。
+- **迁移 / 迁回后必做**：fresh clone 跑一遍 `bash scripts/check-counts.sh` + `bash scripts/run-evals.sh`
+  （learned rule 2026-09-02：手元 PASS 不等于可再现）。
+- **镜像同步**：GitLab 侧不再是主写入面，但必须**保持可写且不过期** —— 否则"第二来源"只是纸面上的。
+  推荐每次 main 更新后 `git push origin main`（或配镜像），季度至少一次。
+- **季度核**：`gh auth status` / `glab auth status` 有效性 + 两边 secret / CI variable 是否过期
+  （GitLab project access token 有有效期）+ 每仓 `git remote -v` 是否仍有第二来源。

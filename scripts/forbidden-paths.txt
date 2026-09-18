@@ -2,7 +2,7 @@
 #
 # 用途：
 # - .agents/skills/codex-bridge/run.sh 路径过滤
-# - .github/workflows/*.yml CI 检查
+# - .gitlab-ci.yml CI 检查
 # - hooks（settings.json）匹配
 #
 # 格式：每行一个路径片段（不含 glob，被脚本拼接为 grep -E 正则）
@@ -23,3 +23,5 @@ infra/
 terraform/
 ansible/
 .github/workflows/
+.gitlab-ci.yml
+.gitlab/

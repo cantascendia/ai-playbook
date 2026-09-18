@@ -26,7 +26,9 @@
 
 ```bash
 # 1. clone 本仓库到推荐位置（跨机器一致）
-git clone https://github.com/cantascendia/ai-playbook ~/.claude/playbook
+git clone https://gitlab.com/cantascendia/ai-playbook ~/.claude/playbook
+# （SSH：git clone git@gitlab.com:cantascendia/ai-playbook.git ~/.claude/playbook）
+# 2026-09 起托管在 GitLab —— 平台迁移背景与动词映射见 handbook §51
 
 # 2. 在本仓库里跑安装器，指向目标项目
 /cto-init /path/to/your-project                 # 默认 full 档（仅 Claude Code 配置）

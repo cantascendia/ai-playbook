@@ -200,3 +200,119 @@ eval 024 锁 29 断言（3 轮逃逸族 BLOCK + 只读 fail-safe BLOCK + 普通�
 ③ learned rule 存档（2026-07-15-static-regex-cannot-separate-hookspath-rw）。
 
 来源：v4.4b 3 轮对抗验证 workflow（wf_625a44f7 / wf_e5da5df4 / wf_7f9dc01f）+ 轮4 确认（wf_9230005b）
+
+---
+
+## ADR-011: GitHub 封禁 → GitLab 平台迁移（2026-09-08）
+
+- **Status**: accepted（人 2026-09-08 决策「全量迁移」；第二模型独立复审 pending）
+- **关联**: SPEC-002 · handbook §51 / §47.4 · `AMENDMENT-PROPOSAL-2026-09-08-gitlab-platform.md` ·
+  learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`
+
+**Context**
+
+2026-09，GitHub 账号 `cantascendia` 被封禁。这不是平台选型而是不可抗力，且**故障半径远超"换个 remote"**：
+
+1. 6 个仓库远端（含 ai-playbook 自身）不可达。
+2. `gh` CLI token 失效 → §48 跨模型 review 的 PR 评论通道断，codex-bridge autopilot 失效。
+3. 5 个 GitHub Actions workflow 不再执行 → **铁律 #12 的 eval gate 在远端归零**，只剩未必安装的本地 pre-commit。
+4. Branch protection 消失 → 合规宪法 #4 指向不存在的平台（治理文档说谎 = 铁律 #2 反模式）。
+5. forbidden SSOT 只认 `.github/workflows/` → GitLab 的 `.gitlab-ci.yml` 不在红线内，**铁律 #13 在新平台失守**。
+
+根因不是 GitHub，而是**架构**：单一托管账号是单点故障，且平台动词（`gh` / PR / Actions / branch protection）
+**散落在 harness 各处**，没有集中的映射层 —— 所以一次封禁需要全仓 sweep 而不是改一个常量。
+
+**Decision**
+
+1. **全量迁移**到 `gitlab.com/cantascendia`（6 仓库，private）。不恢复 GitHub。
+2. **建立平台动词映射层 = handbook §51**：`gh`→`glab`、PR→MR、Actions workflow→`.gitlab-ci.yml` job、
+   secrets→CI/CD variables、branch protection→protected branches、`on: pull_request`→
+   `$CI_PIPELINE_SOURCE == "merge_request_event"`、`on: schedule`→pipeline schedule、
+   `GITHUB_TOKEN`→`GITLAB_TOKEN`（project access token）。**今后新写 harness 组件不得绕过本层硬编码平台假设。**
+3. **认证模型：SSH key + `glab auth login` OAuth device flow**。git 传输走 SSH（`git@gitlab.com:...`），
+   glab token 存 OS 凭据存储。**任何明文 PAT 不得进入仓库、`.git/config`、`.env` 或文档**（安全宪法 #2 + §30）。
+   CI 侧 `OPENAI_API_KEY` / `GITLAB_TOKEN` 是 GitLab CI/CD variables（masked + protected），**由人录入，agent 不经手**。
+4. **forbidden 红线 append-only**：SSOT 追加 `.gitlab-ci.yml` + `.gitlab/`，**`.github/workflows/` 保留不删**
+   （下游仍有 GitHub 项目；Constitution 不可妥协清单「🟠 仅可加，不可删」）。净效果红线变严。
+5. **main 阻断改为 GitLab protected branch**：`allowed_to_push = No one`、`allowed_to_merge = Maintainers`、
+   `allow_force_push = false`（2026-09-08 经 API 设置）+ 项目设置「Pipelines must succeed」（待人开启）。
+6. **`github` remote 保留为死指针**：不删除（保留 provenance）；`git fetch github` 失败是**预期行为**，不要"修复"。
+
+**Consequences**
+
+- ✅ 铁律 #12 / #13 在新平台重新有效；红线覆盖面比迁移前更大（多了 CI 定义两条）。
+- ✅ 平台耦合从"散落全仓"收敛到"§51 + 少数入口（`.gitlab-ci.yml` / codex-bridge `run.sh`）"，
+  下次换平台的成本从"全仓 sweep"降到"改一章 + 几个入口"。
+- ❌ **不可逆损失**：GitHub Issues / PR 讨论 / Actions run 历史全部丢失（无 API 访问，无法导出）。
+  历史文档里的 PR 编号（#38/#39/#40/#43…）与 "GitHub Actions" 字样**保留原文不篡改**（铁律 #2），
+  它们是史实而非现行配置。
+- ⚠️ **迁移期缺口（诚实记录）**：`OPENAI_API_KEY` / `GITLAB_TOKEN` 未录入前，`codex-review` 与
+  `llm-judge` 的 MR note 会优雅跳过 → §48 跨模型审在远端**暂时降级为建议不留痕**；
+  「Pipelines must succeed」未开启前，eval-gate 红也能 merge（真阻断暂时只靠 Maintainer 人闸）。
+- ⚠️ **CI_JOB_TOKEN 陷阱**：GitLab 自动注入的 `CI_JOB_TOKEN` **不能**发 MR note / 打标签 / 开 issue
+  （与 GitHub 的 `GITHUB_TOKEN` 语义不同）。任何依赖"CI 自动回帖"的设计必须显式配 project access token。
+- 📌 **架构准则沉淀**：托管平台是**依赖**，不是环境常量。依赖需要（a）抽象层、（b）第二来源。
+  见 learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`。
+
+---
+
+## ADR-012: GitHub 解封 → 回迁主平台，GitLab 降为镜像（2026-09-18）
+
+- **Status**: accepted（人 2026-09-18 决策「全部项目回 GitHub，停止依赖 GitLab」）
+- **取代**: ADR-011 的第 1 条（"不恢复 GitHub"）与第 5 条（main 阻断点）；ADR-011 的第 2/3/4/6 条**继续有效**
+- **关联**: SPEC-003（取代 SPEC-002）· handbook §51（改为双向映射）/ §47.4 · eval 092 / 093 ·
+  learned rule `2026-09-08-platform-account-ban-single-point-of-failure.md`（2026-09-18 追记）
+
+**Context**
+
+2026-09-18，被封禁的 GitHub 账号 `cantascendia` **解封**，6 个仓库**原样恢复**：提交历史、
+branch protection 规则、`.github/workflows/` 定义都在。与此同时，两条 main 已经分叉 10 天：
+
+- `github/main`（93af51c）有另一台机器合并的 4 个 PR：#67 codex-bridge review 存档 · #68 CLI 模型钉死 ·
+  #69 branch-guard 跨仓/复合命令感知 · **#70 v4.8 Claude 阵容 → Claude 5 家族（Opus 5 默认）**。
+- `origin/main`（GitLab，0bae4b8）有本线 v4.7 的平台迁移全量成果 + v4.6 Luna 调价 + 一份 #67 的重复应用。
+
+人决策：**主平台回 GitHub，停止依赖 GitLab**。但"停止依赖"≠"删除" —— 见 Decision 第 3 条。
+
+**Decision**
+
+1. **主平台 = GitHub**。`.github/workflows/` 五个 workflow 从 `github/main` 恢复为**主闸门**；
+   合规宪法 #4 改回 **GitHub Branch Protection**（main 必须 PR + eval gate + codex review + 人 merge）。
+2. **模型表冲突一律以 v4.8 为准**。v4.8（2026-07-25，Opus 5 发布后核实）是更新且更权威的阵容决定：
+   **Opus 5 为默认**（CTO 规划 / 架构设计 / 深度审核 + 长程 agentic 执行 sub-agent），
+   Sonnet 5 为标准编码档。v4.7 把 Fable 5.1 定为"编排默认"的行**不保留**，
+   但 `claude-fable-5-1` **登记进 §1.2**（当代最强推理档，极难推理 / 跨代理编排 opt-in）——
+   铁律 #3 要求用过的模型名必须在 SSOT 里。eval 090 的断言随 SPEC 变更同步修订（Test-Lock 合法场景）。
+3. **GitLab 降为镜像，但一切都保留**：`origin` remote（可写第二来源）、`.gitlab-ci.yml`、`.gitlab/`、
+   GitLab protected branch、§51 映射章节 —— 全部保留。理由三条：
+   （a）`.gitlab-ci.yml` / `.gitlab/` 是 §32.1 红线路径，宪法「仅可加不可删」；
+   （b）**账号恢复是运气不是权利**，第二 remote 是本次事故买到的最重要资产；
+   （c）删掉映射层 = 把下次换平台的成本从"改一章"打回"全仓 sweep"。
+4. **§51 从单向改为双向映射**（GitHub 主 ⇄ GitLab 镜像），并记入 2026-09-18 这个新数据点：
+   往返两个方向各验证了映射层一次。§47.4 拆成 47.4.1（GitHub，现行强制点）+ 47.4.2（GitLab，备份闸门）。
+5. **把 v4.7 在 GitLab 侧造出的真资产搬回主平台**：独立 job `double-sign-gate`
+   → `.github/workflows/double-sign-gate.yml`。不变量：每个 PR 必跑、**无 `paths:` 过滤**
+   （只碰 `src/auth/**` 的 PR 也必须被 gate 住）、零 token 读 PR label、forbidden 正则单源读 SSOT。
+   `llm-judge.yml` 补自动打 `requires-double-review` 标签的步骤（失败优雅跳过，不假绿）。
+6. **guard 引擎取 GitHub #69 的实现**（跨仓 / 复合命令感知 —— v4.7 只在文档里记录了这个 P1，
+   #69 是真修复），再把 v4.7 的加固**叠加**上去：`glab` 灭绝面（REST DELETE 两种写法、
+   `repo|project archive`、`variable delete`、`release delete`，以及 `gh api` 的同源 DELETE 孪生洞）、
+   GitLab 令牌脱敏（`glpat-` / `glft-` / `gitlab-ci-token:`）、`git add` 失败上报、forbidden fallback 正则。
+   **只加不减**（铁律 #14）：52 条 guard 单测全绿。
+
+**Consequences**
+
+- ✅ 铁律 #12 / #13 的远端闸门回到主平台，且**两个平台都有**（双签 gate 由 eval 093 机器守护）。
+- ✅ 红线净变严：`.github/workflows/` + `.gitlab-ci.yml` + `.gitlab/` 三条同时在 forbidden SSOT 里。
+- ✅ 一次 merge 完成回迁（而非第二次全仓 sweep）—— §51 映射层的直接收益。
+- ❌ **封禁期间在 GitLab 侧产生的东西未回迁**：新开的 issue / v4.7 迁移那批 MR 的讨论 / pipeline run 历史。
+  结论已落进 `docs/ai-cto/`，过程没有。见 §51.4。
+- ⚠️ **GitLab pipeline schedule 不在仓库里**（self-audit-weekly 的 cron 在 UI 里）；GitHub 的 cron
+  写在 yml 里随代码回来了。换平台时这类"不在仓库里的配置"最容易静默丢掉。
+- ⚠️ **双平台的维护成本是刻意付的**：两套 CI 定义、两处分支保护、镜像要保持同步
+  （`git log origin/main..github/main` 应为空）。这笔成本换的是"下次封禁不停摆"。
+- ⚠️ **eval 089 号段在两条线上撞号**：GitHub 线的 `089-branch-guard-cross-repo` 与 GitLab 线的
+  `089-gitlab-ci-parity` 同号不同内容；v4.6 的 `088` 同样撞。合并时把 GitLab 线的两个改号为
+  `091` / `092`（GitHub 线号段不动，因其已在 main 上被引用）。
+- 📌 **准则升级**：平台恢复后**不要撤销冗余**。判断标准 —— 删掉它之后，下次封禁的恢复成本是不是
+  又回到"全仓 sweep"？是 → 不许删。

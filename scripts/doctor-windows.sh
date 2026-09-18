@@ -190,7 +190,7 @@ sec "5b. git 层 forbidden/eval 兜底（.git/hooks/pre-commit）"
 if [ -f "$REPO_ROOT/.git/hooks/pre-commit" ] && [ -x "$REPO_ROOT/.git/hooks/pre-commit" ]; then
   ok "pre-commit 兜底已安装（forbidden 路径 + 铁律#12 eval gate 对所有工具生效）"
 else
-  warn "pre-commit 兜底未安装 — 本地终端/codex commit 可绕过 forbidden 检查" "跑 bash scripts/install-pre-commit.sh 激活（GitHub branch protection 只补 push 层，不补 commit 前拦截）"
+  warn "pre-commit 兜底未安装 — 本地终端/codex commit 可绕过 forbidden 检查" "跑 bash scripts/install-pre-commit.sh 激活（GitLab protected branch 只补 push 层，不补 commit 前拦截）"
 fi
 
 # ── 6. PowerShell 版本 ─────────────────────────────

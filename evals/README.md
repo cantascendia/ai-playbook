@@ -47,7 +47,8 @@ evals/
 ## 触发时机
 
 - 每次修改 CLAUDE.md / commands / agents / skills / handbook 后必跑（铁律 #12）
-- PR 合并前作为 gate（`.github/workflows/eval.yml` 已接入 + `scripts/check-counts.sh` SSOT 校验）
+- MR 合并前作为 gate（`.gitlab-ci.yml` 的 `eval-gate` job 已接入 + `scripts/check-counts.sh` SSOT 校验；
+  main 为 GitLab protected branch，配合项目设置「Pipelines must succeed」→ eval-gate 失败即无法 merge）
 - 月度回归
 
 ## 当前 case 集（写作时 `ls evals/golden-trajectories/*.yaml`）

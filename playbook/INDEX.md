@@ -27,11 +27,12 @@
 | Canary 部署 / feature flag rollback | §45 |
 | LLM-as-Judge / CI 双 judge（建议非阻断）| §47 |
 | **自我进化飞轮 / "AI 改自己"** | **§50** |
+| `gh` / PR / GitHub Actions / branch protection 的现行等价物 | **§51**（GitLab 动词映射）|
 | 第零轮启动 / 新项目接入 | §10 + §29 |
 
 ## 按章节号（章节清单 — 用 grep 定位行）
 
-> `grep -nE '^## N\.' playbook/handbook.md` 取行号。§号连续 §1-§50（§49 = 分层分发，v3.13 补）。
+> `grep -nE '^## N\.' playbook/handbook.md` 取行号。§号连续 §1-§51（§49 = 分层分发，v3.13 补；§51 = GitLab 平台迁移，v4.7 补）。
 
 | § | 标题 |
 |---|---|
@@ -85,6 +86,7 @@
 | 48 | Cross-Platform Auto-Review Bridge |
 | 49 | 分层分发与子项目适配（v3.13）|
 | 50 | 自我进化飞轮（Constitution-Anchored Self-Improvement）|
+| 51 | 平台迁移：GitHub → GitLab（2026-09，平台动词映射层）|
 
 ## 按铁律 (#1-#14，4 层优先级见 CLAUDE.md)
 

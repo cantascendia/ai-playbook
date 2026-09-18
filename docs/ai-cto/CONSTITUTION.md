@@ -21,7 +21,7 @@ ai-playbook 是 **AI-native CTO 闭环指挥系统** — 让 Claude Code + Antig
 
 ## 安全宪法
 
-1. **Forbidden 路径必须 spec-driven**（§32.1 + 铁律 #13）：auth / payment / secrets / migration / crypto / infra / .github/workflows
+1. **Forbidden 路径必须 spec-driven**（§32.1 + 铁律 #13）：auth / payment / secrets / migration / crypto / infra / .gitlab-ci.yml / .gitlab/ / .github/workflows
 2. **Self-modify system prompt 禁止**（OWASP Agentic Top 10 / AIVSS）：AI 不得改 CLAUDE.md 14 铁律段 / CONSTITUTION.md / forbidden-paths.txt 删条目 / handbook §32-§35
 3. **Pre-commit hook 不可绕过**（铁律 #14 + bypass-guard）：禁止 --no-verify / core.hooksPath / HUSKY=0 / stash 绕过
 4. **Test-Lock 不可绕过**（铁律 #14）：AI 仅可改实现不可改测试断言
@@ -32,7 +32,8 @@ ai-playbook 是 **AI-native CTO 闭环指挥系统** — 让 Claude Code + Antig
 1. **Spec-Kit 对齐**（§37.3）：specify → plan → tasks，每阶段都先读 Constitution
 2. **AAIF AGENTS.md**（Linux Foundation 2025-12）：跟进规范（v3.10+）
 3. **审计可追溯**：所有 immutable-guard / forbidden-guard / bypass-guard 拦截写 `.claude/agent-logs/*.jsonl`
-4. **GitHub Branch Protection**：main 分支必须 PR + codex review + 人 merge
+4. **GitHub Branch Protection**：main 分支必须 PR + eval gate 通过 + codex review + 人 merge；GitLab 为只读镜像（第二来源，见 §51）
+   —— 镜像侧的 protected branch（No one push / Maintainers merge + 「Pipelines must succeed」）保持开启，作为主平台不可用时的备份闸门。
 
 ## 质量宪法
 
