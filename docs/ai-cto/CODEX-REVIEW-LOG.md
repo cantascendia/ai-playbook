@@ -178,3 +178,25 @@ pull request create failed: GraphQL: No commits between main and fix/v3.14-live-
 2026-07-25T18:58:44+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed
 2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=review-triggered | reason=security_relevant_change
 2026-07-25T19:00:43+09:00 | sha=30ae3bc | mode=skipped-debounce | reason=already_reviewed
+2026-09-18T09:33:38+09:00 | sha=c22d036 | mode=skipped-forbidden | reason=touched_.github/workflows/double-sign-gate.yml
+.github/workflows/llm-judge.yml
+.gitlab-ci.yml
+.gitlab/merge_request_templates/Default.md
+2026-07-23T09:18:01+09:00 | sha=f1d6007 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-07-23T09:21:36+09:00 | sha=f1d6007 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-09-01T12:11:30+09:00 | sha=f1d6007 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-09-01T12:14:00+09:00 | sha=9ef64ff | mode=review-triggered | reason=security_relevant_change
+2026-09-01T12:14:01+09:00 | sha=9ef64ff | mode=success | reviewer=codex-gpt5.6-sol | bytes=490136
+2026-09-08T11:11:04+09:00 | sha=070066a | mode=skipped-forbidden | reason=touched_.github/workflows/canary.yml
+.github/workflows/codex-review.yml
+.github/workflows/eval.yml
+.github/workflows/llm-judge.yml
+.github/workflows/self-audit-weekly.yml
+.gitlab-ci.yml
+.gitlab/merge_request_templates/Default.md
+2026-09-08T11:17:59+09:00 | sha=702e016 | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-09-08T11:20:07+09:00 | sha=4e231dc | mode=skipped-non-business | reason=docs_or_config_only_no_security
+2026-09-08T12:07:21+09:00 | sha=b37f1cb | mode=skipped-forbidden | reason=touched_.gitlab-ci.yml
+2026-09-08T12:07:43+09:00 | sha=b96bbde | mode=review-triggered | reason=security_relevant_change
+2026-09-08T12:07:44+09:00 | sha=b96bbde | mode=agy-only | reviewer=agy-gemini | bytes=2235
+2026-09-08T12:10:13+09:00 | sha=dbd7c51 | mode=skipped-non-business | reason=docs_or_config_only_no_security
