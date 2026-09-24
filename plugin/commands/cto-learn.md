@@ -38,4 +38,6 @@ argument-hint: "<事故描述，或留空从本次会话提取>"
 再往 `plugin/lessons/INDEX.md` 加**一行**：`- **<触发场景>** → <要点>。\`<文件名>\``。
 索引是每个会话都注入的，一行写不下说明要点没提炼好。
 
-提交、推送、开 PR。合并后在各机器上运行 `claude plugin marketplace update ai-playbook` 和 `claude plugin update cto@ai-playbook`，然后重启会话才会生效。
+同时把两个清单里的 `version` 加一（`plugin/.claude-plugin/plugin.json` 与 `.claude-plugin/marketplace.json`）。
+提交、推送、开 PR。合并后在各机器上 `git pull` 并运行 `node scripts/install.mjs` —— 它同时更新 Claude plugin 和 Codex 的副本
+（只跑 `claude plugin update` 的话 Codex 读到的还是旧教训）。重启会话后生效。

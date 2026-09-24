@@ -149,7 +149,12 @@ if (fs.existsSync(CX)) {
   };
   // 合并：保留用户自己的条目，去掉 v4 条目与我们上一次写入的条目，再追加这一版
   let hj = { hooks: {} };
-  try { hj = JSON.parse(fs.readFileSync(path.join(CX, 'hooks.json'), 'utf8')); } catch { /* 不存在 */ }
+  try {
+    hj = JSON.parse(fs.readFileSync(path.join(CX, 'hooks.json'), 'utf8'));
+  } catch (e) {
+    // 只有「文件不存在」才当空配置；解析失败就停 —— 否则会用我们的条目盖掉用户的（codex review P2）
+    if (e.code !== 'ENOENT') die(`~/.codex/hooks.json 无法解析（${e.message}）。修好后重跑；Claude 侧已完成，v4 清理未执行。`);
+  }
   hj.hooks = hj.hooks || {};
   stripV4Hooks(hj);
   hj.hooks = hj.hooks || {};

@@ -5,8 +5,8 @@
 ## 现在
 
 **v5 减法重构**（ADR-013，分支 `v5/demolition`）。harness 从「守自己的文字」改成「只守外部破坏」，
-分发改为原生 plugin，常驻上下文从 ~170KB 降到约 8KB。本机已通过 `scripts/install.mjs` 部署（plugin `cto@ai-playbook` 5.0.3）。
-经两轮 `codex review` 跨模型审：共 4 个 P1 + 6 个 P2，全部已修（集中在安装/迁移脚本的失败路径）。
+分发改为原生 plugin，常驻上下文从 ~170KB 降到约 8KB。本机已通过 `scripts/install.mjs` 部署（plugin `cto@ai-playbook` 5.0.6）。
+经五轮 `codex review` 跨模型审：共 7 个 P1 + 11 个 P2，全部已修（集中在安装/迁移脚本的失败路径；另有 `rm -rf ~/` 这个 v4 起就存在的漏拦）。第五轮已无 P1。
 v4 全部内容在 tag `v4-final`。
 
 ## 下一步
