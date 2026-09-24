@@ -1,0 +1,24 @@
+{
+  "description": "cto guards：不可逆动作 / MCP 破坏 / hook 绕过 / 保护分支 → deny；高风险路径 → ask。SessionStart 注入踩坑教训索引 + 项目状态摘要。",
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "*", "hooks": [
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs\"" }
+      ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" forbidden-guard" },
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" branch-guard" }
+      ] },
+      { "matcher": "Bash|PowerShell", "hooks": [
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" bypass-guard" },
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" destructive-action-guard" },
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" branch-guard" }
+      ] },
+      { "matcher": "mcp__.*", "hooks": [
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/engine/guard.mjs\" mcp-guard" }
+      ] }
+    ]
+  }
+}

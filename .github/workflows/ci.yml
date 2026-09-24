@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: guard 引擎单测
+        run: node --test plugin/hooks/engine/guard.test.mjs plugin/scripts/migrate-v4-project.test.mjs
+      - name: 结构自检
+        run: node scripts/check.mjs
+      - name: plugin / marketplace 清单校验
+        run: |
+          npx -y @anthropic-ai/claude-code plugin validate plugin
+          npx -y @anthropic-ai/claude-code plugin validate .

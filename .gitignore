@@ -2,45 +2,17 @@
 .claude/settings.local.json
 .claude/launch.json
 .claude/worktrees/
-.claude/agent-logs/*
-!.claude/agent-logs/.gitkeep
+.claude/agent-logs/
 
-# §48 cooldown 文件 + 锁
-docs/ai-cto/.codex-quota-cooldown
-docs/ai-cto/.codex-bridge.lock
-
-# §48 Cross-review audit log (含 commit sha，团队策略决定是否入 git)
-# docs/ai-cto/CODEX-REVIEW-LOG.md  # 默认入 git；如含敏感取消注释
-
-
-# IDE
+# IDE / OS
 .idea/
 .vscode/
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Build / Cache
-__pycache__/
-*.pyc
+# Build / temp
 node_modules/
-dist/
-build/
-
-# Logs / temps
 *.log
 *.tmp
 *.bak
-*.swp
 *~
-
-# Project-specific (no actual code in this docs repo)
-
-# v3.9 飞轮 cost cap（按月 reset）— 不入 git
-docs/ai-cto/.evolve-cost-month.json
-docs/ai-cto/.codex-quota-cooldown
-
-# v3.14 ledger 运行时产物（collect/distill 生成，非源码）
-ledger/incidents.jsonl
-ledger/drafts/
