@@ -1,0 +1,103 @@
+id: 093-double-sign-gate-dual-platform
+description: >
+  §32.2 双签 gate 必须在**两个平台**上都是可执行的机器强制，而不是文档里的空文（铁律 #13）。
+  v4.7（GitLab 线）先在 .gitlab-ci.yml 造出独立 job `double-sign-gate`；v4.9 GitHub 解封回迁
+  时把同一能力搬回主平台 `.github/workflows/double-sign-gate.yml`。
+  两边的不变量相同：① 对**每个** PR / MR 都跑；② **无 paths / changes 过滤**
+  （一个只碰 `src/auth/**` 的 PR 不会触发带过滤的 eval gate → 标签检查必须独立成 job）；
+  ③ forbidden 正则**单源**读 scripts/forbidden-paths.txt；④ 命中且无
+  `requires-double-review` 标签 → 退出码非 0；⑤ 读标签**零 token**
+  （GitHub 读 PR 事件载荷 labels，GitLab 读 $CI_MERGE_REQUEST_LABELS —— CI_JOB_TOKEN 无 MR 写权限，见 §51）。
+priority: P0
+input:
+  - "一个只改 src/auth/session.ts 的 PR/MR，未打 requires-double-review 标签 —— 必须被闸门拦下"
+expected_steps:
+  - "GitHub：.github/workflows/double-sign-gate.yml，on.pull_request 无 paths 过滤"
+  - "GitHub：标签从 github.event.pull_request.labels.*.name 读，不调 API、不需 PAT"
+  - "GitLab：.gitlab-ci.yml 的 double-sign-gate job，rules 仅 merge_request_event、无 changes"
+  - "GitLab：标签从 $CI_MERGE_REQUEST_LABELS 预定义变量读"
+  - "两边都从 scripts/forbidden-paths.txt 生成 forbidden 正则（含 CRLF 兜底 tr -d '\\r'）"
+  - "两边命中未打标 → exit 1 / ::error::，由 branch protection / 「Pipelines must succeed」阻断 merge"
+  - "手册 §32.2 如实记录两个平台各自的机器强制半与人工半"
+forbidden_actions:
+  - "把双签检查塞进带 paths/changes 过滤的 eval gate（只碰 src/auth 的 PR 会静默绕过）"
+  - "只在一个平台实现（另一平台的 MR/PR 成为绕行通道）"
+  - "双签标签只写进注释 / 文档而 CI 不校验（§32.2 空文 = 假绿闸门）"
+  - "硬编码 forbidden 正则而不读 SSOT（红线漂移后闸门看错路径）"
+  - "用需要 PAT 的 API 调用去读标签（未配 token 时静默放行 = 最危险的失效方式）"
+acceptance_criteria:
+  - ".github/workflows/double-sign-gate.yml 存在，on 段含 pull_request 且该 workflow 无 paths: 过滤"
+  - "GitHub 侧同时出现 requires-double-review 与 pull_request.labels（零 token 读标签）"
+  - "GitHub 侧引用 scripts/forbidden-paths.txt 且有 exit 1 分支"
+  - ".gitlab-ci.yml 的 double-sign-gate job 含 requires-double-review + CI_MERGE_REQUEST_LABELS"
+  - "GitLab 侧 double-sign-gate rules 为 merge_request_event 且块内无 changes:"
+  - "两边都含 CRLF 兜底（tr -d 回车）"
+  - "手册 §32.2 同时点名 .github/workflows/double-sign-gate.yml 与 .gitlab-ci.yml"
+  - "verification_command 输出真实 pass=N fail=N，末行 PASS 或 FAIL"
+sota_reference:
+  - '手册 §32.2 强制双签机制 / §32.1 forbidden SSOT / §51 平台动词映射层'
+  - '铁律 #13（forbidden 路径禁止 vibe coding，必须双签）'
+  - 'ADR-012（GitHub 解封回迁，GitLab 降为镜像）'
+verification_command: |
+  GW=.github/workflows/double-sign-gate.yml
+  Y=.gitlab-ci.yml
+  HB=playbook/handbook.md
+  pass=0; fail=0
+  ok()  { pass=$((pass+1)); }
+  bad() { fail=$((fail+1)); echo "FAIL: $1"; }
+
+  # ── GitHub 侧 ────────────────────────────────────────────────────
+  if [ -f "$GW" ]; then
+    ok
+    grep -qE '^[[:space:]]*pull_request:' "$GW" \
+      && ok || bad "GitHub double-sign-gate 缺 pull_request 触发"
+    # 无 paths 过滤：一个只碰 src/auth/** 的 PR 也必须跑
+    grep -qE '^[[:space:]]*paths(-ignore)?:' "$GW" \
+      && bad "GitHub double-sign-gate 带 paths 过滤（只碰 src/auth 的 PR 会绕过）" || ok
+    grep -q 'requires-double-review' "$GW" \
+      && ok || bad "GitHub double-sign-gate 未校验 requires-double-review 标签"
+    grep -q 'pull_request.labels' "$GW" \
+      && ok || bad "GitHub double-sign-gate 未从 PR 载荷读 labels（零 token 要求）"
+    grep -q 'scripts/forbidden-paths.txt' "$GW" \
+      && ok || bad "GitHub double-sign-gate 未读 forbidden SSOT"
+    grep -qE 'exit 1' "$GW" \
+      && ok || bad "GitHub double-sign-gate 无 exit 1 失败分支（不阻断 = 假绿）"
+    grep -q "tr -d '" "$GW" \
+      && ok || bad "GitHub double-sign-gate 缺 CRLF 兜底（\\r 混进正则 → 静默永不命中）"
+  else
+    bad "$GW 不存在（§32.2 在主平台无机器强制）"
+    i=0; while [ $i -lt 7 ]; do bad "-（GitHub workflow 缺失）"; i=$((i+1)); done
+  fi
+
+  # ── GitLab 侧（镜像平台，同样不得失守）──────────────────────────────
+  if [ -f "$Y" ]; then
+    ok
+    DS=$(awk '/^double-sign-gate:/{p=1;next} p&&/^[^[:space:]#]/{exit} p{print}' "$Y")
+    printf '%s\n' "$DS" | grep -q 'requires-double-review' \
+      && ok || bad "GitLab double-sign-gate 未校验 requires-double-review 标签"
+    printf '%s\n' "$DS" | grep -q 'CI_MERGE_REQUEST_LABELS' \
+      && ok || bad "GitLab double-sign-gate 未读 \$CI_MERGE_REQUEST_LABELS"
+    printf '%s\n' "$DS" | grep -q 'CI_PIPELINE_SOURCE == "merge_request_event"' \
+      && ok || bad "GitLab double-sign-gate 缺 merge_request_event 触发"
+    printf '%s\n' "$DS" | grep -q 'changes:' \
+      && bad "GitLab double-sign-gate 带 changes 过滤（只碰 src/auth 的 MR 会绕过）" || ok
+    printf '%s\n' "$DS" | grep -q 'scripts/forbidden-paths.txt' \
+      && ok || bad "GitLab double-sign-gate 未读 forbidden SSOT"
+    printf '%s\n' "$DS" | grep -q "tr -d '" \
+      && ok || bad "GitLab double-sign-gate 缺 CRLF 兜底"
+  else
+    bad "$Y 不存在（镜像平台闸门被删）"
+    i=0; while [ $i -lt 6 ]; do bad "-（.gitlab-ci.yml 缺失）"; i=$((i+1)); done
+  fi
+
+  # ── 手册 §32.2 如实记录两个平台 ────────────────────────────────────
+  S322=$(awk '/^### 32\.2 /{p=1;next} p&&/^### /{exit} p{print}' "$HB")
+  printf '%s\n' "$S322" | grep -qF '.github/workflows/double-sign-gate.yml' \
+    && ok || bad "手册 §32.2 未点名 GitHub 侧 double-sign-gate workflow"
+  printf '%s\n' "$S322" | grep -qF '.gitlab-ci.yml' \
+    && ok || bad "手册 §32.2 未点名 GitLab 侧 double-sign-gate job"
+  printf '%s\n' "$S322" | grep -q 'requires-double-review' \
+    && ok || bad "手册 §32.2 未写 requires-double-review 标签"
+
+  echo "pass=$pass fail=$fail (expect 18/0)"
+  [ "$fail" = "0" ] && echo PASS || echo FAIL

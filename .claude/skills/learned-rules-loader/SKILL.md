@@ -23,7 +23,7 @@ paths:
 ```
 .claude/rules/learned/
 ├── README.md                                          # 写规则的格式约定
-├── 2026-05-15-codex-windows-sandbox-fallback.md     # 例：codex 在 Windows 沙箱报 1326，要走 GitHub MCP fallback
+├── 2026-05-15-codex-windows-sandbox-fallback.md     # 例：codex 在 Windows 沙箱报 1326，要走 GitLab MCP fallback
 ├── 2026-05-20-paths-yaml-list-vs-string.md          # 例：SKILL.md paths 字段必须 YAML list 不能 quoted scalar
 └── archived/                                          # 月度归档：低频 / 已 superseded 的 rule
 ```

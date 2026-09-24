@@ -166,8 +166,10 @@ require_jq() {
 # forbidden 路径 fallback pattern（SSOT 缺失时用）。canonical 唯一源。
 # 此前 forbidden-guard / mcp-guard / codex-bridge 三处各写，codex-bridge 那份还缺
 # billing/keys/terraform/.github/workflows → 漂移。统一到这里。
+# SPEC-002（2026-09-08 GitHub→GitLab 迁移）：追加 .gitlab-ci.yml / .gitlab/ —— CI 定义文件
+# 换平台后仍是 L1 红线（铁律 #13）。.github/workflows/ 保留（红线只加不删）。
 forbidden_fallback_pattern() {
-  echo 'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+  echo 'auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
 }
 
 # destructive SQL 共享核心（DROP/TRUNCATE/无 WHERE 的 DELETE）。

@@ -2,9 +2,9 @@
 name: forbidden-policy
 description: >
   §32.1 Forbidden 路径强制规则。当 Claude 编辑 auth/payment/billing/secrets/keys/migration/
-  crypto/infra/terraform/ansible/.github/workflows 路径下文件时自动加载。要求 spec-driven、
-  双签、PR 标签 requires-double-review。配套 .claude/hooks/forbidden-guard.sh 硬阻止
-  (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
+  crypto/infra/terraform/ansible/.github/workflows/.gitlab-ci.yml/.gitlab 路径下文件时自动加载。
+  要求 spec-driven、双签、MR 标签 requires-double-review（GitLab）。配套
+  .claude/hooks/forbidden-guard.sh 硬阻止 (exit 2)；本 skill 提供 Claude 应如何响应被阻止时的处理流程。
 user-invocable: false
 paths:
   - "**/auth/**"
@@ -19,6 +19,8 @@ paths:
   - "**/terraform/**"
   - "**/ansible/**"
   - ".github/workflows/**"
+  - ".gitlab-ci.yml"
+  - ".gitlab/**"
 ---
 
 # Forbidden 路径策略 (§32.1 / 铁律 #13)
@@ -64,9 +66,17 @@ Per SPEC.md §3.2: TOTP 验证窗口 ±30s，5 次失败锁定 15 min
 Reviewed by: codex-gpt5.5 (sha=abc1234)
 ```
 
-### 4. PR 标签 requires-double-review
+### 4. MR 标签 requires-double-review（GitLab）
 
-PR 必须打 `requires-double-review` 标签。CI 会校验此标签存在才能合并到 main。
+触及 forbidden 路径的 MR 必须带 `requires-double-review` 标签。
+
+- **强制点**：`.gitlab-ci.yml` 的 `double-sign-gate` job 读 `$CI_MERGE_REQUEST_LABELS`（预定义变量，**不需 token**），
+  改动命中 forbidden SSOT 而标签缺失 → job 失败；main 开了「Pipelines must succeed」→ 合不进去。
+- **自动补打**：`llm-judge` job 在配了 `GITLAB_TOKEN` 时用 `curl` 调 MR API 加标签；**未配则优雅跳过**
+  （只打印到 job log）→ 那种情况下需人手动打标签，`double-sign-gate` 才会放行。
+- **人工半**：MR 模板（`.gitlab/merge_request_templates/Default.md`）的 forbidden 勾选框 +
+  main 保护分支「Maintainers merge」。`.gitlab/CODEOWNERS` **不是**审批强制（approval rules 需 GitLab Premium），
+  Free 层仅作 reviewer 提示 —— 别把它当成已强制 approve。
 
 ## 紧急例外（禁止滥用）
 

@@ -111,6 +111,31 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --body-file "$comment_file"
 
+      # v4.9（GitHub 回迁）：把 GitLab 线 v4.7 造的「命中 forbidden 就自动补打
+      # requires-double-review 标签」搬回主平台。真正的阻断在独立的 double-sign-gate
+      # workflow 里（无 paths 过滤、零 token）；这里只负责补标，减少人肉步骤。
+      # 补标不会重跑当前 pipeline —— 下一次 push / 手动 re-run 才放行，刻意的人审停顿点。
+      # 标签不存在时先建；失败一律**优雅跳过**（不假绿也不硬失败），由人手动打标。
+      - name: 自动补打 requires-double-review 标签 (§32.2)
+        if: steps.signals.outputs.skip != 'true' && steps.signals.outputs.forbidden_count != '0'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -u
+          gh label create requires-double-review \
+            --color B60205 \
+            --description "§32.2 forbidden 路径改动，需 CTO + 资深工程师 + 第二模型双签" \
+            >/dev/null 2>&1 || echo "标签已存在或无权创建 — 继续。"
+          if gh pr edit "$PR_NUMBER" --add-label requires-double-review; then
+            echo "已补打 requires-double-review 标签。"
+          else
+            echo "补标失败（权限/令牌）— 需人手动打标签，double-sign-gate 才会放行。"
+          fi
+
       - name: Fail on critical
         if: steps.signals.outputs.skip != 'true'
         shell: bash
@@ -120,5 +145,5 @@ jobs:
           set -euo pipefail
 
           if [ "$FORBIDDEN_COUNT" -gt 0 ]; then
-            echo "Forbidden paths detected; advisory only, not blocking."
+            echo "Forbidden paths detected; advisory only — 阻断由 double-sign-gate workflow 负责。"
           fi

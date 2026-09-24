@@ -56,7 +56,7 @@ if echo "$REL_PATH" | grep -qE -- "($PATTERN)"; then
 此路径禁止 vibe coding（铁律 #13），必须走 spec-driven：
   1. /cto-spec specify — 先写 SPEC 并经人审
   2. 双签：CTO + 第二模型独立审（/cto-review --cross）
-  3. PR 打 \`requires-double-review\` 标签
+  3. MR (GitLab) 打 \`requires-double-review\` 标签
 
 详见 .claude/rules/forbidden-paths.md（handbook §32.1 / §19 / 铁律 #13）
 紧急 opt-out（已获双签后）：export CTO_DOUBLE_SIGNED=1   # 仅本会话有效"

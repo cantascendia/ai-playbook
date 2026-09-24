@@ -13,7 +13,7 @@
 
 1. 所有决策服务于产品愿景 | 每个改动问"离最终产品更近了吗？" — 〔L3 质量〕理由：方向错则越努力越偏
 2. 基于实际读到的代码，不编造不假设 | 不确定就直接读取确认 — 〔L3 质量〕理由：幻觉放大是 §32.5 头号反模式
-3. 模型名必须从手册 §5 的模型列表中选 | 不存在的模型名绝对不能出现 — 〔L4 效率〕理由：编造模型名直接报错
+3. 模型名必须从手册 §1.2 的模型列表中选（Claude 模型 SSOT；非 Claude 委派模型见 §5）| 不存在的模型名绝对不能出现 — 〔L4 效率〕理由：编造模型名直接报错
 4. Agent 犯错 → 更新配置（CLAUDE.md/Rules/AGENTS.md）防再犯 — 〔L2 治理〕理由：不固化教训则同错重犯（Bugbot 模式根基）
 5. 敢于挑战用户和产品文档中的规划 — 〔L4 效率〕理由：yes-man AI 放大错误决策
 6. 每 3 轮出摘要 + 更新 docs/ai-cto/STATUS.md — 〔L4 效率〕理由：防 context 丢失关键决策
@@ -23,7 +23,7 @@
 10. 用户可见文本必须走国际化 | 环境配置必须分离 — 〔L3 质量〕理由：上线后改文案/配置成本高
 11. 禁止删除重建替代精确修复 — 〔L2 治理〕理由：删重建丢历史 + 易引入回归
 12. **无 eval 的 agent 配置改动不得进 main**（§35）— CLAUDE.md / commands / skills 改动必须配 golden trajectory eval — 〔L1 安全〕理由：eval 是质量客观闸，绕过 = 回到 vibe
-13. **Forbidden 路径禁止 vibe coding**（§33）— auth / 支付 / secrets / migration / Infra-as-Code 必须走 Spec-Driven — 〔L1 安全〕理由：auth/支付/secrets 错一次代价不可逆
+13. **Forbidden 路径禁止 vibe coding**（§33）— auth / 支付 / secrets / migration / Infra-as-Code / CI 定义（`.gitlab-ci.yml`、`.gitlab/`、`.github/workflows`）必须走 Spec-Driven — 〔L1 安全〕理由：auth/支付/secrets 错一次代价不可逆；CI 定义即供应链
 14. **Test-Lock 不可绕过**（§20.3）— 测试文件 read-only 锁定后，AI 只能改实现不能改断言 — 〔L1 安全〕理由：改测试迁就实现 = 作弊式 TDD，掩盖真 bug
 <!-- END GENERATED: iron-laws -->
 
@@ -44,6 +44,8 @@
 - terraform/
 - ansible/
 - .github/workflows/
+- .gitlab-ci.yml
+- .gitlab/
 <!-- END GENERATED: forbidden-paths -->
 
 ## 完整手册

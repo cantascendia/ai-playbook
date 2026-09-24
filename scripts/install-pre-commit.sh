@@ -55,7 +55,7 @@ FP_SSOT="scripts/forbidden-paths.txt"
 if [ -f "$FP_SSOT" ]; then
   FP=$(tr -d '\r' < "$FP_SSOT" | grep -vE '^\s*(#|$)' | tr '\n' '|' | sed 's/|$//')
 else
-  FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/'
+  FP='auth/|payment/|billing/|secrets/|keys/|migration|crypto/|infra/|terraform/|\.github/workflows/|\.gitlab-ci\.yml|\.gitlab/'
 fi
 if [ -n "$FP" ]; then
   HITS=$(git diff --cached --name-only 2>/dev/null | grep -E "($FP)")
@@ -75,7 +75,7 @@ if [ -n "$FP" ]; then
       echo "   这些路径（auth / 支付 / secrets / migration / crypto / infra / CI）必须走 spec-driven："
       echo "     1. /cto-spec specify → 先写 SPEC 并经人审"
       echo "     2. 双签：CTO + 第二模型独立审（/cto-review --cross）"
-      echo "     3. PR 打 requires-double-review 标签"
+      echo "     3. MR 打 requires-double-review 标签"
       echo "   完成真双签后单次放行：export CTO_DOUBLE_SIGNED=1 再 git commit。"
       echo "   注：此 git 层兜底拦所有工具（codex / Antigravity / 终端直接编辑），不只 Claude Code。"
       exit 1
