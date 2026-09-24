@@ -1,7 +1,7 @@
 {
   "name": "cto",
   "displayName": "CTO",
-  "version": "5.0.4",
+  "version": "5.0.5",
   "description": "个人 AI 工程 harness：不可逆动作护栏 + 跨模型 review + spec-driven + 踩坑教训索引",
   "author": { "name": "cantascendia" },
   "repository": "https://github.com/cantascendia/ai-playbook",

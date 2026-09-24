@@ -49,6 +49,7 @@ function write(p, content) {
 function copyDir(src, dest) {
   log(`同步 ${path.relative(repo, src)} → ${path.relative(home, dest)}`);
   if (DRY) return;
+  backup(dest); // 覆盖前也备份（codex review P2）
   fs.rmSync(dest, { recursive: true, force: true });
   fs.cpSync(src, dest, { recursive: true });
 }
@@ -96,7 +97,8 @@ const must = (...args) => {
 const plugins = () => {
   try { return JSON.parse(cli('plugin', 'list', '--json').stdout || '[]'); } catch { return []; }
 };
-const find = (id) => plugins().find((p) => p.id === id);
+// 只认 user scope：project / local scope 的安装只保护一个项目，不能据此拆掉全局 guard（codex review P1）
+const find = (id) => plugins().find((p) => p.id === id && p.scope === 'user');
 const version = JSON.parse(fs.readFileSync(path.join(repo, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')).version;
 
 if (/ai-playbook/.test(cli('plugin', 'marketplace', 'list').stdout || '')) must('plugin', 'marketplace', 'update', 'ai-playbook');

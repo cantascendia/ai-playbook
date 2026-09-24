@@ -184,12 +184,13 @@ hook 失败 → 修根因，不是跳过检查。确需跳过：请用户自己�
 
 // ═══ destructive-action-guard ═══（不可逆动作 → deny，由人自己执行）
 // 仅剥离 heredoc 起始标记至行尾；引号内容保留检测（psql -c "DROP ..." 必须命中）。
-const FS_PATTERNS = `rm\\s+-rf\\s+["']?/($|\\s|["'])|rm\\s+-rf\\s+["']?~($|\\s|["'])|rm\\s+-rf\\s+["']?\\$HOME|rm\\s+-rf\\s+["']?\\.\\s|rm\\s+-rf\\s+["']?\\*($|\\s)|find\\s+/?\\s.*-delete|>\\s*/dev/sda|mkfs|dd\\s+if=.*of=/dev/`;
+// 目标后允许尾随分隔符：`rm -rf ~/` 与 `rm -rf ~` 等价（v4 起就漏了带斜杠的写法，codex review 发现）
+const FS_PATTERNS = `rm\\s+-rf\\s+["']?/($|\\s|["'])|rm\\s+-rf\\s+["']?~/?($|\\s|["'])|rm\\s+-rf\\s+["']?\\$HOME|rm\\s+-rf\\s+["']?\\.\\s|rm\\s+-rf\\s+["']?\\*($|\\s)|find\\s+/?\\s.*-delete|>\\s*/dev/sda|mkfs|dd\\s+if=.*of=/dev/`;
 const DB_PATTERNS = `${DESTRUCTIVE_SQL_CORE}|psql.*-c.*DROP|mongo.*dropDatabase|redis-cli.*FLUSHALL`;
 // `[^|;&]*` 只把「同一条命令内」的 flag 圈进来，不跨管道/分号/`&&`；GET/POST 类 api 调用仍放行。
 const CLOUD_PATTERNS = `terraform\\s+destroy|vercel\\s+rm\\s.*--yes|railway\\s+(down|destroy)|supabase\\s+project\\s+delete|aws\\s+s3\\s+rb\\s+["']?s3://.*--force|aws\\s+rds\\s+delete-db-instance|aws\\s+ec2\\s+terminate-instances.*--force|gh\\s+repo\\s+delete|gh\\s+secret\\s+remove|gh\\s+api\\s+[^|;&]*(--method[= ]DELETE|-X\\s*DELETE)|glab\\s+repo\\s+delete|glab\\s+project\\s+delete|glab\\s+api\\s+[^|;&]*(--method[= ]DELETE|-X\\s*DELETE)|glab\\s+repo\\s+archive|glab\\s+project\\s+archive|glab\\s+variable\\s+delete|glab\\s+release\\s+delete|firebase\\s+(use\\s+.*&&.*deploy|projects:delete)|heroku\\s+apps:destroy|fly\\s+apps\\s+destroy|kubectl\\s+delete\\s+(ns|namespace|cluster|all)|docker\\s+system\\s+prune\\s+--all\\s+--volumes`;
-// PowerShell：递归删除盘符根 / 用户目录，格式化磁盘
-const PS_PATTERNS = `Remove-Item(?=[^|;\\n]*\\s-R(ecurse)?\\b)[^|;\\n]*\\s["']?([A-Za-z]:[\\\\/]?|~|/|\\$HOME|\\$env:USERPROFILE)["']?(\\s|$)|Format-Volume|Clear-Disk`;
+// PowerShell：递归删除盘符根 / 用户目录（含尾随 \ 或 /），格式化磁盘
+const PS_PATTERNS = `Remove-Item(?=[^|;\\n]*\\s-R(ecurse)?\\b)[^|;\\n]*\\s["']?(([A-Za-z]:|~|\\$HOME|\\$env:USERPROFILE)[\\\\/]?|[\\\\/])["']?(\\s|$)|Format-Volume|Clear-Disk`;
 const COMBINED_DESTRUCTIVE = new RegExp(`${FS_PATTERNS}|${DB_PATTERNS}|${CLOUD_PATTERNS}|${PS_PATTERNS}`, 'im');
 
 export function destructiveActionGuard(ctx) {

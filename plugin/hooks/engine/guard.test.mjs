@@ -246,7 +246,7 @@ test('bypass: 正常命令放行 / CTO_BYPASS_ALLOWED=1 放行', () => {
 
 test('destructive: 灾难命令 deny', () => {
   for (const cmd of [
-    'rm -rf /', 'rm -rf ~', 'rm -rf $HOME', 'echo x && rm -rf /',
+    'rm -rf /', 'rm -rf ~', 'rm -rf ~/', 'rm -rf "~/"', 'rm -rf $HOME', 'rm -rf "$HOME/"', 'echo x && rm -rf /',
     'DROP TABLE users;', 'psql -c "DROP DATABASE prod"', 'redis-cli FLUSHALL',
     'terraform destroy', 'kubectl delete ns prod', 'docker system prune --all --volumes',
     'gh repo delete o/r', 'gh api -X DELETE repos/o/r', 'gh api repos/o/r --method DELETE',
@@ -274,7 +274,11 @@ test('PowerShell 工具同样受守（v4 只 match Bash —— PowerShell 全程
   for (const cmd of ['Remove-Item -Recurse -Force C:\\', 'Remove-Item C:/ -Recurse', 'Remove-Item -Recurse $env:USERPROFILE', 'Remove-Item -R ~', 'Format-Volume -DriveLetter D', 'terraform destroy']) {
     assert.ok(run('destructive-action-guard', ps(cmd)).stdout.includes(DENY), `应 deny: ${cmd}`);
   }
-  for (const cmd of ['Remove-Item -Recurse -Force node_modules', 'Remove-Item .\\dist -Recurse', 'Get-ChildItem C:\\']) {
+  // 尾随分隔符与不带时等价（codex review P1）
+  for (const cmd of ['Remove-Item -Recurse -Force "$HOME/"', 'Remove-Item -Recurse -Force $env:USERPROFILE\\', 'Remove-Item -Recurse "~/"', 'Remove-Item -Recurse -Force /']) {
+    assert.ok(run('destructive-action-guard', ps(cmd)).stdout.includes(DENY), `应 deny: ${cmd}`);
+  }
+  for (const cmd of ['Remove-Item -Recurse -Force node_modules', 'Remove-Item .\\dist -Recurse', 'Get-ChildItem C:\\', 'Remove-Item -Recurse -Force node_modules ', 'Remove-Item -Recurse  build']) {
     assert.equal(run('destructive-action-guard', ps(cmd)).stdout, '', `误拦: ${cmd}`);
   }
   assert.ok(run('bypass-guard', ps('git commit --no-verify')).stdout.includes(DENY));
