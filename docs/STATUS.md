@@ -11,7 +11,8 @@ v4 全部内容在 tag `v4-final`。
 ## 下一步
 
 - [ ] 在其余机器上运行 `node scripts/install.mjs`（它会清掉 v4 的全局 hook）
-- [ ] 下游 v4 安装：InterviewLens、vokadrop、`D:\projects\ai-playbook`（旧克隆，建议删除）—— 在各项目里跑 `/cto-init` 清掉逐项目 guard 副本
+- [ ] 合并下游清理 MR：InterviewLens !1、vokadrop !1（`scripts/migrate-v4-project.mjs` 生成；InterviewLens 独有的 2 条教训已收进 plugin/lessons）
+- [ ] `D:\projects\ai-playbook` 是 v4 的旧克隆（15 个未提交改动），确认无用后删除
 - [ ] 在 GitHub 仓库启用 Codex / Gemini 的 PR review 集成（需要在 chatgpt.com/codex 和 Gemini Code Assist 里用账号授权，agent 做不了）
 - [ ] GitLab 镜像：`git push gitlab main` 保持同步
 - [ ] 实测 Codex hook payload 的工具名（本机 codex 沙箱创建进程被拒，未能验证 matcher）

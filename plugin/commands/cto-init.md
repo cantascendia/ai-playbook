@@ -54,6 +54,8 @@ v4 把 guard 复制进每个项目；v5 由 plugin 全局提供，逐项目副�
 
 默认清单：auth / payment / billing / secrets / keys / migration / crypto / infra / terraform / ansible / CI 定义。
 项目不同就写 `.claude/forbidden-paths.txt`（每行一个路径片段，写了就**替换**默认清单）。
+特别检查默认清单覆盖不到的攻击面：根目录的 serverless API（`api/`、`functions/`、`netlify/functions/`）、
+加载密钥的配置、处理支付回调的路由 —— 默认清单是通用假设，不等于这个项目的真实结构。
 
 ## 5. 收尾
 

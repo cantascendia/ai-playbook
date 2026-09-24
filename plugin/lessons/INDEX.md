@@ -5,6 +5,8 @@
 - **修完一个 bug**（Windows 路径、转义、正则……）→ 先 grep 同一 pattern 全仓扫一遍，测试矩阵带 Windows 反斜杠 case。`2026-05-12-windows-path-pattern-generalization.md`
 - **junction/symlink 共享 node_modules 的 worktree** → 不跑会 shell 出 install 的构建（`opennextjs-cloudflare build` / `pnpm preview|deploy`）；见 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` 立即停手，永不加 `CI=true`。`2026-07-09-opennext-build-shells-pnpm-install.md`
 - **委派 codex（Windows）** → 本地 `codex exec` 沙箱每条 shell 约 37s；用 `codex review` / codex cloud，或把任务写成"自包含、只写文件"。`2026-07-10-codex-exec-windows-sandbox-tax.md`
+- **脚本会输出中/日/德文字符（Windows）** → 本机 ANSI 代码页是 cp932；Python 脚本首行 `reconfigure(encoding="utf-8")`，文件 IO 显式 `encoding="utf-8"`，PowerShell 与 Git Bash 都跑一遍。"测试全红"先看是不是编码错误。`2026-07-26-windows-cp932-breaks-cjk-stdout.md`
+- **测试/eval 会写凭据、钥匙串、注册表等系统级存储** → 先给存储加命名空间开关并在第一个业务 import 前设好；隔离了数据目录 ≠ 隔离了凭据管理器。`2026-08-07-eval-must-not-write-real-credentials.md`
 - **经 shell/heredoc 写含 `\` 的代码** → 反斜杠会被吃掉一半（`\b` 变 U+0008）；用 Write/Edit 工具。"源码看着对但不工作"先查控制字符。`2026-08-20-heredoc-halves-backslashes.md`
 - **带 `--only/--limit/--resume` 的收集工具** → 写台账前先读旧的合并；条数减少必须报警。`2026-08-31-tools-must-not-overwrite-their-own-baseline.md`
 - **catch-all 异常处理** → 必须打印异常；404/空数组可能是异常伪装。HTTP header 非 ASCII 要编码；异步缓存存 promise 而非值。`2026-09-02-catch-all-turns-crash-into-wrong-answer.md`

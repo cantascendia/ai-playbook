@@ -15,6 +15,7 @@ cantascendia 的个人 AI 工程 harness。仓库根是 Claude Code plugin marke
 | `global/` | 全局约定 + 输出风格 |
 | `scripts/install.mjs` | 部署到本机（plugin + 全局约定 + Codex + 清理 v4 残留，先备份） |
 | `scripts/check.mjs` | 结构自检（CI 同款） |
+| `scripts/migrate-v4-project.mjs` | 清掉某个项目里的 v4 harness 副本（有未收录的教训会中止） |
 | `docs/STATUS.md` · `docs/DECISIONS.md` | 状态 · 决策记录（ADR） |
 
 v4 的全部内容在 tag `v4-final`：`git show v4-final:<路径>`。
