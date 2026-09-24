@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22
       - name: guard 引擎单测
-        run: node --test plugin/hooks/engine/guard.test.mjs scripts/migrate-v4-project.test.mjs
+        run: node --test plugin/hooks/engine/guard.test.mjs plugin/scripts/migrate-v4-project.test.mjs
       - name: 结构自检
         run: node scripts/check.mjs
       - name: plugin / marketplace 清单校验

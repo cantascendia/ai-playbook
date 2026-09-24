@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 清掉 v4 复制进项目的 harness 副本：node scripts/migrate-v4-project.mjs <项目目录> [--dry-run]
+// 清掉 v4 复制进项目的 harness 副本：node <plugin 根>/scripts/migrate-v4-project.mjs <项目目录> [--dry-run]
 // v5 由 cto plugin 全局提供 guard / 命令；项目里的副本会与 plugin 重复执行。
 // 只删 scripts/v4-manifest.mjs 列出的文件与带 v4 签名的 hook 条目；项目自己的设置、hook、docs/ai-cto/、forbidden 清单都保留。
 // 项目里若有 ai-playbook 没收录的教训 → 中止（先 /cto-learn 收进来，别丢）。
@@ -12,20 +12,20 @@ import {
 
 const [dirArg, ...rest] = process.argv.slice(2);
 const DRY = rest.includes('--dry-run');
-if (!dirArg) { console.error('用法: node scripts/migrate-v4-project.mjs <项目目录> [--dry-run]'); process.exit(1); }
+if (!dirArg) { console.error('用法: node <plugin 根>/scripts/migrate-v4-project.mjs <项目目录> [--dry-run]'); process.exit(1); }
 const dir = path.resolve(dirArg);
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const pluginRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const P = (...s) => path.join(dir, ...s);
 const log = (m) => console.log(`${DRY ? '[dry-run] ' : ''}${m}`);
 const rm = (p) => { if (!fs.existsSync(p)) return; log(`删除 ${path.relative(dir, p)}`); if (!DRY) fs.rmSync(p, { recursive: true, force: true }); };
 
 // 1. 教训不能丢
-const known = new Set([...fs.readdirSync(path.join(repo, 'plugin', 'lessons')), ...V4_OBSOLETE_LESSONS]);
+const known = new Set([...fs.readdirSync(path.join(pluginRoot, 'lessons')), ...V4_OBSOLETE_LESSONS]);
 let learned = [];
 try { learned = fs.readdirSync(P('.claude', 'rules', 'learned')); } catch { /* 无 */ }
 const unique = learned.filter((f) => !known.has(f));
 if (unique.length) {
-  console.error(`✗ 这些教训 ai-playbook 还没收录，先收进 plugin/lessons/ 再迁移：\n  ${unique.join('\n  ')}`);
+  console.error(`✗ 这些教训 ai-playbook 还没收录，先用 /cto-learn 收进 ai-playbook 的 plugin/lessons/ 再迁移：\n  ${unique.join('\n  ')}`);
   process.exit(1);
 }
 

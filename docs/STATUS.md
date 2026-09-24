@@ -5,13 +5,14 @@
 ## 现在
 
 **v5 减法重构**（ADR-013，分支 `v5/demolition`）。harness 从「守自己的文字」改成「只守外部破坏」，
-分发改为原生 plugin，常驻上下文从 ~170KB 降到约 8KB。本机已通过 `scripts/install.mjs` 部署（plugin `cto@ai-playbook` 5.0.0）。
+分发改为原生 plugin，常驻上下文从 ~170KB 降到约 8KB。本机已通过 `scripts/install.mjs` 部署（plugin `cto@ai-playbook` 5.0.3）。
+经两轮 `codex review` 跨模型审：共 4 个 P1 + 6 个 P2，全部已修（集中在安装/迁移脚本的失败路径）。
 v4 全部内容在 tag `v4-final`。
 
 ## 下一步
 
 - [ ] 在其余机器上运行 `node scripts/install.mjs`（它会清掉 v4 的全局 hook）
-- [ ] 合并下游清理 MR：InterviewLens !1、vokadrop !1（`scripts/migrate-v4-project.mjs` 生成；InterviewLens 独有的 2 条教训已收进 plugin/lessons）
+- [ ] 合并下游清理 MR：InterviewLens !1、vokadrop !1（`plugin/scripts/migrate-v4-project.mjs` 生成；InterviewLens 独有的 2 条教训已收进 plugin/lessons）
 - [ ] `D:\projects\ai-playbook` 是 v4 的旧克隆（15 个未提交改动），确认无用后删除
 - [ ] 在 GitHub 仓库启用 Codex / Gemini 的 PR review 集成（需要在 chatgpt.com/codex 和 Gemini Code Assist 里用账号授权，agent 做不了）
 - [ ] GitLab 镜像：`git push gitlab main` 保持同步

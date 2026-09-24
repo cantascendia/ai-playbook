@@ -15,7 +15,7 @@ cantascendia 的个人 AI 工程 harness。仓库根是 Claude Code plugin marke
 | `global/` | 全局约定 + 输出风格 |
 | `scripts/install.mjs` | 部署到本机（plugin + 全局约定 + Codex + 清理 v4 残留，先备份） |
 | `scripts/check.mjs` | 结构自检（CI 同款） |
-| `scripts/migrate-v4-project.mjs` | 清掉某个项目里的 v4 harness 副本（有未收录的教训会中止） |
+| `plugin/scripts/migrate-v4-project.mjs` | 清掉某个项目里的 v4 harness 副本（`/cto-init` 调用；有未收录的教训会中止） |
 | `docs/STATUS.md` · `docs/DECISIONS.md` | 状态 · 决策记录（ADR） |
 
 v4 的全部内容在 tag `v4-final`：`git show v4-final:<路径>`。
@@ -23,7 +23,7 @@ v4 的全部内容在 tag `v4-final`：`git show v4-final:<路径>`。
 ## 在这里工作
 
 - 分支 + PR，main 受保护；CI（`.github/workflows/ci.yml`）必须绿
-- 提交前：`node --test plugin/hooks/engine/guard.test.mjs scripts/migrate-v4-project.test.mjs && node scripts/check.mjs`
+- 提交前：`node --test plugin/hooks/engine/guard.test.mjs plugin/scripts/migrate-v4-project.test.mjs && node scripts/check.mjs`
 - 改 `plugin/` → 同步把 `plugin/.claude-plugin/plugin.json` 与 `.claude-plugin/marketplace.json` 的 `version` 一起加一（check 会校验一致）
 - 合并后运行 `node scripts/install.mjs` 部署到本机，重启会话生效
 - 改 guard 前读 `.claude/rules/guard-dev.md`（编辑 `plugin/hooks/**` 时自动加载）

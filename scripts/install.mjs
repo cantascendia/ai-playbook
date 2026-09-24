@@ -5,7 +5,7 @@
 //   1. Claude Code plugin（marketplace = 本仓库目录），装完验证 enabled，失败即 exit 1
 //   2. ~/.claude/CLAUDE.md + ~/.claude/output-styles/cto.md
 //   3. Codex：~/.codex/cto/（guard 引擎 + 教训 + 命令）+ ~/.codex/hooks.json + ~/.codex/AGENTS.md
-//   4. 清理 v4：只删 scripts/v4-manifest.mjs 列出的文件与带 v4 签名的 hook 条目，其余一律保留
+//   4. 清理 v4：只删 plugin/scripts/v4-manifest.mjs 列出的文件与带 v4 签名的 hook 条目，其余一律保留
 //
 // 所有被改动或删除的文件先备份到 ~/.claude/backup/<时间戳>/（lesson: tools-must-not-overwrite-their-own-baseline）。
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   V4_HOOK_FILES, V4_RULE_FILES, V4_OBSOLETE_LESSONS, V4_SKILLS, V4_AGENTS, removeKnown, stripV4Hooks,
-} from './v4-manifest.mjs';
+} from '../plugin/scripts/v4-manifest.mjs';
 
 const DRY = process.argv.includes('--dry-run');
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -64,41 +64,55 @@ function sameTree(a, b) {
 }
 
 // ─── 1. Claude Code plugin（先装、验证，失败则不动任何旧东西）───
+// 返回 { bin, shell }。Windows 上 npm 装的 claude 是 .cmd / 无扩展名 shim，spawnSync 不经 shell 跑不了（codex review P2）
 function findClaude() {
-  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { encoding: 'utf8' });
-  if (r.status === 0 && r.stdout.trim()) return r.stdout.trim().split(/\r?\n/)[0];
-  const base = path.join(process.env.APPDATA || '', 'Claude', 'claude-code');
+  const win = process.platform === 'win32';
+  const r = spawnSync(win ? 'where' : 'which', ['claude'], { encoding: 'utf8' });
+  const found = r.status === 0 ? r.stdout.trim().split(/\r?\n/).filter(Boolean) : [];
+  if (!win && found.length) return { bin: found[0], shell: false };
+  const exe = found.find((f) => /\.exe$/i.test(f));
+  if (exe) return { bin: exe, shell: false };
+  const base = path.join(process.env.APPDATA || '', 'Claude', 'claude-code'); // 桌面端自带的原生 CLI
   try {
     const vers = fs.readdirSync(base).filter((v) => fs.existsSync(path.join(base, v, 'claude.exe')))
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    if (vers.length) return path.join(base, vers.at(-1), 'claude.exe');
-  } catch { /* 非 Windows 桌面端 */ }
-  return null;
+    if (vers.length) return { bin: path.join(base, vers.at(-1), 'claude.exe'), shell: false };
+  } catch { /* 无桌面端 */ }
+  const cmd = found.find((f) => /\.cmd$/i.test(f));
+  return cmd ? { bin: cmd, shell: true } : null;
 }
 const claude = findClaude();
 if (!claude) die('找不到 claude CLI。手动执行：claude plugin marketplace add <本仓库路径> && claude plugin install cto@ai-playbook，再重跑本脚本');
-const cli = (...args) => spawnSync(claude, args, { encoding: 'utf8' });
+const cli = (...args) => (claude.shell
+  ? spawnSync(`"${claude.bin}" ${args.map((a) => `"${a}"`).join(' ')}`, { encoding: 'utf8', shell: true })
+  : spawnSync(claude.bin, args, { encoding: 'utf8' }));
 const must = (...args) => {
   log(`claude ${args.join(' ')}`);
   if (DRY) return;
   const r = cli(...args);
-  if (r.status !== 0) die(`claude ${args.join(' ')} 失败（exit ${r.status}）：\n${r.stdout}${r.stderr}\n未做任何清理，v4 guard 仍然有效。`);
+  if (r.status !== 0) die(`claude ${args.join(' ')} 失败（exit ${r.status}）：\n${r.stdout}${r.stderr}\n未做任何清理，现有 guard 不受影响。`);
 };
+const plugins = () => {
+  try { return JSON.parse(cli('plugin', 'list', '--json').stdout || '[]'); } catch { return []; }
+};
+const find = (id) => plugins().find((p) => p.id === id);
 const version = JSON.parse(fs.readFileSync(path.join(repo, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')).version;
-const cache = path.join(CL, 'plugins', 'cache', 'ai-playbook', 'cto', version);
+
 if (/ai-playbook/.test(cli('plugin', 'marketplace', 'list').stdout || '')) must('plugin', 'marketplace', 'update', 'ai-playbook');
 else must('plugin', 'marketplace', 'add', repo);
-const installed = /cto@ai-playbook/.test(cli('plugin', 'list').stdout || '');
-if (!installed) must('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
-else if (!sameTree(path.join(repo, 'plugin'), cache)) {
-  // `plugin update` 只看 version，版本号没变时缓存不会刷新 → 比内容，不一致就重装
-  must('plugin', 'uninstall', 'cto@ai-playbook');
-  must('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
+const current = find('cto@ai-playbook');
+if (!current) must('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
+else if (current.version !== version) must('plugin', 'update', 'cto@ai-playbook'); // 原地更新，不先卸载（codex review P2）
+else if (!sameTree(path.join(repo, 'plugin'), current.installPath)) {
+  die(`plugin 内容变了但版本号仍是 ${version}：把 plugin/.claude-plugin/plugin.json 与 .claude-plugin/marketplace.json 的 version 一起加一再运行。未做任何改动。`);
 } else log('cto plugin 已是最新');
 if (!DRY) {
-  const list = cli('plugin', 'list').stdout || '';
-  if (!/cto@ai-playbook[\s\S]*?enabled/.test(list)) die(`cto plugin 安装后未处于 enabled 状态：\n${list}\n未做任何清理。`);
-  if (!sameTree(path.join(repo, 'plugin'), cache)) die(`plugin 缓存与仓库内容不一致（${cache}）。未做任何清理。`);
+  const p = find('cto@ai-playbook'); // 按 JSON 精确取本 plugin 的记录（codex review P1）
+  if (!p) die('安装后 plugin list 里没有 cto@ai-playbook。未做任何清理。');
+  if (!p.enabled) die('cto@ai-playbook 处于禁用状态（claude plugin enable cto@ai-playbook 后重跑）。未做任何清理。');
+  if (p.version !== version || !sameTree(path.join(repo, 'plugin'), p.installPath)) die(`已装的 plugin（${p.version} @ ${p.installPath}）与仓库内容不一致。未做任何清理。`);
+  // v4 的实验 plugin 叫 cto-playbook，带着旧 hook —— 新的确认生效后再退役它（codex review P2）
+  if (find('cto-playbook@ai-playbook')) must('plugin', 'uninstall', 'cto-playbook@ai-playbook');
 }
 
 // ─── 2. 全局约定 + 输出风格 ───
@@ -113,6 +127,7 @@ if (fs.existsSync(CX)) {
   copyDir(path.join(repo, 'plugin', 'hooks'), path.join(cto, 'hooks'));
   copyDir(path.join(repo, 'plugin', 'lessons'), path.join(cto, 'lessons'));
   copyDir(path.join(repo, 'plugin', 'commands'), path.join(cto, 'commands'));
+  copyDir(path.join(repo, 'plugin', 'scripts'), path.join(cto, 'scripts'));
   const cmdDir = path.join(cto, 'commands').replaceAll('\\', '/');
   write(path.join(CX, 'AGENTS.md'), `${contract}
 > Codex 里没有 \`/cto-*\` 斜杠命令：需要时读 \`${cmdDir}/<命令名>.md\` 照做（其中 plugin 根 = \`${cto.replaceAll('\\', '/')}\`）。

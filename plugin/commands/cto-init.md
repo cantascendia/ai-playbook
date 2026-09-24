@@ -8,13 +8,16 @@ argument-hint: "[项目路径，默认当前目录]"
 
 ## 1. 清理 v4 残留（有才做）
 
-v4 把 guard 复制进每个项目；v5 由 plugin 全局提供，逐项目副本会**重复执行**：
+v4 把 guard 复制进每个项目；v5 由 plugin 全局提供，逐项目副本会**重复执行**。不要手删 —— 运行迁移脚本，
+它只删 v4 清单里的文件和带 v4 签名的 hook 条目，项目自己的 hook / 规则 / 设置原样保留：
 
-- `.claude/settings.json` 的 `hooks` 里引用 `.claude/hooks/*.sh` 的条目 → 删除（其他设置保留）
-- `.claude/hooks/*-guard.sh`、`eval-gate.sh`、`trajectory-logger.sh`、`.claude/hooks/lib/`、`.claude/hooks/engine/` → 删除
-- `.claude/commands/cto-*.md`、`.claude/agents/{eval-runner,harness-auditor,pattern-detector,reliability-auditor,vibe-checker}.md` → 删除
-- `docs/ai-cto/` → 保留内容；把 `STATUS.md` 移到 `docs/STATUS.md`，其余不动
-- `scripts/forbidden-paths.txt` → 移到 `.claude/forbidden-paths.txt`（guard 两处都认）
+```bash
+node "<plugin 根>/scripts/migrate-v4-project.mjs" "<项目目录>" --dry-run   # 先看会删什么
+node "<plugin 根>/scripts/migrate-v4-project.mjs" "<项目目录>"
+```
+
+plugin 根 = 本命令文件往上两级。脚本报「教训还没收录」就中止了：先对那几条跑 `/cto-learn`，再重跑。
+`docs/ai-cto/`、`scripts/forbidden-paths.txt` 都保留（guard 与状态注入两处位置都认）。
 
 ## 2. CLAUDE.md
 
