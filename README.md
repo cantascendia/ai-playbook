@@ -1,91 +1,42 @@
-# AI Playbook
+# ai-playbook
 
-个人用的 **Claude Code 安全带 + 项目记忆套件**：装到自己的项目里，让 Claude Code 自动开发时
-**不闯祸**（red-line hooks 硬拦截）、**记得住**（docs/ai-cto/ 项目记忆）、**审得到**（跨模型 review）。
+一个人 + 三家 AI 订阅（Claude Max · ChatGPT Pro · Google AI Pro）的工程工作流，打包成 Claude Code plugin。
 
-> 这不是面向公众的产品，是单一维护者跨自己 ~27 个项目复用的一套 enforcement + 记忆基座。
-> 真实计数永远以 `docs/ai-cto/COUNTS.md` 为准（`bash scripts/check-counts.sh` 校验），README 不再硬写数字。
+它做四件事：
 
----
+1. **护栏**：agent 不执行不可逆动作（删库、删仓库、递归删根目录、`terraform destroy`、绕过 git hook、直接改/推 main）；
+   改 auth / 支付 / secrets / migration / infra / CI 定义前弹窗让人确认。Bash、PowerShell、MCP 工具都覆盖。
+2. **跨模型 review**：`/cto-review` 先自审，再让 Codex（`codex review`）或 Gemini 独立审同一份 diff，合并成一份结论。
+3. **spec 先行**：`/cto-spec` 一个功能一个 spec 文件，高风险改动先写清楚为什么、做什么、怎么验收。
+4. **教训不丢**：每个真实事故写成一条 lesson，会话开场注入一行索引，做相关工作前读全文。
 
-## 它实际是什么
-
-去掉叙事，核心是三层：
-
-1. **红线层（enforcement）** — `.claude/hooks/*.sh` 一组 `exit-2` / `permissionDecision:deny` 硬拦截 guard：
-   改 CONSTITUTION/14 铁律、碰 forbidden 路径（auth/payment/secrets/...）、`rm -rf /` 类灾难命令、
-   MCP 删库、改锁定测试断言 —— 都被拦。配 `scripts/run-evals.sh` 行为型 eval 真跑验证（铁律 #12）。
-2. **记忆层** — `docs/ai-cto/`（CONSTITUTION / STATUS / DECISIONS / EVOLUTION-LOG）+ `.claude/rules/learned/`
-   Bugbot 式教训沉淀，SessionStart 自动恢复，跨会话不失忆。
-3. **指挥层（可选）** — `/cto-*` 斜杠命令（spec-driven / review / release / constitution / eval / evolve 等）
-   + handbook（数千行规约，按需 grep 精读，不全塞上下文）。
-
----
-
-## 装到一个项目
+## 安装
 
 ```bash
-# 1. clone 本仓库到推荐位置（跨机器一致）
-git clone https://gitlab.com/cantascendia/ai-playbook ~/.claude/playbook
-# （SSH：git clone git@gitlab.com:cantascendia/ai-playbook.git ~/.claude/playbook）
-# 2026-09 起托管在 GitLab —— 平台迁移背景与动词映射见 handbook §51
-
-# 2. 在本仓库里跑安装器，指向目标项目
-/cto-init /path/to/your-project                 # 默认 full 档（仅 Claude Code 配置）
-/cto-init /path/to/your-project --profile=minimal   # 小项目：安全 hook + 核心命令
-/cto-init /path/to/your-project --with-codex        # 额外装 §48 codex 跨模型 review
+git clone https://github.com/cantascendia/ai-playbook C:/projects/ai-playbook
+node C:/projects/ai-playbook/scripts/install.mjs
 ```
 
-- **平台范围**：默认只分发 Claude Code 配置；Antigravity / Codex 用 `--with-antigravity` / `--with-codex` opt-in（§49）。
-- **跨机器**：换电脑后 `/cto-link` 自动重新发现 ai-playbook 路径（§29.8）。
-- 装完即跑 `/cto-doctor` 端到端验证红线真生效。
+安装脚本会：注册本仓库为 marketplace 并装 `cto` plugin（user scope）、写 `~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md`、
+给 Codex 配同一套 guard、清理 v4 的逐项目副本。改动前的文件备份到 `~/.claude/backup/<时间>/`。先看会改什么：`--dry-run`。
 
-### 或：作为 Claude Code plugin 安装（v4.0 实验通道）
+项目接入：在项目里运行 `/cto-init`。
 
-可执行组件（commands / agents / skills / guard hooks / output-style）已打包为原生 plugin
-（`.claude-plugin/plugin.json` + `marketplace.json`，`claude plugin validate` 通过）：
+## 日常工作流
 
-```bash
-claude plugin marketplace add cantascendia/ai-playbook   # 加本仓为 marketplace
-claude plugin install cto-playbook@ai-playbook           # 装可执行组件（含 guard 引擎红线）
+```
+想法 → /cto-spec（高风险必走）→ 分支上实现 → /cto-review（Claude + Codex/Gemini）→ PR → CI → 你 merge
+                                                                         ↓
+                                                    踩到新坑 → /cto-learn → 下个会话所有项目都知道
 ```
 
-团队场景可在项目 `.claude/settings.json` 写 `extraKnownMarketplaces` + `enabledPlugins` 自动分发。
-
-> ⚠️ **plugin 与 `/cto-init` 并行，不替代**。plugin 只分发**可执行**组件；项目级 `.claude/rules/*.md`、
-> statusline、`docs/ai-cto/` 记忆种子、根 `CLAUDE.md` 身份 —— Claude Code plugin 体系装不进，
-> 仍由 `/cto-init` 文件复制铺设。guard hooks 经 `${CLAUDE_PLUGIN_ROOT}` 引用，装入后守护**目标项目**的红线。
-
-## 验证装对了
-
-```bash
-bash scripts/check-counts.sh                 # 计数 vs 文件系统一致（CI gate）
-bash scripts/run-evals.sh                    # 行为型 eval 真跑（hook 红线 / guard）
-ls .claude/hooks/*.sh                         # 应见 5 个安全红线 guard：immutable/forbidden/branch/destructive-action/mcp
-```
-
-`/cto-doctor` 会模拟 stdin JSON 喂给每个 hook，验证 `exit-2` / deny 真拦截（不是 silent no-op）。
-
----
-
-## 关键文件
-
-| 路径 | 内容 |
+| 订阅 | 用在 |
 |---|---|
-| `CLAUDE.md` | CTO 系统提示词 + 14 铁律（4 层优先级 L1 安全>L2 治理>L3 质量>L4 效率）|
-| `playbook/handbook.md` | 完整规约 §1-§50（按需 grep 定位，见 `playbook/INDEX.md`）|
-| `playbook/INDEX.md` | 章节语义索引（grep 运行时定位，不含硬编码行号）|
-| `docs/ai-cto/CONSTITUTION.md` | 不可妥协约束（immutable-guard 守护，amend 需人授权）|
-| `docs/ai-cto/COUNTS.md` | 组件计数唯一权威源 |
-| `.claude/hooks/` | 红线 enforcement guard + `lib/common.sh` |
-| `evals/golden-trajectories/` | 行为型可执行 eval（真跑）|
-| `docs/test-plans/` | trajectory 类规约（无 vc，需人工/Claude 周期验证）|
+| Claude Max | 主力：规划、实现、重构、多代理编排（Claude Code 桌面端 / CLI） |
+| ChatGPT Pro | `codex review --base main` 做独立 review；可隔离的任务丢 Codex cloud 并行 |
+| Google AI Pro | `agy -p` 做第三方 review、长上下文阅读、图像 |
 
-## 设计原则（为什么长这样）
+## 仓库结构
 
-- **三层 enforcement**：hook 硬拦截（exit-2/deny）+ paths-triggered skill 自动加载 + outputStyle 行为约束。纯 prompt 规则不够（Anthropic issue #40117：Claude 6 次绕过 pre-commit）。
-- **Constitution-Anchored**：AI 不得单方面改 14 铁律 / CONSTITUTION（OWASP ASI10 Rogue Agent 防护），amend 走人授权 + audit log。
-- **Eval 即 fitness**：agent 配置改动须配可执行 eval（铁律 #12），CI 真跑不是数 yaml。
-- **诚实优于营销**：计数引 SSOT、飞轮标 bootstrap、LLM-judge 是建议非阻断、trajectory 规约不冒充自动 eval。
-
-License: MIT · Dogfooded on itself（用自己的 playbook 管理自己）
+见 [CLAUDE.md](CLAUDE.md)。设计决策见 [docs/DECISIONS.md](docs/DECISIONS.md)（v5 的来由：ADR-013）。
+v4（handbook、宪法、71 条 eval、飞轮……）完整保存在 tag `v4-final`。
