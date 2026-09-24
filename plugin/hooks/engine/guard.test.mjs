@@ -13,12 +13,17 @@ const GUARD = path.join(__dirname, 'guard.mjs');
 const DENY = '"permissionDecision":"deny"';
 const ASK = '"permissionDecision":"ask"';
 
+// 在 git hook 里跑测试时，git 会导出 GIT_DIR / GIT_INDEX_FILE 等变量 —— 不剥掉的话，
+// 夹具里的 git 命令会作用到外层仓库。所有子进程一律用剥掉 GIT_* 的环境。
+const BASE_ENV = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+const git = (args, cwd) => spawnSync('git', args, { cwd, env: BASE_ENV });
+
 // 夹具默认关 audit —— 测试不得往真实 .claude/agent-logs 写假事件（v4 的日志 100% 是夹具噪声）
 function run(name, input, extraEnv = {}) {
   const r = spawnSync(process.execPath, [GUARD, name], {
     input: typeof input === 'string' ? input : JSON.stringify(input),
     encoding: 'utf8',
-    env: { ...process.env, CTO_AUDIT: '0', CTO_DOUBLE_SIGNED: '', CTO_MAIN_EDIT_ALLOWED: '', CTO_BYPASS_ALLOWED: '', CTO_DESTRUCTIVE_CONFIRMED: '', CTO_MCP_DESTRUCTIVE_CONFIRMED: '', ...extraEnv },
+    env: { ...BASE_ENV, CTO_AUDIT: '0', CTO_DOUBLE_SIGNED: '', CTO_MAIN_EDIT_ALLOWED: '', CTO_BYPASS_ALLOWED: '', CTO_DESTRUCTIVE_CONFIRMED: '', CTO_MCP_DESTRUCTIVE_CONFIRMED: '', ...extraEnv },
   });
   return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
 }
@@ -32,9 +37,9 @@ function tmpProject(withLogs = false) {
 }
 function mainRepo() {
   const dir = tmpProject();
-  spawnSync('git', ['init', '-b', 'main'], { cwd: dir });
+  git(['init', '-b', 'main'], dir);
   // unborn HEAD 时 rev-parse 失败 → 放行；需先有 commit 才可测保护分支
-  spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-m', 'init'], { cwd: dir });
+  git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-m', 'init'], dir);
   return dir;
 }
 
@@ -146,7 +151,7 @@ test('branch-Bash: main 上 commit/merge → deny；feature 分支放行', () =>
   const dir = mainRepo();
   assert.ok(run('branch-guard', bash('git commit -m x', dir)).stdout.includes(DENY));
   assert.ok(run('branch-guard', bash('git merge feat/x', dir)).stdout.includes(DENY));
-  spawnSync('git', ['checkout', '-b', 'feat/y'], { cwd: dir });
+  git(['checkout', '-b', 'feat/y'], dir);
   assert.equal(run('branch-guard', bash('git commit -m x', dir)).stdout, '');
 });
 
@@ -162,7 +167,7 @@ test('branch-Bash: push 看 refspec（HEAD=main 推 feature 必须放行）', ()
 test('branch-Bash: 跨仓 cd / git -C 按目标仓 HEAD 判定（v4.7 实测 FP）', () => {
   const mainDir = mainRepo();
   const featDir = mainRepo();
-  spawnSync('git', ['checkout', '-b', 'feat/x'], { cwd: featDir });
+  git(['checkout', '-b', 'feat/x'], featDir);
   const f = featDir.replaceAll('\\', '/');
   const m = mainDir.replaceAll('\\', '/');
   const j = (cmd) => bash(cmd, mainDir);
@@ -305,6 +310,19 @@ test('mcp: filesystem 写 forbidden 路径 → ask（tool_input.path 字段；le
   assert.ok(w('src/auth/x.ts').includes(ASK));
   assert.equal(w('src/utils/x.ts'), '');
   assert.equal(w('docs/ai-cto/CONSTITUTION.md'), '', 'v5 起不再守 harness 自身文件');
+});
+
+// ═══ session-start ═══
+
+test('session-start: 注入教训索引 + 项目状态；MSYS 风格 cwd 也能读到状态（codex review P2）', { skip: process.platform !== 'win32' && 'MSYS 路径只在 Windows 出现' }, () => {
+  const dir = tmpProject();
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'STATUS.md'), '# 状态\n现在：测试中\n');
+  const msys = dir.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_m, c) => `/${c.toLowerCase()}`);
+  const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'session-start.mjs')], { input: JSON.stringify({ cwd: msys }), encoding: 'utf8', env: BASE_ENV });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /踩坑教训索引/);
+  assert.match(r.stdout, /现在：测试中/);
 });
 
 // ═══ 引擎级契约 ═══

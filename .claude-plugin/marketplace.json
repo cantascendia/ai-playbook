@@ -9,7 +9,7 @@
       "name": "cto",
       "source": "./plugin",
       "description": "不可逆动作护栏 + 跨模型 review + spec-driven + 踩坑教训索引",
-      "version": "5.0.3"
+      "version": "5.0.4"
     }
   ]
 }

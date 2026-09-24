@@ -18,6 +18,8 @@ w('.claude/rules/eval-gate.md'); w('.claude/rules/my-rule.md', 'user');
 w('.claude/rules/learned/2026-08-20-heredoc-halves-backslashes.md');
 w('.claude/rules/learned/2099-01-01-unrecorded.md', 'lesson');
 w('.claude/commands/cto-audit.md'); w('.claude/commands/deploy.md', 'user');
+w('.claude/commands/cto-deploy.md', 'user'); // 用户自己的 cto- 前缀命令（codex review P1）
+w('.agents/skills/source-command-cto-audit/SKILL.md');
 w('.claude/skills/handbook-search/SKILL.md'); w('.claude/skills/my-skill/SKILL.md', 'user');
 w('.claude/settings.json', JSON.stringify({
   env: { A: '1' }, statusLine: { type: 'command', command: '.claude/statusline.sh' },
@@ -36,8 +38,8 @@ fs.rmSync(path.join(d, '.claude/rules/learned/2099-01-01-unrecorded.md'));
 r = run();
 assert.equal(r.status, 0, r.stderr);
 const ex = (p) => fs.existsSync(path.join(d, p));
-for (const gone of ['.claude/hooks/immutable-guard.sh', '.claude/hooks/lib', '.claude/hooks/engine', '.claude/rules/eval-gate.md', '.claude/rules/learned', '.claude/commands/cto-audit.md', '.claude/skills/handbook-search']) assert.ok(!ex(gone), `should delete ${gone}`);
-for (const kept of ['.claude/hooks/my-own-hook.sh', '.claude/rules/my-rule.md', '.claude/commands/deploy.md', '.claude/skills/my-skill/SKILL.md']) assert.ok(ex(kept), `should keep ${kept}`);
+for (const gone of ['.claude/hooks/immutable-guard.sh', '.claude/hooks/lib', '.claude/hooks/engine', '.claude/rules/eval-gate.md', '.claude/rules/learned', '.claude/commands/cto-audit.md', '.claude/skills/handbook-search', '.agents/skills/source-command-cto-audit']) assert.ok(!ex(gone), `should delete ${gone}`);
+for (const kept of ['.claude/commands/cto-deploy.md', '.claude/hooks/my-own-hook.sh', '.claude/rules/my-rule.md', '.claude/commands/deploy.md', '.claude/skills/my-skill/SKILL.md']) assert.ok(ex(kept), `should keep ${kept}`);
 const s = JSON.parse(fs.readFileSync(path.join(d, '.claude/settings.json'), 'utf8'));
 assert.deepEqual(s.env, { A: '1' });
 assert.equal(s.statusLine, undefined);

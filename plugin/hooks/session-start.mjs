@@ -16,7 +16,8 @@ try {
 
 let input = {};
 try { input = JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch { /* 无 stdin */ }
-const cwd = input.cwd || process.cwd();
+// git-bash 风格 /c/projects/... → C:/projects/...（Windows 上 Node fs 不认 MSYS 盘符路径）
+const cwd = String(input.cwd || process.cwd()).replace(/^\/([A-Za-z])(?=\/|$)/, (_m, d) => (process.platform === 'win32' ? `${d.toUpperCase()}:` : _m));
 for (const rel of ['docs/STATUS.md', 'docs/ai-cto/STATUS.md']) {
   try {
     const lines = fs.readFileSync(path.join(cwd, rel), 'utf8').split(/\r?\n/);

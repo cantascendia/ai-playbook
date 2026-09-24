@@ -14,7 +14,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  V4_HOOK_FILES, V4_RULE_FILES, V4_OBSOLETE_LESSONS, V4_SKILLS, V4_AGENTS, removeKnown, stripV4Hooks,
+  V4_HOOK_FILES, V4_RULE_FILES, V4_OBSOLETE_LESSONS, V4_SKILLS, V4_SKILL_MIRRORS, V4_COMMANDS, V4_AGENTS,
+  removeKnown, stripV4Hooks,
 } from '../plugin/scripts/v4-manifest.mjs';
 
 const DRY = process.argv.includes('--dry-run');
@@ -174,10 +175,10 @@ if (unknownLessons.length) log(`⚠️ 保留未收录的教训（请 /cto-learn
 removeKnown(path.join(CL, 'rules'), [...V4_RULE_FILES, ...learned.filter((f) => known.has(f)).map((f) => `learned/${f}`)], remove, DRY);
 remove(path.join(CL, 'cto-sync.sh'));
 for (const f of ['forbidden-paths.txt', 'business-paths.txt', 'safe-grep.sh']) remove(path.join(CL, 'scripts', f));
-for (const s of V4_SKILLS) remove(path.join(CL, 'skills', s));
-try {
-  for (const f of fs.readdirSync(path.join(CL, 'commands'))) if (/^cto-.*\.md$/.test(f)) remove(path.join(CL, 'commands', f));
-} catch { /* 无 commands 目录 */ }
+const AG = path.join(home, '.agents', 'skills'); // Codex 读取的用户级 skills（v4 同步过一份镜像）
+for (const s of V4_SKILLS) { remove(path.join(CL, 'skills', s)); remove(path.join(AG, s)); }
+for (const s of V4_SKILL_MIRRORS) remove(path.join(AG, s));
+for (const c of V4_COMMANDS) remove(path.join(CL, 'commands', c));
 
 // ~/.claude/settings.json：只去掉 v4 签名的 hook 条目与过期的模型钉死；其余键原样保留
 const settingsPath = path.join(CL, 'settings.json');

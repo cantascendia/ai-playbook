@@ -20,7 +20,14 @@ export const V4_OBSOLETE_LESSONS = [
 export const V4_SKILLS = ['accessibility-checklist', 'constitution-loader', 'design-system-enforcement', 'eval-gate-policy',
   'forbidden-policy', 'handbook-search', 'i18n-enforcement', 'learned-rules-loader', 'release-readiness',
   'test-lock-rules', 'ux-quality-checklist', 'codex-bridge'];
-export const V4_AGENTS = ['eval-runner', 'harness-auditor', 'pattern-detector', 'reliability-auditor', 'vibe-checker'];
+// Codex 侧（~/.agents/skills、项目 .agents/skills）由 v4 生成的命令镜像
+export const V4_SKILL_MIRRORS = ['source-command-cto-audit', 'source-command-cto-resume', 'source-command-cto-skills', 'source-command-cto-start'];
+// 显式清单（不用 cto-* 前缀匹配 —— 项目自己的 cto-deploy.md 之类不能被误删，codex review P1）
+// v3.14 合并掉的旧名也列上：cross-review / relink-all / refresh / vibe-check / harness-audit
+export const V4_COMMANDS = ['audit', 'canary', 'constitution', 'design', 'doctor', 'eval', 'evolve', 'image', 'init', 'link',
+  'models', 'release', 'replay', 'resume', 'review', 'skills', 'spec', 'start',
+  'cross-review', 'relink-all', 'refresh', 'vibe-check', 'harness-audit'].map((c) => `cto-${c}.md`);
+export const V4_AGENTS =['eval-runner', 'harness-auditor', 'pattern-detector', 'reliability-auditor', 'vibe-checker'];
 // v4 hook 条目的命令签名
 export const V4_HOOK_SIG = /hooks[\\/](immutable|forbidden|branch|test-lock|bypass|destructive-action|mcp|vibe-prompt)-guard\.sh|hooks[\\/](eval-gate|trajectory-logger)\.sh|codex-bridge|docs\/ai-cto\/(CONSTITUTION|STATUS)|agent-logs\/\$\{DAY\}|会话结束摘要|即将压缩上下文|Context about to compact/;
 

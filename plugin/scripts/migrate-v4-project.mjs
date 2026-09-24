@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  V4_HOOK_FILES, V4_RULE_FILES, V4_OBSOLETE_LESSONS, V4_SKILLS, V4_AGENTS, removeKnown, stripV4Hooks,
+  V4_HOOK_FILES, V4_RULE_FILES, V4_OBSOLETE_LESSONS, V4_SKILLS, V4_SKILL_MIRRORS, V4_COMMANDS, V4_AGENTS,
+  removeKnown, stripV4Hooks,
 } from './v4-manifest.mjs';
 
 const [dirArg, ...rest] = process.argv.slice(2);
@@ -37,8 +38,9 @@ removeKnown(P('.claude', 'rules'), [...V4_RULE_FILES, ...learned.map((f) => `lea
 rm(P('.claude', 'statusline.sh'));
 rm(P('.claude', 'output-styles', 'cto.md'));
 for (const s of V4_SKILLS) { rm(P('.claude', 'skills', s)); rm(P('.agents', 'skills', s)); }
+for (const s of V4_SKILL_MIRRORS) rm(P('.agents', 'skills', s));
 for (const a of V4_AGENTS) { rm(P('.claude', 'agents', `${a}.md`)); rm(P('.codex', 'agents', `${a}.toml`)); }
-try { for (const f of fs.readdirSync(P('.claude', 'commands'))) if (/^cto-.*\.md$/.test(f)) rm(P('.claude', 'commands', f)); } catch { /* 无 */ }
+for (const c of V4_COMMANDS) rm(P('.claude', 'commands', c));
 
 // 3. settings / Codex hooks.json：只删 v4 签名的条目
 for (const f of [P('.claude', 'settings.json'), P('.codex', 'hooks.json')]) {
