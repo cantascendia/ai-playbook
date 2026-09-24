@@ -82,6 +82,17 @@ try {
 } catch (e) { log(`⚠️ 跳过 settings.json：${e.message}`); }
 
 // ─── 3. Claude Code plugin ───
+function listTree(dir) {
+  try {
+    return fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile())
+      .map((e) => path.relative(dir, path.join(e.parentPath ?? e.path, e.name)).replaceAll('\\', '/')).sort();
+  } catch { return null; }
+}
+function sameTree(a, b) {
+  const fa = listTree(a); const fb = listTree(b);
+  if (!fa || !fb || fa.join('\n') !== fb.join('\n')) return false;
+  return fa.every((f) => fs.readFileSync(path.join(a, f)).equals(fs.readFileSync(path.join(b, f))));
+}
 function findClaude() {
   const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { encoding: 'utf8' });
   if (r.status === 0 && r.stdout.trim()) return r.stdout.trim().split(/\r?\n/)[0];
@@ -106,8 +117,14 @@ if (!claude) {
   if (!/ai-playbook/.test(list)) run('plugin', 'marketplace', 'add', repo);
   else run('plugin', 'marketplace', 'update', 'ai-playbook');
   const installed = spawnSync(claude, ['plugin', 'list'], { encoding: 'utf8' }).stdout || '';
-  if (/cto@ai-playbook/.test(installed)) run('plugin', 'update', 'cto@ai-playbook');
-  else run('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
+  // `plugin update` 只看 version：版本号没变时缓存不会刷新 → 直接比内容，不一致就重装
+  const version = JSON.parse(fs.readFileSync(path.join(repo, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')).version;
+  const cache = path.join(CL, 'plugins', 'cache', 'ai-playbook', 'cto', version);
+  if (!/cto@ai-playbook/.test(installed)) run('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
+  else if (!sameTree(path.join(repo, 'plugin'), cache)) {
+    run('plugin', 'uninstall', 'cto@ai-playbook');
+    run('plugin', 'install', 'cto@ai-playbook', '--scope', 'user');
+  } else log('cto plugin 已是最新');
 } else {
   log(`claude plugin marketplace add/update + install cto@ai-playbook（${claude}）`);
 }
