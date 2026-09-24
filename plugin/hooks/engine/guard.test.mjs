@@ -49,6 +49,14 @@ test('forbidden: auth 路径 → ask（人确认），普通路径放行', () =>
   assert.equal(run('forbidden-guard', edit('src/utils/a.ts', dir)).stdout, '');
 });
 
+test('NotebookEdit 的 notebook_path 同样受守（codex review P2）', () => {
+  const dir = tmpProject();
+  const nb = (p, cwd) => ({ tool_name: 'NotebookEdit', tool_input: { notebook_path: p, new_source: 'x' }, cwd });
+  assert.ok(run('forbidden-guard', nb('infra/setup.ipynb', dir)).stdout.includes(ASK));
+  const repo = mainRepo();
+  assert.ok(run('branch-guard', nb('analysis.ipynb', repo)).stdout.includes(DENY));
+});
+
 test('forbidden: CTO_DOUBLE_SIGNED=1 → 静默放行', () => {
   const dir = tmpProject();
   assert.equal(run('forbidden-guard', edit('src/auth/a.ts', dir), { CTO_DOUBLE_SIGNED: '1' }).stdout, '');

@@ -23,7 +23,7 @@ v4 的全部内容在 tag `v4-final`：`git show v4-final:<路径>`。
 ## 在这里工作
 
 - 分支 + PR，main 受保护；CI（`.github/workflows/ci.yml`）必须绿
-- 提交前：`node --test plugin/hooks/engine/guard.test.mjs && node scripts/check.mjs`
+- 提交前：`node --test plugin/hooks/engine/guard.test.mjs scripts/migrate-v4-project.test.mjs && node scripts/check.mjs`
 - 改 `plugin/` → 同步把 `plugin/.claude-plugin/plugin.json` 与 `.claude-plugin/marketplace.json` 的 `version` 一起加一（check 会校验一致）
 - 合并后运行 `node scripts/install.mjs` 部署到本机，重启会话生效
 - 改 guard 前读 `.claude/rules/guard-dev.md`（编辑 `plugin/hooks/**` 时自动加载）

@@ -3,7 +3,7 @@
 test:
   image: node:22
   script:
-    - node --test plugin/hooks/engine/guard.test.mjs
+    - node --test plugin/hooks/engine/guard.test.mjs scripts/migrate-v4-project.test.mjs
     - node scripts/check.mjs
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

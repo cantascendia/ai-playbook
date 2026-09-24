@@ -41,8 +41,8 @@ export function readInput(stdinText) {
   const s = (v) => (typeof v === 'string' ? v : '');
   return {
     toolName: s(j.tool_name),
-    // MCP filesystem 用 tool_input.path 不是 file_path（lesson: mcp-filesystem-bypasses-all-fileguards）
-    filePath: s(ti.file_path) || s(ti.path),
+    // MCP filesystem 用 tool_input.path，NotebookEdit 用 notebook_path（lesson: mcp-filesystem-bypasses-all-fileguards）
+    filePath: s(ti.file_path) || s(ti.path) || s(ti.notebook_path),
     cmd: s(ti.command),
     cwd: s(j.cwd),
     sessionId: s(j.session_id),
